@@ -1,9 +1,43 @@
-/* CH32V307VCT6ï¼šLVGL é€šè¿‡ INIT_APP_EXPORT è‡ªåŠ¨å¯åŠ¨ã€‚ */
-#include "ch32v30x.h"
-#include <rtthread.h>
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : main.c
+* Description        : Ó¦ÓÃÈë¿Ú
+*
+* Ö»×öÁ½¼şÊÂ£º
+*     1. ³õÊ¼»¯°å¼¶ÍâÉè£¨ÆÁÄ» / I2C ×ÜÏß / RTC / °´¼üÖĞ¶Ï£©
+*     2. Æô¶¯²Ëµ¥£¬È»ºóÍË³ö
+*
+* Ïß³Ì·Ö¹¤£º
+*     key    ³£×¤   ÖĞ¶ÏÇı¶¯£¬Ïû¶¶ºó»Øµ÷           HAL/KEY/key.c
+*     menu   ³£×¤   ¹Ü²Ëµ¥£ºÇĞ½çÃæ¡¢½¨/É¾ÈÎÎñÏß³Ì   menu.c
+*     task   ¶¯Ì¬   µ±Ç°½çÃæ×Ô¼ºÒ»¸öÏß³Ì£¬ÍË³ö¼´É¾  task_x.c
+*
+* ½çÃæºÍÒµÎñÒ»ÂÉ²»Ğ´ÔÚÕâÀï¡£
+*********************************************************************************/
+
+#include "rtthread.h"
+#include "lcd.h"
+#include "key.h"
+#include "i2c.h"
+#include "menu.h"
+
 int main(void)
 {
     SystemCoreClockUpdate();
-    rt_kprintf("CH32V307VCT6 RT-Thread + LVGL 8.3.11\n");
+
+    /* 1. °å¼¶ÍâÉè£ºÊ§°ÜÒ²²»×èÈû£¬·½±ãµ¥¶ÀÅÅ²é */
+    if(lcd_init() != 0)
+    {
+        rt_kprintf("main: lcd init failed\r\n");
+    }
+
+    i2c_init(I2C_DEFAULT_SPEED);
+   // rtc_init();
+
+    /* 2. °´¼ü£ºÅäºÃÖĞ¶Ï²¢´´½¨Ïß³Ì£¬´ËÊ±ÏÈ²»Æô¶¯ */
+    key_init();
+
+    /* 3. ×¢²á°´¼ü»Øµ÷ -> Æô¶¯°´¼üÏß³Ì -> Æô¶¯²Ëµ¥Ïß³Ì£¬main µ½´Ë½áÊø */
+    menu_start();
+
     return 0;
 }
