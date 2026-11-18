@@ -78,6 +78,16 @@ void router_dispatch(const message *msg)
         return;
     }
 
+    /* K4 短按 = 全局退出键：任何页面都能回首页，永远不下发给任务 */
+    if((msg->type == 0) && (msg->code == KEY_ID_4))
+    {
+        if(s_cur != s_home)
+        {
+            s_want = s_home;
+        }
+        return;
+    }
+
     if((s_cur != RT_NULL) && (s_cur->post != RT_NULL))
     {
         s_cur->post(msg);
@@ -103,5 +113,9 @@ void router_render(void)
  **************************************************************************************************/
 static void router_cmd(void)
 {
+    rt_kprintf("router: cur=%s home=%s want=%s\r\n",
+               (s_cur  != RT_NULL) ? s_cur->name  : "-",
+               (s_home != RT_NULL) ? s_home->name : "-",
+               (s_want != RT_NULL) ? s_want->name : "-");
 }
 MSH_CMD_EXPORT_ALIAS(router_cmd, router, show current page and pending switch);

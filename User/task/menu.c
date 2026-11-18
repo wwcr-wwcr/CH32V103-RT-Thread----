@@ -33,6 +33,7 @@ extern const task_t task_example;
 static const task_t *const g_app_list[] =
 {
     &task_example,
+    &task_example,
 };
 
 /* 一共几个任务：sizeof 算出来，加行不用改别的地方 */
@@ -177,18 +178,36 @@ static void menu_open(void)
  */
 static void menu_close(void)
 {
-    message bye = {2, 0, 0};                    /* 2 = 该退出了 */
+    message bye  = {2, 0, 0};                   /* 2 = 该退出了 */
+    message drop;                               /* 腾队列时丢掉的旧事件 */
+    uint8_t retry;
 
     if(s_tid == RT_NULL)
     {
         return;
     }
 
-    (void)rt_mq_send(s_q, &bye, sizeof(bye));
+    /* 队列可能刚好满：丢一条旧事件腾位置，再投"退出"（最多试 20 次，不阻塞） */
+    for(retry = 0; retry < 20; retry++)
+    {
+        if(rt_mq_send(s_q, &bye, sizeof(bye)) == RT_EOK)
+        {
+            break;
+        }
+        (void)rt_mq_recv(s_q, &drop, sizeof(drop), 0);
+    }
+
+    if(retry >= 20)
+    {
+        rt_kprintf("menu: quit msg failed\r\n");
+        return;
+    }
 
     if(rt_sem_take(&s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)
     {
+        /* 线程没退：队列还在被它用，绝对不能删 */
         rt_kprintf("menu: exit timeout\r\n");
+        return;
     }
 
     rt_mq_delete(s_q);
