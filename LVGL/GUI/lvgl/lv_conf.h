@@ -56,34 +56,39 @@ extern void rt_kprintf(const char *fmt, ...);
    其余全关。注意依赖关系：keyboard 需要 btnmatrix、spinbox 需要 textarea、
    calendar/msgbox/tabview 需要 btnmatrix —— 关的时候成对关，否则编译不过。
  *====================*/
-#define LV_USE_ARC              0
-#define LV_USE_ANIMIMG          0
-#define LV_USE_BTNMATRIX        0
-#define LV_USE_CALENDAR         0
-#define LV_USE_CANVAS           0
-#define LV_USE_CHART            0
-#define LV_USE_CHECKBOX         0
-#define LV_USE_COLORWHEEL       0
-#define LV_USE_DROPDOWN         0
-#define LV_USE_IMG              0
-#define LV_USE_KEYBOARD         0
-#define LV_USE_LED              0
-#define LV_USE_LIST             0
-#define LV_USE_MENU             0
-#define LV_USE_METER            0
-#define LV_USE_MSGBOX           0
-#define LV_USE_ROLLER           0
-#define LV_USE_SPAN             0
-#define LV_USE_SPINBOX          0
-#define LV_USE_SPINNER          0
-#define LV_USE_SWITCH           0
-#define LV_USE_TABLE            0
-#define LV_USE_TABVIEW          0
-#define LV_USE_TEXTAREA         0
-#define LV_USE_TILEVIEW         0
-#define LV_USE_WIN              0
-#define LV_USE_THEME_BASIC      0
-#define LV_USE_THEME_MONO       0
+#define LV_USE_ARC              0   // 弧形进度条/圆弧控件
+#define LV_USE_ANIMIMG          0   // 动画图像控件
+#define LV_USE_BTNMATRIX        0   // 按钮矩阵控件
+#define LV_USE_CALENDAR         0   // 日历控件
+#define LV_USE_CANVAS           0   // 画布控件（可绘图）
+#define LV_USE_CHART            0   // 图表控件
+#define LV_USE_CHECKBOX         0   // 复选框控件
+#define LV_USE_COLORWHEEL       0   // 色轮控件
+#define LV_USE_DROPDOWN         0   // 下拉列表控件
+#define LV_USE_IMG              0   // 图像控件
+#define LV_USE_BTN              0   // 按钮控件（卡片都用 lv_obj_create 做，不需要）
+#define LV_USE_BAR              0   // 进度条控件（没用）
+#define LV_USE_LINE             0   // 线条控件（没用）
+#define LV_USE_SLIDER           0   // 滑条控件（没用）
+#define LV_USE_IMGBTN           0   // 图形按钮控件（LV_USE_IMG 已关，没意义）
+#define LV_USE_KEYBOARD         0   // 屏幕键盘控件
+#define LV_USE_LED              0   // LED 指示灯控件
+#define LV_USE_LIST             0   // 列表控件
+#define LV_USE_MENU             0   // 菜单控件
+#define LV_USE_METER            0   // 仪表盘控件
+#define LV_USE_MSGBOX           0   // 消息框控件
+#define LV_USE_ROLLER           0   // 滚轮选择器控件
+#define LV_USE_SPAN             0   // 富文本/多风格文本片段控件
+#define LV_USE_SPINBOX          0   // 数字微调框控件
+#define LV_USE_SPINNER          0   // 加载旋转器控件
+#define LV_USE_SWITCH           0   // 开关控件
+#define LV_USE_TABLE            0   // 表格控件
+#define LV_USE_TABVIEW          0   // 选项卡视图控件
+#define LV_USE_TEXTAREA         0   // 文本输入区域控件
+#define LV_USE_TILEVIEW         0   // 平铺视图控件
+#define LV_USE_WIN              0   // 窗口控件
+#define LV_USE_THEME_BASIC      0   // 基础主题
+#define LV_USE_THEME_MONO       0   // 单色主题
 
 /*====================
    布局：只用 flex（本项目实际没用到，留着不影响）

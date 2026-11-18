@@ -11,7 +11,7 @@
  * 一个任务的完整样子（本文件和 task_example.c 结构完全一致）：
  *     ① 任务表    g_app_list[]：按钮墙上摆哪些任务
  *     ② 资源      s_exit / s_q / s_tid：open 建，close 删
- *     ③ 逻辑      menu_key() / menu_enter()：跑在自己的线程里
+ *     ③ 逻辑      menu_key() / menu_set() / menu_enter()：跑在自己的线程里
  *     ④ 线程本体  menu_thread()：rt_thread_create 的入口就是它
  *     ⑤ 生命周期  open / close / post
  *     ⑥ 渲染      menu_render()：跑在 kernel 线程，只在这里碰 lv_
@@ -99,6 +99,22 @@ static void menu_key(key_id_t key)
     }
 }
 
+/**
+ * @brief  触摸控件事件
+ * @param  id     按钮编号 = 下标 + 1（见 ui/menu_ui.c）
+ * @param  value  按钮用不上
+ * @note   和 task_example.c 的 demo_set() 一一对应：界面只发事件，这里解释编号
+ */
+static void menu_set(uint8_t id, int32_t value)
+{
+    (void)value;
+
+    if(id > 0)
+    {
+        menu_enter((uint8_t)(id - 1));
+    }
+}
+
 /**************************************************************************************************
  *                                        ④ 线程本体
  **************************************************************************************************/
@@ -130,12 +146,9 @@ static void menu_thread(void *arg)
         {
             menu_key((key_id_t)msg.code);
         }
-        else if(msg.type == 1)                  /* 1 = 触摸按钮：编号 = 下标+1 */
+        else                                    /* 1 = 触摸控件 */
         {
-            if(msg.code > 0)
-            {
-                menu_enter((uint8_t)(msg.code - 1));
-            }
+            menu_set(msg.code, msg.value);
         }
     }
 
