@@ -62,7 +62,6 @@ static void view_push(void)
 static rt_mq_t     s_q   = RT_NULL;     /* 我自己的队列 */
 static rt_thread_t s_tid = RT_NULL;     /* 我自己的线程 */
 static struct rt_semaphore s_exit;      /* 退出握手：线程 exit，close 等它 */
-static void demo_close(void);
 static void demo_tick(void)
 {
     if(s_run != 0)
@@ -109,11 +108,12 @@ static void demo_set(uint8_t id, int32_t value)         //触摸
             break;
 
         case 3:
-            router_go(RT_NULL);                 /* QUIT：回首页（等价于按 K4） */
+        case 4:                                 /* QUIT：回首页（等价于按 K4） */
+            /* 注意：绝不能在任务自己的线程里调 demo_close()！
+             * close 会等"本线程退出"，自己等自己必然死锁，超时后还会删掉
+             * 自己正在用的队列。切页交给 router，它在 kernel 线程里关。 */
+            router_go(RT_NULL);
             return;
-
-        case 4:
-            demo_close();
     }
 
     s_events++;
@@ -186,18 +186,36 @@ static void demo_open(void)
 }
 static void demo_close(void)
 {
-    message bye = {2, 0, 0};                    /* 2 = 该退出了 */
+    message bye  = {2, 0, 0};                   /* 2 = 该退出了 */
+    message drop;                               /* 腾队列时丢掉的旧事件 */
+    uint8_t retry;
 
     if(s_tid == RT_NULL)
     {
         return;
     }
 
-    (void)rt_mq_send(s_q, &bye, sizeof(bye));
+    /* 队列可能刚好满：丢一条旧事件腾位置，再投"退出"（最多试 20 次，不阻塞） */
+    for(retry = 0; retry < 20; retry++)
+    {
+        if(rt_mq_send(s_q, &bye, sizeof(bye)) == RT_EOK)
+        {
+            break;
+        }
+        (void)rt_mq_recv(s_q, &drop, sizeof(drop), 0);
+    }
+
+    if(retry >= 20)
+    {
+        rt_kprintf("demo: quit msg failed\r\n");
+        return;                                 /* 投不进去就别动，宁可留着也不踩内存 */
+    }
 
     if(rt_sem_take(&s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)
     {
+        /* 线程没退：队列还在被它用，绝对不能删 */
         rt_kprintf("demo: exit timeout\r\n");
+        return;
     }
 
     rt_mq_delete(s_q);
