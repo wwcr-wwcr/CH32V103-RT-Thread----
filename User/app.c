@@ -62,7 +62,7 @@ static uint32_t s_lost = 0;
  */
 static void deliver(uint8_t type, uint8_t code, int32_t value)
 {
-    evt_t ev;
+    message ev;
 
     if(s_host.q == RT_NULL)
     {
@@ -89,7 +89,7 @@ static void task_entry(void *parameter)
 {
     const host_t *host = (const host_t *)parameter;
     const app_task_t *task = host->task;
-    evt_t ev;
+    message ev;
     rt_int32_t timeout;
 
     if(task->setup != RT_NULL)
@@ -151,7 +151,7 @@ static void task_entry(void *parameter)
 static void app_attach(const app_task_t *app)
 {
     s_host.task = app;
-    s_host.q    = rt_mq_create(app->name, sizeof(evt_t), 4, RT_IPC_FLAG_FIFO);
+    s_host.q    = rt_mq_create(app->name, sizeof(message), 4, RT_IPC_FLAG_FIFO);
     if(s_host.q == RT_NULL)
     {
         rt_kprintf("app: mq create failed\r\n");
@@ -269,13 +269,8 @@ void app_init(const app_task_t *home)
     rt_sem_init(&s_exit_sem, "exit", 0, RT_IPC_FLAG_FIFO);
 }
 
-void app_handle(const evt_t *ev)
+void app_handle(const message *ev)
 {
-    if(ev == RT_NULL)
-    {
-        return;
-    }
-
     if(ev->type == 0)                           /* 0 = 按键 */
     {
         /* K4 = 全局退出键，只在任务页有效，永远不下发给任务 */

@@ -42,8 +42,7 @@ int main(void)
 
     app_init(&task_menu);       //¿ªÊ¼Ò³
 
-    kernel_init(app_handle, app_render);
-    kernel_run();
+    kernel_run(app_handle, app_render);
 
     return 0;
 }

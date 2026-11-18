@@ -87,7 +87,7 @@ void app_init(const app_task_t *home);
  *         type=0 按键 -> on_key（K4 在这里拦下，回首页）
  *         type=1 控件 -> on_set
  */
-void app_handle(const evt_t *ev);
+void app_handle(const message *ev);
 
 /**
  * @brief  每拍调用：先处理切页请求，再渲染当前页面
