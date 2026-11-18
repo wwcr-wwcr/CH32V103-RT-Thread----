@@ -4,8 +4,7 @@
  ******************************************************************************/
 
 #include "common.h"
-#include "ui_event.h"
-#include "anime.h"
+#include "kernel.h"
 #include "rtthread.h"
 #include "rthw.h"
 #include <string.h>
@@ -43,22 +42,6 @@ void ui_page_load(lv_obj_t *page)
     }
 }
 
-/* 递归清掉整页所有对象上的动画。
- * LVGL 的动画只记着对象裸指针，不先删就直接 lv_obj_del，动画定时器会踩到
- * 已经释放的内存。 */
-static void page_anim_del(lv_obj_t *obj)
-{
-    uint32_t i;
-    uint32_t cnt = lv_obj_get_child_cnt(obj);
-
-    for(i = 0; i < cnt; i++)
-    {
-        page_anim_del(lv_obj_get_child(obj, i));
-    }
-
-    lv_anim_del(obj, NULL);
-}
-
 /**
  * @brief  销毁一个页面并归还 LVGL 堆
  * @param  page 页面指针的地址，删完会置 NULL
@@ -72,7 +55,6 @@ void ui_page_destroy(lv_obj_t **page)
         return;
     }
 
-    page_anim_del(*page);
     lv_obj_del(*page);
     *page = NULL;
 }
@@ -266,7 +248,7 @@ static void on_slider(lv_event_t *e)
     lv_obj_t *sl = lv_event_get_target(e);
     uint8_t   id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
 
-    ui_task_event(id, (int32_t)lv_slider_get_value(sl));
+    kernel_post(1, id, (int32_t)lv_slider_get_value(sl));      /* 1 = 控件事件 */
 }
 
 /* 按钮：点一下 */
@@ -274,13 +256,7 @@ static void on_button(lv_event_t *e)
 {
     uint8_t id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
 
-    ui_task_event(id, 0);
-}
-
-/* 按钮：按下回弹 */
-static void on_button_press(lv_event_t *e)
-{
-    anime_press(lv_event_get_target(e));
+    kernel_post(1, id, 0);                                     /* 1 = 控件事件 */
 }
 
 lv_obj_t *ui_slider(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w,
@@ -324,7 +300,6 @@ lv_obj_t *ui_button(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_style_border_color(btn, UI_C_BORDER, 0);
     lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(btn, on_button, LV_EVENT_CLICKED, (void *)(uintptr_t)ev_id);
-    lv_obj_add_event_cb(btn, on_button_press, LV_EVENT_PRESSED, NULL);
 
     lbl = ui_text(btn, UI_FONT_BIG, UI_C_VALUE);
     ui_text_set(lbl, text);

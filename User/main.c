@@ -1,43 +1,49 @@
 /********************************** (C) COPYRIGHT *******************************
-* File Name          : main.c
-* Description        : 应用入口
-*
-* 只做两件事：
-*     1. 初始化板级外设（屏幕 / I2C 总线 / RTC / 按键中断）
-*     2. 启动菜单，然后退出
-*
-* 线程分工：
-*     key    常驻   中断驱动，消抖后回调           HAL/KEY/key.c
-*     menu   常驻   管菜单：切界面、建/删任务线程   menu.c
-*     task   动态   当前界面自己一个线程，退出即删  task_x.c
-*
-* 界面和业务一律不写在这里。
+*     main ──> kernel ──> event.h / lvgl / rt-thread
+*       │ └──> app   ──> event.h / key.h / rt-thread
+*       │       └─────> (事件由 kernel 调进 app，app 不认识 kernel)
+*       └──> key / bsp / lv_port（HAL 层，各管各的）
 *********************************************************************************/
 
 #include "rtthread.h"
 #include "lcd.h"
 #include "key.h"
 #include "i2c.h"
-#include "menu.h"
+#include "kernel.h"
+#include "app.h"
+#include "lv_port_disp_template.h"
+#include "lv_port_indev_template.h"
+
+/* 首页应用，定义在 task/menu.c 里 */
+extern const app_task_t task_menu;
+
+/**
+ * @brief  按键线程的回调：转成一个 type=0 的事件（0 = 按键）
+ */
+static void on_key(key_id_t key)
+{
+    kernel_post(0, (uint8_t)key, 0);
+}
 
 int main(void)
 {
     SystemCoreClockUpdate();
 
-    /* 1. 板级外设：失败也不阻塞，方便单独排查 */
-    if(lcd_init() != 0)
-    {
-        rt_kprintf("main: lcd init failed\r\n");
-    }
-
+    lcd_init();
     i2c_init(I2C_DEFAULT_SPEED);
-   // rtc_init();
 
-    /* 2. 按键：配好中断并创建线程，此时先不启动 */
-    key_init();
+    /* 2. 渲染通道：显示 + 触摸（GT911） */
+    lv_port_disp_init();
+    lv_port_indev_init();
+    
+    key_init();                         //注册按键
+    key_event_register(on_key);
+    key_start();
 
-    /* 3. 注册按键回调 -> 启动按键线程 -> 启动菜单线程，main 到此结束 */
-    menu_start();
+    app_init(&task_menu);       //开始页
+
+    kernel_init(app_handle, app_render);
+    kernel_run();
 
     return 0;
 }

@@ -261,9 +261,11 @@
         </tr>
       </table>
       <p class="blk-d" style="margin-top:12px">
-        另外：八个任务的公共底座（菜单切换、后台持续运行、退出时释放硬件）这套工程已经搭好了 —— 
+        另外：八个任务的公共底座（事件分发、菜单切换、退出时释放硬件）这套工程已经搭好了 ——
+        <code>kernel.c</code> 只管事件队列 + 分发 + render 循环，<code>page.c</code> 管任务线程和切页，
+        <code>task/menu.c</code> 本身就是一个普通任务。
         每加一个任务就是写 <code>User/task/task_xxx.c</code> + <code>User/ui/task_xxx_ui.c</code>，
-        再到 <code>menu.c</code> 的 <code>g_task_list[]</code> 加一行。
+        再到 <code>User/task/menu.c</code> 的 <code>g_app_list[]</code> 加一行。
       </p>
     </section>
 

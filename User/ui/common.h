@@ -117,7 +117,7 @@ void ui_text_pct(lv_obj_t *label, uint8_t percent);
 /*********************************************************************
  * 交互控件（内部已经挂好事件，页面代码只需一行）
  *
- * 事件编号 ev_id 会通过 ui_task_event(id, value) 送到任务线程，
+ * 事件编号 ev_id 会通过 kernel_post(1, id, value) 送到任务线程，
  * 任务在 on_set(id, value) 里按 id 区分是哪个控件。
  *********************************************************************/
 
@@ -130,7 +130,7 @@ lv_obj_t *ui_slider(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w,
                     int32_t min, int32_t max, int32_t value, uint8_t ev_id);
 
 /**
- * @brief  圆角按钮：白底 + 细边框 + 居中文字，点一下发事件，按下带回弹
+ * @brief  圆角按钮：白底 + 细边框 + 居中文字，点一下发事件
  * @param  ev_id  点击事件编号
  * @return 按钮对象
  */

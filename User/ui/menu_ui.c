@@ -5,11 +5,14 @@
  * 触摸支持：
  *     左右两个箭头按钮 + 卡片本身都可以点。回调只做"合成按键事件"，
  *     和实体按键 K1/K2/K3 走完全相同的路径，菜单逻辑一行都不用改。
+ *
+ * 生命周期（kernel 管）：
+ *     进任务    kernel 调 menu_ui_destroy()，页面还给 LVGL 堆
+ *     回首页    menu_ui_render() 发现 s_card 是 NULL，自己重新搭一遍
  ******************************************************************************/
 
 #include "menu_ui.h"
 #include "common.h"
-#include "anime.h"
 #include <stdio.h>
 
 /**************************************************************************************************
@@ -19,11 +22,18 @@ static void (*s_cb_prev)(void)  = NULL;
 static void (*s_cb_next)(void)  = NULL;
 static void (*s_cb_enter)(void) = NULL;
 
+/* 页面对象放在文件作用域，menu_ui_destroy() 才够得着。
+ * 全是 NULL 就表示"这一页还没搭"，render 里靠 s_card 判断。 */
+static lv_obj_t *s_page    = NULL;
+static lv_obj_t *s_pagebar = NULL;
+static lv_obj_t *s_card    = NULL;
+static lv_obj_t *s_task    = NULL;
+static lv_obj_t *s_name    = NULL;
+static uint8_t   s_last    = 0xFF;      /* 0xFF = 还没画过任何一项 */
+
 /**************************************************************************************************
  *                                        内部函数
  **************************************************************************************************/
-/* 按下反馈统一走 anime.c，本文件不出现任何 lv_anim_* */
-static void on_press(lv_event_t *e) { anime_press(lv_event_get_target(e)); }
 static void on_prev(lv_event_t *e)  { (void)e; if(s_cb_prev  != NULL) { s_cb_prev();  } }
 static void on_next(lv_event_t *e)  { (void)e; if(s_cb_next  != NULL) { s_cb_next();  } }
 static void on_enter(lv_event_t *e) { (void)e; if(s_cb_enter != NULL) { s_cb_enter(); } }
@@ -38,7 +48,6 @@ static lv_obj_t *make_btn(lv_obj_t *parent, lv_coord_t x, const char *text, lv_e
     lv_obj_set_style_border_color(btn, UI_C_BORDER, 0);
     lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(btn, on_press, LV_EVENT_PRESSED, NULL);
 
     lbl = ui_text(btn, UI_FONT_HUGE, UI_C_TEXT);
     ui_text_set(lbl, text);
@@ -59,17 +68,9 @@ void menu_ui_set_tap_cb(void (*on_prev_cb)(void), void (*on_next_cb)(void), void
 
 void menu_ui_render(uint8_t index, uint8_t total, const char *name)
 {
-    static lv_obj_t *s_page    = NULL;
-    static lv_obj_t *s_pagebar = NULL;
-    static lv_obj_t *s_card    = NULL;
-    static lv_obj_t *s_task    = NULL;
-    static lv_obj_t *s_name    = NULL;
-    static uint8_t   s_last    = 0xFF;
-
     char   buf[24];
-    int8_t dir;
 
-    /* 1. 首次进入：搭界面 + 播进入动画 */
+    /* 1. 首次进入（或从任务页退回来）：搭界面 */
     if(s_card == NULL)
     {
         lv_obj_t *root;
@@ -85,7 +86,6 @@ void menu_ui_render(uint8_t index, uint8_t total, const char *name)
         lv_obj_set_style_border_color(s_card, UI_C_BORDER, 0);
         lv_obj_add_flag(s_card, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(s_card, on_enter, LV_EVENT_CLICKED, NULL);
-        lv_obj_add_event_cb(s_card, on_press, LV_EVENT_PRESSED, NULL);
 
         s_task = ui_text(s_card, UI_FONT_HUGE, UI_C_TEXT);
         ui_text_align(s_task, LV_ALIGN_TOP_MID, 0, 26);
@@ -100,11 +100,10 @@ void menu_ui_render(uint8_t index, uint8_t total, const char *name)
         ui_hint_bar(root, "TAP CARD TO ENTER");
     }
 
-    /* 从别的页面切回来：重新激活并重播进入动画 */
+    /* 页面刚搭好（还不是当前屏）：load 上去 */
     if(!ui_page_is_active(s_page))
     {
         ui_page_load(s_page);
-        anime_page_in(s_card);
     }
 
     /* 2. 没变化就不动，省一次重绘 */
@@ -121,12 +120,17 @@ void menu_ui_render(uint8_t index, uint8_t total, const char *name)
     snprintf(buf, sizeof(buf), "%d/%d", index + 1, total);
     ui_text_set(s_pagebar, buf);
 
-    /* 4. 不是第一次的话，播切换动画（方向按索引变化判断） */
-    if(s_last != 0xFF)
-    {
-        dir = (index > s_last) ? 1 : -1;
-        anime_page_switch(s_card, dir);
-    }
-
     s_last = index;
+}
+
+void menu_ui_destroy(void)
+{
+    /* 这时候页面已经不是当前屏了（kernel 先把下一个界面画完才删的），直接删就行 */
+    ui_page_destroy(&s_page);
+
+    s_pagebar = NULL;
+    s_card    = NULL;
+    s_task    = NULL;
+    s_name    = NULL;
+    s_last    = 0xFF;           /* 下次进来当"第一次"处理，文字会重新填 */
 }
