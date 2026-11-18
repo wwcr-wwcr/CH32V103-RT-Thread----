@@ -7,10 +7,10 @@ extern "C" {
 
 #include "event.h"
 
-/* 事件处理函数：谁绑进来谁处理（一般是 app_handle） */
+/* 事件处理函数：main 里传的是 router_dispatch */
 typedef void (*evt_handler_t)(const message *ev);
 
-/* 渲染函数：每拍调一次（一般是 app_render） */
+/* 渲染函数：每拍调一次，main 里传的是 router_render */
 typedef void (*render_cb_t)(void);
 
 void kernel_run(evt_handler_t on_evt, render_cb_t on_render);

@@ -1,22 +1,29 @@
-#ifndef __TASK_CUSTOM_UI_H
-#define __TASK_CUSTOM_UI_H
+/******************************************************************************
+ * 文件名   : task_example_ui.h
+ * 说明     : EXAMPLE 页面（纯软件演示：计数 + 状态 + 操作次数）
+ *
+ * 只有 2 个接口，任务侧传一帧要显示的东西进来即可：
+ *     demo_ui_render(计数, 是否在跑, 操作次数)
+ *     demo_ui_destroy()
+ ******************************************************************************/
 
-#include "common.h"
+#ifndef __TASK_EXAMPLE_UI_H
+#define __TASK_EXAMPLE_UI_H
+
 #include <stdint.h>
 
 /**
- * @brief  渲染"麦克风 / 环境光"时间轴页面
- * @param  mic    麦克风峰峰值 0~4095
- * @param  lux    VEML7700 照度 lux
- * @param  count  数码管当前值（9999 倒数）
- * @param  run    1 = 采样/节拍在跑
- * @param  music  1 = 扬声器在放歌
- * @param  beat   1 = 蜂鸣器节拍器开着
- * @param  seq    采样序号，变了才往曲线里塞一个点
+ * @brief  渲染一帧
+ * @param  count   计数器当前值
+ * @param  run     1 = 在计数，0 = 暂停
+ * @param  events  按键 / 触摸总共按了多少下
  */
-void example_ui_render(uint16_t mic, uint16_t lux, uint16_t count,
-                       uint8_t run, uint8_t music, uint8_t beat, uint8_t seq);
+void demo_ui_render(uint32_t count, uint8_t run, uint16_t events);
 
-void example_ui_destroy(void);
+/**
+ * @brief  销毁页面，把内存还给 LVGL 堆
+ * @note   只能在 kernel 线程调，调用前页面必须已经不在前台
+ */
+void demo_ui_destroy(void);
 
 #endif

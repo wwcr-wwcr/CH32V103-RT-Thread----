@@ -1,171 +1,226 @@
 /******************************************************************************
  * 文件名   : task_example_ui.c
- * 说明     : EXAMPLE 页面 —— 麦克风 / 环境光的"时间坐标轴"曲线
+ * 说明     : EXAMPLE 页面 —— 计数演示（直接用 LVGL 画，不依赖封装层）
  *
- * 版式（320x480 竖屏）：
- *     标题栏       MANUAL / 6.4s
- *     三张数据卡   MIC（0~4095） LUX（lux） 7SEG（数码管倒数）
- *     曲线区       两条线共用一块图，横轴是时间（-6.4s ~ 0）
- *     横轴刻度     -6.4s -4.8s -3.2s -1.6s 0s（4 等分，跟网格对齐）
- *     图例 + 状态  MIC / LUX 颜色对照，K1 状态和音乐/节拍开关
- *     三个按钮     PAUSE / MUSIC / BEAT（触摸，等价于 K1/K2/K3）
+ * 版式（320×480 竖屏）：
+ *     标题栏      DEMO / 100ms
+ *     数值卡      COUNT 大字
+ *     STATE       行
+ *     EVENTS      行
+ *     三个按钮    +10 / CLR / QUIT
+ *     底部提示    K1 RUN  K2 +10  K3 CLR
  *
- * 64 个点 × 100ms = 6.4 秒窗口，采样节拍在 task_example.c 里定。
- * 所有控件都来自 ui/common.h，本文件不 new 任何 lv_ 对象。
+ * 本文件只画界面：数据由任务的 render 传进来，按钮点了只发 type=1 事件。
  ******************************************************************************/
 
 #include "task_example_ui.h"
-#include "common.h"
+#include "theme.h"
+#include "kernel.h"
+#include "lvgl/lvgl.h"
 #include <stdio.h>
-/**************************************************************************************************
- *                                        控件编号
- **************************************************************************************************/
-/* 触摸按钮的编号，task_example.c 的 on_set() 按这个号分派 */
-#define UI_ID_PAUSE         1
-#define UI_ID_MUSIC         2
-#define UI_ID_BEAT          3
-
-/* 曲线两条线的颜色，图例和曲线共用 */
-#define UI_C_MIC_LINE       0x00A0C8
-#define UI_C_LUX_LINE       0xFFA300
 
 /**************************************************************************************************
- *                                       页面状态
+ *                                        内部变量
  **************************************************************************************************/
-static lv_obj_t  *s_page = NULL;
-static lv_obj_t  *s_mic  = NULL;        /* 卡片里的数值 label */
-static lv_obj_t  *s_lux  = NULL;
-static lv_obj_t  *s_cnt  = NULL;
-static lv_obj_t  *s_hint = NULL;        /* 底部状态条 */
-static ui_plot_t *s_plot = NULL;
+static lv_obj_t *s_page   = NULL;       /* NULL = 页面还没搭 */
+static lv_obj_t *s_value  = NULL;       /* COUNT 的数值 */
+static lv_obj_t *s_state  = NULL;       /* RUN / PAUSE */
+static lv_obj_t *s_events = NULL;       /* 操作次数 */
 
-static uint8_t    s_seq  = 0xFF;        /* 上次画进去的采样序号（0xFF 保证第一帧必画） */
-
-/* 横轴刻度：4 等分，和 ui_plot_axis(4, 4, ...) 的竖网格线对齐。
- * 位置用"-70px / +70px"这种相对页面中线的偏移，不依赖字宽。 */
-static const char *const s_tick_txt[5] =
+/**************************************************************************************************
+ *                                        内部函数
+ **************************************************************************************************/
+/**
+ * @brief  按钮点击：发 type=1 控件事件，编号就是按钮序号
+ */
+static void on_btn(lv_event_t *e)
 {
-    "-6.4s", "-4.8s", "-3.2s", "-1.6s", "0s"
-};
+    uint8_t id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
 
-static const lv_coord_t s_tick_x[5] = { -140, -70, 0, 70, 140 };
+    kernel_post(1, id, 0);                  /* 1 = 控件事件 */
+}
 
-/**************************************************************************************************
- *                                        建页
- **************************************************************************************************/
-static void page_build(void)
+/**
+ * @brief  造一个带渐变底色的整屏
+ */
+static lv_obj_t *page_new(void)
 {
-    uint8_t i;
+    lv_obj_t *scr = lv_obj_create(NULL);
 
-    s_page = ui_page_create();
+    lv_obj_set_style_bg_color(scr, UI_C_BG, 0);
+    lv_obj_set_style_bg_grad_color(scr, UI_C_BG_BOTTOM, 0);
+    lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(scr, 0, 0);
+    lv_obj_set_style_pad_all(scr, 0, 0);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    ui_title_bar(s_page, "MIC / LUX", "6.4s");
+    return scr;
+}
 
-    /* 一行三张卡：麦克风、照度、数码管当前值 */
-    s_mic = ui_card(s_page,  12, 64, 96, 88, "MIC",  "--");
-    s_lux = ui_card(s_page, 112, 64, 96, 88, "LUX",  "--");
-    s_cnt = ui_card(s_page, 212, 64, 96, 88, "7SEG", "9999");
+/**
+ * @brief  造一张圆角卡片（标题栏 / 提示条 / 数值卡 / 按钮都用它）
+ */
+static lv_obj_t *card_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
+                          lv_coord_t w, lv_coord_t h, lv_coord_t radius)
+{
+    lv_obj_t *obj = lv_obj_create(parent);
 
-    /* 曲线：两条线量程各自独立，MIC 用 ADC 满量程，LUX 用 0~1000 */
-    s_plot = ui_plot_create(s_page, 20, 162, 280, 146);
-    ui_plot_axis(s_plot, 4, 4, 0xE8DEE6);
-    ui_plot_line(s_plot, 0, &(ui_plot_line_t){
-            .color = UI_C_MIC_LINE, .width = 2,
-            .style = UI_LINE_SOLID,
-            .vmin  = 0, .vmax = 4095 });
-    ui_plot_line(s_plot, 1, &(ui_plot_line_t){
-            .color = UI_C_LUX_LINE, .width = 2,
-            .style = UI_LINE_SOLID,
-            .vmin  = 0, .vmax = 1000 });
+    lv_obj_set_pos(obj, x, y);
+    lv_obj_set_size(obj, w, h);
+    lv_obj_set_style_radius(obj, radius, 0);
+    lv_obj_set_style_bg_color(obj, UI_C_CARD, 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(obj, 1, 0);
+    lv_obj_set_style_border_color(obj, UI_C_BORDER, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 横轴刻度（时间） */
-    for(i = 0; i < 5; i++)
-    {
-        lv_obj_t *t = ui_text(s_page, UI_FONT_SMALL, UI_C_TEXT_DIM);
+    return obj;
+}
 
-        ui_text_set(t, s_tick_txt[i]);
-        ui_text_align(t, LV_ALIGN_TOP_MID, s_tick_x[i], 312);
-    }
+/**
+ * @brief  造一段文字（透明底、无边框）
+ */
+static lv_obj_t *label_new(lv_obj_t *parent, lv_color_t color)
+{
+    lv_obj_t *lbl = lv_label_create(parent);
 
-    /* 图例：左边麦克风，右边照度 */
-    {
-        lv_obj_t *lg = ui_text(s_page, UI_FONT_SMALL, lv_color_hex(UI_C_MIC_LINE));
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(lbl, color, 0);
+    lv_obj_set_style_bg_opa(lbl, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(lbl, 0, 0);
 
-        ui_text_set(lg, "MIC 0-4095");
-        ui_text_align(lg, LV_ALIGN_TOP_LEFT, 24, 334);
+    return lbl;
+}
 
-        lg = ui_text(s_page, UI_FONT_SMALL, lv_color_hex(UI_C_LUX_LINE));
-        ui_text_set(lg, "LUX 0-1000");
-        ui_text_align(lg, LV_ALIGN_TOP_RIGHT, -24, 334);
-    }
+/**
+ * @brief  造一个按钮：点一下发 type=1 事件
+ */
+static void btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
+                    const char *text, uint8_t id)
+{
+    lv_obj_t *btn = card_new(parent, x, y, 88, 52, 18);
+    lv_obj_t *lbl;
 
-    /* 触摸按钮，和 K1/K2/K3 一一对应 */
-    (void)ui_button(s_page,  14, 364, 92, 46, "PAUSE", UI_ID_PAUSE);
-    (void)ui_button(s_page, 114, 364, 92, 46, "MUSIC", UI_ID_MUSIC);
-    (void)ui_button(s_page, 214, 364, 92, 46, "BEAT",  UI_ID_BEAT);
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(btn, on_btn, LV_EVENT_CLICKED, (void *)(uintptr_t)id);
 
-    s_hint = ui_hint_bar(s_page, "RUN  MUS ON  BEA ON");
+    lbl = label_new(btn, UI_C_VALUE);
+    lv_label_set_text(lbl, text);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+}
+
+/**
+ * @brief  一行"标签 + 数值"，返回数值 label
+ */
+static lv_obj_t *row_new(lv_obj_t *parent, lv_coord_t y, const char *text)
+{
+    lv_obj_t *lbl;
+
+    lbl = label_new(parent, UI_C_TEXT_DIM);
+    lv_label_set_text(lbl, text);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 24, y);
+
+    lbl = label_new(parent, UI_C_VALUE);
+    lv_label_set_text(lbl, "-");
+    lv_obj_align(lbl, LV_ALIGN_TOP_RIGHT, -24, y);
+
+    return lbl;
 }
 
 /**************************************************************************************************
- *                                        对外接口
+ *                                        内部：搭页面
  **************************************************************************************************/
-/**
- * @brief  每帧渲染（UI 线程，10ms 一次）
- * @note   seq 变了才往曲线里塞点，10ms 的 render 不会把同一份数据画 10 遍
- */
-void example_ui_render(uint16_t mic, uint16_t lux, uint16_t count,
-                       uint8_t run, uint8_t music, uint8_t beat, uint8_t seq)
+static void page_build(void)
 {
-    char buf[32];
+    lv_obj_t *bar;
+    lv_obj_t *lbl;
+    lv_obj_t *box;
+
+    s_page = page_new();
+
+    /* 1. 标题栏 */
+    bar = card_new(s_page, 12, 10, (lv_coord_t)(UI_W - 24),
+                   (lv_coord_t)(UI_TITLE_H - 10), UI_RADIUS);
+    lv_obj_set_style_bg_opa(bar, 242, 0);
+
+    lbl = label_new(bar, UI_C_TEXT);
+    lv_label_set_text(lbl, "DEMO");
+    lv_obj_align(lbl, LV_ALIGN_LEFT_MID, UI_PAD, 0);
+
+    lbl = label_new(bar, UI_C_TEXT_DIM);
+    lv_label_set_text(lbl, "100ms");
+    lv_obj_align(lbl, LV_ALIGN_RIGHT_MID, -UI_PAD, 0);
+
+    /* 2. 数值卡：标题 + 大字 */
+    box = card_new(s_page, 20, 64, 280, 132, UI_RADIUS);
+
+    lbl = label_new(box, UI_C_TEXT_DIM);
+    lv_label_set_text(lbl, "COUNT");
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 16, 14);
+
+    s_value = label_new(box, UI_C_VALUE);
+    lv_label_set_text(s_value, "0");
+    lv_obj_align(s_value, LV_ALIGN_BOTTOM_LEFT, 16, -14);
+
+    /* 3. 两行状态 */
+    s_state  = row_new(s_page, 214, "STATE");
+    s_events = row_new(s_page, 252, "EVENTS");
+
+    /* 4. 三个触摸按钮（编号 1 / 2 / 3 由任务侧解释） */
+    btn_new(s_page,  16, 300, "+10",  1);
+    btn_new(s_page, 116, 300, "CLR",  2);
+    btn_new(s_page, 216, 300, "QUIT", 3);
+
+    /* 5. 底部提示 */
+    bar = card_new(s_page, 24, (lv_coord_t)(UI_H - 46),
+                   (lv_coord_t)(UI_W - 48), 36, 18);
+    lv_obj_set_style_bg_opa(bar, 215, 0);
+
+    lbl = label_new(bar, UI_C_TEXT_DIM);
+    lv_label_set_text(lbl, "K1 RUN  K2 +10  K3 CLR");
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+}
+
+/**************************************************************************************************
+ *                                        对外函数
+ **************************************************************************************************/
+void demo_ui_render(uint32_t count, uint8_t run, uint16_t events)
+{
+    char buf[24];
 
     if(s_page == NULL)
     {
         page_build();
     }
 
-    if(!ui_page_is_active(s_page))
+    if(lv_scr_act() != s_page)
     {
-        ui_page_load(s_page);
+        lv_scr_load(s_page);
     }
 
-    /* ---- 数值卡 ---- */
-    ui_text_num(s_mic, (int32_t)mic,   NULL);
-    ui_text_num(s_lux, (int32_t)lux,   NULL);
-    ui_text_num(s_cnt, (int32_t)count, NULL);
+    /* 只有会变的东西放这，固定文字在 page_build 里已经设好 */
+    snprintf(buf, sizeof(buf), "%lu", (unsigned long)count);
+    lv_label_set_text(s_value, buf);
 
-    /* ---- 曲线：新采样才推一个点 ---- */
-    if(seq != s_seq)
-    {
-        s_seq = seq;
+    lv_label_set_text(s_state, (run != 0) ? "RUN" : "PAUSE");
 
-        ui_plot_push(s_plot, 0, (int32_t)mic);
-        ui_plot_push(s_plot, 1, (int32_t)((lux > 1000u) ? 1000u : lux));   /* 超量程夹住，免得顶平 */
-        ui_plot_refresh(s_plot);
-    }
-
-    /* ---- 底部状态条 ---- */
-    snprintf(buf, sizeof(buf), "%s  MUS %s  BEA %s",
-             (run   != 0u) ? "RUN"   : "PAUSE",
-             (music != 0u) ? "ON"    : "OFF",
-             (beat  != 0u) ? "ON"    : "OFF");
-    ui_text_set(s_hint, buf);
+    snprintf(buf, sizeof(buf), "%u", (unsigned)events);
+    lv_label_set_text(s_events, buf);
 }
 
-/**
- * @brief  任务退出时销毁页面
- * @note   plot 必须先删，它挂在页面上，页面先走会留下野指针
- */
-void example_ui_destroy(void)
+void demo_ui_destroy(void)
 {
-    ui_plot_delete(s_plot);
+    if(s_page == NULL)
+    {
+        return;
+    }
 
-    ui_page_destroy(&s_page);
+    lv_obj_del(s_page);
+    s_page = NULL;
 
-    s_mic  = NULL;
-    s_lux  = NULL;
-    s_cnt  = NULL;
-    s_hint = NULL;
-    s_plot = NULL;
-    s_seq  = 0xFF;
+    s_value  = NULL;
+    s_state  = NULL;
+    s_events = NULL;
 }

@@ -1,206 +1,294 @@
-#include "app.h"
-#include "ui/veml_1_ui.h"
+/******************************************************************************
+ * 文件名   : task_example.c
+ * 说明     : EXAMPLE —— 模板任务（纯软件演示，不碰任何硬件）
+ *
+ * 这个文件就是一个任务的完整样子，复制它改业务就能长出新页面：
+ *
+ *     ① 线程资源     s_q / s_tid / s_exit 三个静态变量，自己管
+ *     ② 线程本体     demo_thread()：rt_thread_create 的入口就是它
+ *     ③ 节奏         80 行那句 rt_mq_recv(..., 100ms)：多少毫秒一拍，这里说了算
+ *     ④ 打开/关闭    demo_open() / demo_close()，幂等，router 反复调没事
+ *     ⑤ 投递         demo_post()：router 把事件丢进我的队列
+ *     ⑥ 渲染         demo_render()：只读快照，所有 lv_ 都从这进（kernel 线程）
+ *
+ * 演示内容：
+ *     每 100ms 计一次数
+ *     K1 暂停 / 继续      K2 +10      K3 清零
+ *     触摸 +10 / CLR / QUIT（QUIT = router_go(RT_NULL) 回首页）
+ *
+ * 换成真实业务时，只改 demo_tick()（周期活）和 demo_key()/demo_set()（事件处理）。
+ ******************************************************************************/
+
+#include "router.h"
+#include "ui/task_example_ui.h"
 #include "rtthread.h"
 #include "rthw.h"
 #include "key.h"
-#include <ch422.h>
-#include <led.h>
-#include <veml7700.h>
 /**************************************************************************************************
- *                                        业务参数
+ *                                        数据（只有本线程写）
  **************************************************************************************************/
-#define LUX_SAMPLE_DIV      5      /* update 10ms 一次，50 次 = 500ms 采一次 */
-#define LUX_DARK            10      /* lux <= 10：全黑，LED 给 100% */
-#define LUX_BRIGHT          300     /* lux >= 300：够亮，LED 给 0% */
-#define EX_STEP             10
+static uint32_t s_count  = 0;       /* 计数器 */
+static uint8_t  s_run    = 1;       /* 1 = 在计数 */
+static uint16_t s_events = 0;       /* 按了多少下（按键 + 触摸） */
 
 /**************************************************************************************************
- *                                        业务状态（只有逻辑线程会改）
- **************************************************************************************************/
-static uint16_t s_lux    = 0;       /* 最新光强 */
-static uint8_t  s_bright = 0;       /* 算出来的 LED 亮度 0~100 */
-static uint8_t  s_led_on = 1;       /* 用户开关 */
-static uint8_t  s_err    = 0;       /* 传感器初始化失败标志 */
-static uint16_t s_div    = 0;       /* 分频计数 */
-
-/**************************************************************************************************
- *                                        快照（逻辑线程写 / UI 线程读）
+ *                                        快照（本线程写 / render 读）
  **************************************************************************************************/
 typedef struct
 {
-    uint16_t lux;
-    uint8_t  bright;
-    uint8_t  led_on;
-} lux_view_t;
+    uint32_t count;
+    uint8_t  run;
+    uint16_t events;
+} demo_view_t;
 
-static lux_view_t s_view;
+static demo_view_t s_view;
 
-static void view_update(void)
+/**
+ * @brief  把当前状态拷一份给渲染用（关中断，防止渲染读到一半被改）
+ */
+static void view_push(void)
 {
-    lux_view_t v;
-    rt_base_t level;
+    demo_view_t v;
+    rt_base_t   level;
 
-    v.lux = s_lux;
-    v.bright = s_bright;
-    v.led_on  = s_led_on;
+    v.count  = s_count;
+    v.run    = s_run;
+    v.events = s_events;
 
     level = rt_hw_interrupt_disable();
     s_view = v;
     rt_hw_interrupt_enable(level);
 }
 
-/* 环境越暗，LED 越亮 */
-static uint8_t lux_to_bright(uint16_t lux)
-{
-    if(lux <= LUX_DARK)   { return 100; }
-    if(lux >= LUX_BRIGHT) { return 0; }
-
-    return (uint8_t)(100u - ((uint32_t)(lux - LUX_DARK) * 100u) / (LUX_BRIGHT - LUX_DARK));
-}
-
-static void led_apply(void)
-{
-    led_brightness_set(LED_ALL, (s_led_on != 0) ? s_bright : 0);
-}
 /**************************************************************************************************
- *                                        任务回调
+ *                                        线程资源（我自己的）
+ **************************************************************************************************/
+static rt_mq_t     s_q   = RT_NULL;     /* 我自己的队列 */
+static rt_thread_t s_tid = RT_NULL;     /* 我自己的线程 */
+static struct rt_semaphore s_exit;      /* 退出握手：线程 exit，close 等它 */
+
+/**************************************************************************************************
+ *                                        业务逻辑（跑在自己的线程里）
  **************************************************************************************************/
 /**
- * @brief  逻辑线程：进页面时调用一次
- * @note   在这里初始化硬件。耗时几十 ms 也没关系，
- *         但不要做无限等待（会影响退出页面的响应）。
+ * @brief  周期活：每拍调用一次
+ * @note   换成真实业务时，采样、喂音频、刷新数码管都写这里
  */
-static void lux_setup(void)
+static void demo_tick(void)
 {
-    s_lux    = 0;
-    s_bright = 0;
-    s_led_on = 1;
-    s_div    = 0;
-    s_err    = 0;
-
-    /* 注意：这里不能调 sensor_init()！
-     * 它会 cs100_init()，而 CS100 和 LED PWM 抢同一个 TIM10。 */
-    if(veml7700_init() != 0)
+    if(s_run != 0)
     {
-        s_err = 1;
-        rt_kprintf("lux: veml7700 init failed\r\n");
+        s_count++;
+        view_push();
     }
-
-    if(led_pwm_init() != 0)
-    {
-        rt_kprintf("lux: led pwm init failed\r\n");
-    }
-
-    if(ch422_init() != 0)
-    {
-        rt_kprintf("lux: ch422 init failed\r\n");
-    }
-
-    led_brightness_set(LED_ALL, 0);
-    ch422_clear();
-
-    view_update();
 }
 
 /**
- * @brief  逻辑线程：每 10ms 调用一次（前提是 task 描述里 update 不为 NULL）
- * @note   用分频做慢速任务，别真的每 10ms 干重活
+ * @brief  实体按键
+ * @param  key  K1~K3，K4 被 router 拦下了，收不到
  */
-static void lux_update(void)
+static void demo_key(key_id_t key)
 {
-    if(++s_div < LUX_SAMPLE_DIV)
+    switch(key)
     {
-        return;
+        case KEY_ID_1:                          /* K1 暂停 / 继续 */
+            s_run = (uint8_t)((s_run == 0) ? 1 : 0);
+            break;
+
+        case KEY_ID_2:                          /* K2 +10 */
+            s_count += 10;
+            break;
+
+        case KEY_ID_3:                          /* K3 清零 */
+            s_count = 0;
+            break;
+
+        default:
+            return;
     }
-    s_div = 0;
 
-    if(s_err == 0)
-    {
-        s_lux = veml7700_lux_get();     /* 芯片转换 400ms，500ms 采一次刚好 */
-    }                      
-    s_bright = lux_to_bright(s_lux);
-    led_apply();
-
-    /* 数码管 4 位，超过 9999 显示 9999 */
-    ch422_show_number((s_lux > 9999u) ? 9999u : s_lux);
-    view_update();
+    s_events++;
+    view_push();
 }
 
 /**
- * @brief  逻辑线程：实体按键
- * @param  key  只会是 KEY_ID_1 / KEY_ID_2 / KEY_ID_3
- * @note   K4 是全局退出键，menu 永远不转发
+ * @brief  触摸控件事件
+ * @param  id     控件编号，见 ui/task_example_ui.c（1 +10 / 2 CLR / 3 QUIT）
+ * @param  value  控件给的数值（按钮用不上）
  */
-static void lux_on_key(key_id_t key)
-{
-    if(key == KEY_ID_1)
-    {
-        s_led_on = (uint8_t)((s_led_on == 0) ? 1 : 0);
-        led_apply();
-        view_update();
-    }
-
-    view_update();
-}
-
-/**
- * @brief  逻辑线程：触摸控件事件（滑条 / 按钮）
- * @param  id     控件编号，见 ui/task_example_ui.h
- * @param  value  控件给的数值（滑条位置、按钮自带的步进量）
- */
-static void lux_on_set(uint8_t id, int32_t value)
+static void demo_set(uint8_t id, int32_t value)
 {
     (void)value;
 
-    if(id == 1){
-        s_led_on = (uint8_t)((s_led_on == 0) ? 1 : 0);
-        led_apply();
-        view_update();
+    switch(id)
+    {
+        case 1:
+            s_count += 10;
+            break;
+
+        case 2:
+            s_count = 0;
+            break;
+
+        case 3:
+            router_go(RT_NULL);                 /* QUIT：回首页（等价于按 K4） */
+            return;
+
+        default:
+            return;
     }
-    else if(id == 2){
-        app_request(RT_NULL);   /* 传 NULL = 回首页（等价于按 K4） */
+
+    s_events++;
+    view_push();
+}
+
+/**************************************************************************************************
+ *                                        线程本体
+ **************************************************************************************************/
+/**
+ * @brief  线程入口：rt_thread_create 直接用的就是这个函数
+ * @param  arg  没用到
+ * @note   100ms 一拍；没有事件也会醒，正好用来跑 demo_tick()
+ */
+static void demo_thread(void *arg)
+{
+    message msg;
+
+    (void)arg;
+
+    view_push();                                /* 先给渲染一份初值 */
+
+    for(;;)
+    {
+        /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
+        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)
+        {
+            if(msg.type == 2)                   /* 2 = 管理端让退出 */
+            {
+                break;
+            }
+
+            if(msg.type == 0)                   /* 0 = 实体按键 */
+            {
+                demo_key((key_id_t)msg.code);
+            }
+            else                                /* 1 = 触摸控件 */
+            {
+                demo_set(msg.code, msg.value);
+            }
+        }
+
+        demo_tick();
     }
+
+    rt_sem_release(&s_exit);                    /* 我走了，close 那边可以往下走 */
+}
+
+/**************************************************************************************************
+ *                                        打开 / 关闭 / 投递
+ **************************************************************************************************/
+/**
+ * @brief  打开：建队列 + 建线程（重复调用直接返回）
+ */
+static void demo_open(void)
+{
+    if(s_tid != RT_NULL)
+    {
+        return;                                 /* 已经在跑 */
+    }
+
+    s_count  = 0;
+    s_run    = 1;
+    s_events = 0;
+
+    rt_sem_init(&s_exit, "dexit", 0, RT_IPC_FLAG_FIFO);
+
+    s_q = rt_mq_create("DEMO", sizeof(message), 4, RT_IPC_FLAG_FIFO);
+    if(s_q == RT_NULL)
+    {
+        rt_kprintf("demo: mq create failed\r\n");
+        return;
+    }
+
+    /* 1024 = 栈；12 = 优先级（key=8、kernel=9） */
+    s_tid = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
+    if(s_tid == RT_NULL)
+    {
+        rt_kprintf("demo: thread create failed\r\n");
+        rt_mq_delete(s_q);
+        s_q = RT_NULL;
+        return;
+    }
+
+    rt_thread_startup(s_tid);
 }
 
 /**
- * @brief  UI 线程：每 10ms 调用一次
- * @note   只做两件事：拿快照、调一个 xxx_ui_render
+ * @brief  关闭：让线程退出 -> 等它收尾 -> 删队列
  */
-static void lux_render(void)
+static void demo_close(void)
 {
-    lux_view_t v;
-    rt_base_t level;
+    message bye = {2, 0, 0};                    /* 2 = 该退出了 */
+
+    if(s_tid == RT_NULL)
+    {
+        return;
+    }
+
+    (void)rt_mq_send(s_q, &bye, sizeof(bye));
+
+    if(rt_sem_take(&s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)
+    {
+        rt_kprintf("demo: exit timeout\r\n");
+    }
+
+    rt_mq_delete(s_q);
+    s_q   = RT_NULL;
+    s_tid = RT_NULL;
+}
+
+/**
+ * @brief  投递：把事件塞进自己的队列（跑在 kernel 线程，不阻塞）
+ */
+static void demo_post(const message *msg)
+{
+    if(s_q == RT_NULL)
+    {
+        return;
+    }
+
+    (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* 队列只读，转掉 const */
+}
+
+/**************************************************************************************************
+ *                                        渲染（kernel 线程）
+ **************************************************************************************************/
+/**
+ * @brief  每帧渲染：只拿快照 + 调一个界面函数，不碰硬件
+ */
+static void demo_render(void)
+{
+    demo_view_t v;
+    rt_base_t   level;
 
     level = rt_hw_interrupt_disable();
     v = s_view;
     rt_hw_interrupt_enable(level);
 
-    custom_ui_render(v.lux, v.bright, v.led_on);
-}
-
-/**
- * @brief  逻辑线程：退出页面时调用（K4 或切到别的任务）
- * @note   在这里把硬件恢复安全状态，否则会一直占用外设
- */
-static void lux_teardown(void)
-{
-    led_brightness_set(LED_ALL, 0);     /* 关灯，别让 LED 一直亮着 */
-    ch422_clear();                      /* 数码管清空 */
+    demo_ui_render(v.count, v.run, v.events);
 }
 
 /**************************************************************************************************
  *                                        任务描述
  **************************************************************************************************/
-const app_task_t task_lux =
+const task_t task_example =
 {
-    .name       = "LUX",            /* 菜单显示名，<= 7 字符 */
-    .stack_size = 1024,
-    .priority   = 12,
-    .setup      = lux_setup,
-    .update     = lux_update,
-    .on_key     = lux_on_key,
-    .on_set     = lux_on_set,
-    .render     = lux_render,
-    .teardown   = lux_teardown,
-    .ui_destroy = custom_ui_destroy,
+    .name       = "DEMO",           /* 调试打印用，也是线程名（<= 7 字符） */
+    .keep       = 0,                /* 0 = 切走就关线程 */
+
+    .open       = demo_open,        /* 自己建队列 + 线程 */
+    .close      = demo_close,       /* 自己让线程退出 + 删队列 */
+    .post       = demo_post,        /* 自己收事件 */
+    .render     = demo_render,      /* 前台每拍画界面 */
+    .ui_destroy = demo_ui_destroy,  /* 关页时把页面还给 LVGL 堆 */
 };

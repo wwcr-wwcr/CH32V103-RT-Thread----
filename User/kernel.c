@@ -1,17 +1,10 @@
 #include "kernel.h"
 #include "rtthread.h"
 #include "lvgl/lvgl.h"
-#include "app.h"
 
 static rt_mq_t message_q = RT_NULL;                   //key线程事件队列
 static evt_handler_t event    = RT_NULL;     //事件处理
 static render_cb_t   render = RT_NULL;     //事件刷新
-
-void kernel_post(uint8_t type, uint8_t code, int32_t value)     //事件队列投递
-{
-    message ev = {type, code, value};
-    rt_mq_send(message_q, &ev, sizeof(ev));
-}
 
 static void kernel_loop(void *parameter)
 {
@@ -37,6 +30,20 @@ static void kernel_loop(void *parameter)
     }
 }
 
+
+void kernel_post(uint8_t type, uint8_t code, int32_t value)     //事件队列投递
+{
+    message ev = {type, code, value};
+
+    if(message_q == RT_NULL)                    //队列还没建，直接丢
+    {
+        return;
+    }
+
+    rt_mq_send(message_q, &ev, sizeof(ev));
+}
+
+
 static struct rt_thread s_tid;                  //kernel线程
 static rt_uint8_t s_stack[6144];                //kernel线程栈
 void kernel_run(evt_handler_t on_evt, render_cb_t on_render)
@@ -60,6 +67,5 @@ void kernel_run(evt_handler_t on_evt, render_cb_t on_render)
  **************************************************************************************************/
 static void kernel_cmd(void)
 {
-    
 }
 MSH_CMD_EXPORT_ALIAS(kernel_cmd, kernel, show kernel loop counter);
