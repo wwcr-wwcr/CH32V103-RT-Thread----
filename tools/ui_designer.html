@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LVGL UI Designer — rtt+lvgl 2.0</title>
+<style>
+  :root{
+    --bg:#17181b; --panel:#212226; --panel2:#2a2c31; --line:#3a3d44;
+    --fg:#e6e7ea; --fg2:#a8abb3; --fg3:#71757e;
+    --accent:#4a9eff; --accent2:#2f7ad6; --warn:#e2a03f; --ok:#48b57a;
+    --c-bg:#FFF5F9; --c-bg2:#E7F3FF; --c-card:#FFFFFF; --c-border:#FFD9E8;
+    --c-title:#FF7AA8; --c-text:#3A2E39; --c-dim:#9A8C98; --c-value:#FF4F8B;
+    --c-accent:#3FC8B4; --c-hint:#FFE6F1;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:13px/1.5 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    overflow:hidden;
+  }
+  #app{display:flex; flex-direction:column; height:100vh}
+
+  /* ---------- 顶栏 ---------- */
+  #bar{
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  #bar .brand{font-weight:500; font-size:14px; letter-spacing:.2px}
+  #bar .sub{color:var(--fg3); font-size:12px; margin-right:auto}
+  button{
+    background:var(--panel2); color:var(--fg); border:1px solid var(--line);
+    border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer;
+    font-family:inherit; transition:background .12s,border-color .12s;
+  }
+  button:hover{background:#34373d; border-color:#4d5159}
+  button.primary{background:var(--accent2); border-color:var(--accent2); color:#fff}
+  button.primary:hover{background:var(--accent)}
+  button.ghost{background:transparent}
+
+  /* ---------- 主区 ---------- */
+  main{display:flex; flex:1 1 auto; min-height:0}
+
+  /* 左：控件库 */
+  #palette{
+    width:154px; flex:0 0 auto; background:var(--panel);
+    border-right:1px solid var(--line); padding:10px; overflow-y:auto;
+  }
+  .ptitle{
+    font-size:11px; color:var(--fg3); text-transform:uppercase;
+    letter-spacing:.6px; margin:12px 0 6px;
+  }
+  .ptitle:first-child{margin-top:0}
+  .pbtn{
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background:var(--panel2); border:1px solid var(--line); border-radius:6px;
+    padding:7px 9px; margin-bottom:6px; cursor:pointer; font-size:12px;
+  }
+  .pbtn:hover{background:#34373d; border-color:var(--accent2)}
+  .pbtn i{
+    width:15px; height:15px; flex:0 0 auto; border-radius:3px;
+    border:1.5px solid var(--accent); display:inline-block;
+  }
+  .pbtn small{display:block; color:var(--fg3); font-size:10.5px; line-height:1.3}
+
+  /* 中：画布 */
+  #stageWrap{
+    flex:1 1 auto; display:flex; align-items:center; justify-content:center;
+    background:
+      linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px) 0 0/20px 20px,
+      linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px) 0 0/20px 20px,
+      #101114;
+    overflow:auto; padding:20px; position:relative;
+  }
+  #stage{
+    position:relative; flex:0 0 auto;
+    width:320px; height:480px; border-radius:6px; overflow:hidden;
+    background:linear-gradient(180deg,var(--c-bg) 0%,var(--c-bg2) 100%);
+    box-shadow:0 0 0 1px #000, 0 10px 40px rgba(0,0,0,.55);
+    user-select:none;
+  }
+  #stage.grid::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(90deg,rgba(74,158,255,.10) 1px,transparent 1px) 0 0/8px 8px,
+      linear-gradient(rgba(74,158,255,.10) 1px,transparent 1px) 0 0/8px 8px;
+  }
+  .w{position:absolute}
+  /* 注意：下面所有 .w-xxx 都不能再写 position:relative，
+     否则会退回文档流，多个同类控件会互相顶开，坐标全部错位 */
+  .w.sel{outline:1.5px solid var(--accent); outline-offset:1px; z-index:99}
+  .w.sel::after{
+    content:attr(data-tag); position:absolute; left:0; top:-17px;
+    background:var(--accent); color:#fff; font-size:10px; line-height:1;
+    padding:3px 5px; border-radius:3px; white-space:nowrap; pointer-events:none;
+  }
+  /* 对齐参考线（Figma 风格橙红） */
+  #guides{position:absolute; inset:0; pointer-events:none; z-index:200}
+  .guide{position:absolute; background:#f24e1e}
+  .guide.v{width:1px; height:100%; top:0}
+  .guide.h{height:1px; width:100%; left:0}
+
+  /* 一键对齐按钮组 */
+  .align-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:9px}
+  .align-grid button{padding:4px 2px; font-size:11.5px; text-align:center}
+  .snap{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--fg2)}
+  .snap select{width:auto; padding:3px 6px; font-size:12px}
+  .w-panel{border-radius:22px; border:0}
+  .w-text{color:var(--c-text); font-size:14px; white-space:nowrap; line-height:1.2;
+          font-family:"Montserrat","Segoe UI",sans-serif}
+  .w-row{display:flex; align-items:flex-start; justify-content:space-between;
+         width:100%; cursor:move}
+  .w-row .lb{color:var(--c-dim); font-size:12px; padding-left:20px}
+  .w-row .vl{color:var(--c-value); font-size:14px; padding-right:20px}
+  .w-title{display:flex; align-items:center; justify-content:space-between;
+           padding:0 16px; border-radius:22px;
+           background:rgba(255,255,255,.95); border:1px solid var(--c-border)}
+  .w-title .l{color:var(--c-text); font-size:14px}
+  .w-title .r{color:var(--c-dim); font-size:12px}
+  .w-hint{display:flex; align-items:center; justify-content:center;
+          border-radius:18px; background:rgba(255,255,255,.84);
+          border:1px solid var(--c-border); color:var(--c-dim); font-size:12px}
+
+  /* --- 新增控件 --- */
+  .w-slider{border-radius:6px; background:var(--c-border); cursor:move}
+  .w-slider .fill{position:absolute; left:0; top:0; bottom:0; border-radius:6px;
+                  background:var(--c-accent)}
+  .w-slider .knob{position:absolute; top:50%; width:15px; height:15px; margin-top:-7.5px;
+                  margin-left:-7.5px; border-radius:50%; background:var(--c-text)}
+  .w-btn{display:flex; align-items:center; justify-content:center; cursor:move;
+         border-radius:18px; background:var(--c-card); border:1px solid var(--c-border);
+         color:var(--c-value); font-size:14px; text-align:center}
+  .w-bar{border-radius:5px; background:var(--c-border);
+         overflow:hidden; cursor:move}
+  .w-bar .fill{position:absolute; left:0; top:0; bottom:0; background:var(--c-accent)}
+  .w-div{cursor:move}
+  .w-circle{cursor:move}
+  .w-card{background:var(--c-card); border-radius:22px; cursor:move;
+          box-shadow:0 1px 3px rgba(58,46,57,.06)}
+  .w-card .cap{position:absolute; left:16px; top:12px; color:var(--c-dim); font-size:12px}
+  .w-card .val{position:absolute; left:16px; bottom:12px; color:var(--c-value); font-size:14px}
+
+  /* 曲线图：网格 + 两条折线（对应 ui_plot） */
+  .w-plot{background:var(--c-card); border-radius:12px; cursor:move;
+          overflow:hidden; box-shadow:0 1px 3px rgba(58,46,57,.06)}
+  .w-plot .grid{position:absolute; inset:8px; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg,rgba(58,46,57,.10) 0 1px,transparent 1px 25%),
+      repeating-linear-gradient(90deg,rgba(58,46,57,.10) 0 1px,transparent 1px 20%)}
+  .w-plot svg{position:absolute; inset:8px; width:calc(100% - 16px); height:calc(100% - 16px)}
+  .w-plot polyline{fill:none; vector-effect:non-scaling-stroke}
+
+  /* 动画预览 */
+  @keyframes animIn{from{transform:translateY(20px)}to{transform:translateY(0)}}
+  @keyframes animPop{from{opacity:.47;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes animFade{from{opacity:0}to{opacity:1}}
+  @keyframes animMove{from{transform:translateY(12px)}to{transform:translateY(0)}}
+  @keyframes animFlash{0%{opacity:.59}100%{opacity:1}}
+  @keyframes animPress{0%{opacity:.59}100%{opacity:1}}
+  .play-in{animation:animIn .36s ease-out both}
+  .play-pop{animation:animPop .38s cubic-bezier(.34,1.4,.64,1) both}
+  .play-fade{animation:animFade .42s ease-out both}
+  .play-move{animation:animMove .42s ease-out both}
+  .play-flash{animation:animFlash .26s ease-out both}
+  .play-press{animation:animPress .22s ease-out both}
+
+  /* 右：属性面板 */
+  #inspector{
+    width:272px; flex:0 0 auto; background:var(--panel);
+    border-left:1px solid var(--line); overflow-y:auto; padding:10px 12px 30px;
+  }
+  .empty{color:var(--fg3); font-size:12px; text-align:center;
+         padding:40px 10px; line-height:1.9}
+  .row2{display:flex; gap:8px}
+  .row2 > *{flex:1 1 0; min-width:0}
+  .field{margin-bottom:9px}
+  .field > label{display:block; color:var(--fg2); font-size:11px; margin-bottom:3px}
+  input[type=text],input[type=number],select{
+    width:100%; background:#15161a; color:var(--fg); border:1px solid var(--line);
+    border-radius:5px; padding:5px 7px; font-size:12px; font-family:inherit;
+  }
+  input[type=text]:focus,input[type=number]:focus,select:focus{
+    outline:none; border-color:var(--accent2);
+  }
+  input[type=color]{
+    width:100%; height:28px; background:#15161a; border:1px solid var(--line);
+    border-radius:5px; padding:2px; cursor:pointer;
+  }
+  .swatches{display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:5px}
+  .sw{height:18px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,.35)}
+  .sw:hover{outline:1.5px solid var(--accent); outline-offset:1px}
+  .mini{
+    background:#15161a; border:1px solid var(--line); border-radius:5px;
+    padding:7px 8px; font:11px/1.55 ui-monospace,Consolas,monospace;
+    color:#9fd0a0; white-space:pre-wrap; word-break:break-all; margin-top:4px;
+  }
+  .warn{
+    background:rgba(226,160,63,.12); border:1px solid rgba(226,160,63,.35);
+    color:var(--warn); border-radius:5px; padding:6px 8px; font-size:11px;
+    margin-top:8px; line-height:1.5;
+  }
+  .sec{font-size:11px; color:var(--fg3); text-transform:uppercase;
+       letter-spacing:.6px; margin:14px 0 7px; padding-top:10px;
+       border-top:1px solid var(--line)}
+
+  /* 底部代码 */
+  #codeWrap{
+    flex:0 0 auto; height:212px; background:var(--panel);
+    border-top:1px solid var(--line); display:flex; flex-direction:column;
+    min-height:0;
+  }
+  #codeHead{
+    display:flex; align-items:center; gap:10px; padding:6px 12px;
+    border-bottom:1px solid var(--line); flex:0 0 auto; font-size:11.5px;
+    color:var(--fg3);
+  }
+  #codeHead b{color:var(--fg2); font-weight:500}
+  #codeHead .spacer{flex:1}
+  #code{
+    flex:1 1 auto; margin:0; padding:10px 14px; overflow:auto;
+    font:12px/1.62 ui-monospace,Consolas,"Courier New",monospace;
+    color:#cfd3da; white-space:pre; tab-size:4;
+  }
+  #code .k{color:#c792ea}   /* 类型/关键字 */
+  #code .f{color:#82aaff}   /* 函数名 */
+  #code .s{color:#c3e88d}   /* 字符串 */
+  #code .c{color:#5f6672; font-style:italic}  /* 注释 */
+  #code .n{color:#f78c6c}   /* 数字/宏 */
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:#2f7ad6; color:#fff; padding:8px 16px; border-radius:6px;
+    font-size:12.5px; opacity:0; pointer-events:none; transition:opacity .2s;
+    z-index:999;
+  }
+  .toast.show{opacity:1}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#3a3d44; border-radius:5px}
+  ::-webkit-scrollbar-thumb:hover{background:#4d5159}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <span class="brand">LVGL UI Designer</span>
+    <span class="sub"><b id="subSize">320×480</b> · 拖动自动对齐 · <b>Alt+拖 不吸附</b> · 导出可直接编译</span>
+    <button data-preset="led">示例 LED</button>
+    <button data-preset="dac">示例 DAC</button>
+    <button id="btnPlay">播放动画</button>
+    <label class="snap">方向
+      <select id="orientMode">
+        <option value="portrait">竖 320×480</option>
+        <option value="landscape">横 480×320</option>
+      </select>
+    </label>
+    <label class="snap">吸附
+      <select id="snapMode">
+        <option value="both">对齐 + 网格</option>
+        <option value="smart">仅对齐</option>
+        <option value="grid">仅网格 4px</option>
+        <option value="off">关闭</option>
+      </select>
+    </label>
+    <button id="btnGrid">显示网格</button>
+    <button id="btnClear" class="ghost">清空</button>
+    <button id="btnCopy">复制代码</button>
+    <button id="btnDownload" class="primary">下载 .c</button>
+  </header>
+
+  <main>
+    <aside id="palette">
+      <div class="ptitle">基础</div>
+      <div class="pbtn" data-add="panel"><i style="border-radius:6px"></i>
+        <span>面板<small>ui_panel</small></span></div>
+      <div class="pbtn" data-add="card"><i style="border-radius:6px;background:var(--c-card);border-color:var(--c-border)"></i>
+        <span>数据卡片<small>ui_card 标题+数值</small></span></div>
+      <div class="pbtn" data-add="row"><i style="border-radius:50%"></i>
+        <span>数据行<small>ui_row</small></span></div>
+      <div class="pbtn" data-add="text"><i style="border-radius:0;border:none;background:var(--accent)"></i>
+        <span>文字<small>ui_text</small></span></div>
+      <div class="pbtn" data-add="bar"><i style="border-radius:3px;background:linear-gradient(90deg,var(--accent) 60%,transparent 60%)"></i>
+        <span>进度条<small>lv_bar</small></span></div>
+      <div class="pbtn" data-add="divider"><i style="border-radius:0;border:none;height:2px;background:var(--fg3)"></i>
+        <span>分隔线<small>ui_panel h=1</small></span></div>
+      <div class="pbtn" data-add="circle"><i style="border-radius:50%;background:var(--c-accent);border:none"></i>
+        <span>圆点<small>ui_panel + CIRCLE</small></span></div>
+
+      <div class="ptitle">交互</div>
+      <div class="pbtn" data-add="slider"><i style="border-radius:4px;height:6px;background:var(--c-accent)"></i>
+        <span>滑条<small>lv_slider + 事件</small></span></div>
+      <div class="pbtn" data-add="button"><i style="border-radius:6px;background:var(--c-card);border-color:var(--c-border)"></i>
+        <span>按钮<small>可点 + 回弹</small></span></div>
+
+      <div class="ptitle">图表</div>
+      <div class="pbtn" data-add="plot"><i style="border-radius:4px;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(63,200,180,.75) 3px 4px)"></i>
+        <span>曲线图<small>ui_plot 坐标轴</small></span></div>
+
+      <div class="ptitle">固定件</div>
+      <div class="pbtn" data-add="title"><i style="border-radius:6px 6px 0 0"></i>
+        <span>标题栏<small>ui_title_bar</small></span></div>
+      <div class="pbtn" data-add="hint"><i style="border-radius:9px"></i>
+        <span>提示条<small>ui_hint_bar</small></span></div>
+
+      <div class="ptitle">页面</div>
+      <div class="field">
+        <label>页面名（用于函数名）</label>
+        <input type="text" id="pageName" value="CUSTOM">
+      </div>
+      <div class="field">
+        <label>标题 / 右侧文字</label>
+        <div class="row2">
+          <input type="text" id="pageTitle" value="CUSTOM">
+          <input type="text" id="pageRight" value="1/1">
+        </div>
+      </div>
+      <div class="field">
+        <label>底部提示</label>
+        <input type="text" id="pageHint" value="K4 BACK">
+      </div>
+    </aside>
+
+    <div id="stageWrap">
+      <div id="stage"></div>
+    </div>
+
+    <aside id="inspector">
+      <div id="insp" class="empty">在左侧添加控件<br>点选后可拖动、改属性</div>
+    </aside>
+  </main>
+
+  <section id="codeWrap">
+    <div id="codeHead">
+      <b>生成的代码</b>
+      <span id="codeFile">task_custom_ui.c</span>
+      <span class="spacer"></span>
+      <span>改完属性会自动更新</span>
+    </div>
+    <pre id="code"></pre>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+ *  模型
+ * ============================================================ */
+const M = { W: 320, H: 480, RADIUS: 22, PAD: 16, TITLE_H: 56, HINT_H: 40,
+            ORIENT: "portrait" };
+
+const COLOR_KEYS = [
+  ["UI_C_CARD",   "#FFFFFF"],
+  ["UI_C_BORDER", "#FFD9E8"],
+  ["UI_C_TITLE",  "#FF7AA8"],
+  ["UI_C_TEXT",   "#3A2E39"],
+  ["UI_C_TEXT_DIM","#9A8C98"],
+  ["UI_C_VALUE",  "#FF4F8B"],
+  ["UI_C_ACCENT", "#3FC8B4"],
+  ["UI_C_HINT",   "#FFE6F1"],
+  ["UI_C_BG",     "#FFF5F9"],
+  ["UI_C_BG_BOTTOM","#E7F3FF"]
+];
+
+const FONTS = ["UI_FONT_SMALL", "UI_FONT_NORMAL", "UI_FONT_BIG", "UI_FONT_HUGE"];
+
+const ANIMS = {
+  none:       { label: "无",               types: [] },
+  page_in:    { label: "page_in 滑入",      types: ["panel"] },
+  slide_in:   { label: "slide_in 横向滑入",  types: ["panel", "text"] },
+  pop_in:     { label: "pop_in 淡入上浮",    types: ["panel", "text", "circle", "button", "card"] },
+  bounce_in:  { label: "bounce_in 下落回弹", types: ["panel", "text", "circle", "button", "card"] },
+  fade:       { label: "fade 淡入",         types: ["text", "row", "slider", "bar", "divider", "card"] },
+  fade_out:   { label: "fade_out 淡出",     types: ["text", "row", "panel", "slider"] },
+  move_y:     { label: "move_y 位移",       types: ["text", "row"] },
+  value_flash:{ label: "value_flash 闪",    types: ["text", "row"] },
+  press:      { label: "press 按压回弹",     types: ["text", "button"] },
+  shake:      { label: "shake 左右摆动",     types: ["text", "row", "button", "circle"] },
+  pulse:      { label: "pulse 呼吸",        types: ["text", "circle", "button", "card"] },
+  bg_flash:   { label: "bg_flash 底色渐入",  types: ["panel", "card"] },
+  grow_w:     { label: "grow_w 横向展开",    types: ["bar", "divider"] },
+  grow_h:     { label: "grow_h 竖向展开",    types: ["panel", "bar"] },
+  list_in:    { label: "list_in 逐项入场",   types: ["text", "row", "button", "card"] }
+};
+
+let S = {
+  name: "CUSTOM", title: "CUSTOM", right: "1/1", hint: "K4 BACK",
+  widgets: [], sel: null, seq: 0
+};
+
+const stage   = document.getElementById("stage");
+const insp    = document.getElementById("insp");
+const codeEl  = document.getElementById("code");
+const codeFile= document.getElementById("codeFile");
+
+/* ============================================================
+ *  工具
+ * ============================================================ */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc   = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function cstr(s){
+  return '"' + String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"') + '"';
+}
+function css(colorHex, alpha){
+  const r = parseInt(colorHex.slice(1,3),16),
+        g = parseInt(colorHex.slice(3,5),16),
+        b = parseInt(colorHex.slice(5,7),16);
+  return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+}
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+/* ============================================================
+ *  增删改
+ * ============================================================ */
+function addWidget(type){
+  const id = ++S.seq;
+  let w = null;
+
+  if (type === "title"){
+    if (S.widgets.some(x => x.type === "title")) return toast("标题栏只能有一个");
+    w = { id, type, x: 12, y: 10, w: M.W - 24, h: M.TITLE_H - 10 };
+
+  } else if (type === "hint"){
+    if (S.widgets.some(x => x.type === "hint")) return toast("提示条只能有一个");
+    w = { id, type, x: 24, y: M.H - 46, w: M.W - 48, h: 36 };
+
+  } else {
+    const h  = pickHost();                   /* 父容器几何（绝对）+ 同父子控件数 */
+    const y0 = h.py + 28 + h.n * 36;         /* 依次往下排的起始 y（绝对） */
+
+    w = { id: id, type: type, parent: h.parent, anim: "none", dur: 420, delay: 0,
+          x: h.px + 16, y: y0, w: 200, h: 22 };
+
+    if (type === "panel"){
+      w.x = h.px + 16;
+      /* 没有父容器时从标题栏下面开始，有父容器就贴着它内部顶端 */
+      w.y = (h.parent != null) ? (h.py + 28) : (90 + h.n * 16);
+      w.w = Math.max(80, h.pw - 32);
+      w.h = 170;
+      w.color = "#FFFFFF"; w.radius = M.RADIUS;
+      w.anim = "page_in"; w.dur = 360;
+
+    } else if (type === "row"){
+      w.x = h.px; w.w = h.pw; w.h = 26;
+      w.label = "LABEL"; w.value = "--"; w.color = "#FF4F8B";
+      w.anim = "fade";
+      w.param = true; w.ptype = "str"; w.punit = "";
+
+    } else if (type === "card"){
+      w.x = h.px + 16;
+      w.y = (h.parent != null) ? y0 : (90 + h.n * 16);
+      w.w = Math.floor((h.pw - 32 - 12) / 2);
+      w.h = 92;
+      w.title = "TITLE"; w.value = "--";
+      w.anim = "pop_in"; w.dur = 380;
+      w.param = true; w.ptype = "str"; w.punit = "";
+
+    } else if (type === "text"){
+      w.x = h.px + 20; w.w = 120; w.h = 20;
+      w.text = "TEXT"; w.color = "#FF4F8B"; w.font = "UI_FONT_BIG";
+      w.anim = "fade";
+      w.param = true; w.ptype = "str"; w.punit = "";
+
+    } else if (type === "bar"){
+      w.x = h.px + 20; w.w = Math.min(200, h.pw - 40); w.h = 8;
+      w.value = 60; w.color = "#3FC8B4";
+
+    } else if (type === "divider"){
+      w.x = h.px + 20; w.w = Math.max(40, h.pw - 40); w.h = 1;
+      w.color = "#FFD9E8";
+
+    } else if (type === "circle"){
+      w.x = h.px + 20; w.w = 28; w.h = 28;
+      w.color = "#3FC8B4";
+      w.anim = "pop_in"; w.dur = 380;
+
+    } else if (type === "slider"){
+      w.x = h.px + 20; w.w = Math.max(60, h.pw - 40); w.h = 10;
+      w.min = 0; w.max = 100; w.value = 30; w.evId = 0;
+
+    } else if (type === "button"){
+      w.x = h.px + 8; w.w = 88; w.h = 46;
+      w.text = "OK"; w.evId = 1; w.radius = 18; w.font = "UI_FONT_BIG";
+      w.anim = "press"; w.dur = 220;
+
+    } else if (type === "plot"){
+      /* 曲线图个头大，高度按父容器剩余空间收一下 */
+      const avail = (h.py + h.ph) - y0 - 12;
+
+      w.x = h.px + 16;
+      w.w = Math.min(240, h.pw - 32);
+      w.h = clamp(avail, 60, 150);
+      /* 两条线：0 = 虚线、1 = 实线，正好对应"一实一虚" */
+      w.yd = 4; w.xd = 5; w.grid = "#E8DEE6";
+      w.ch = [
+        { color: "#00A0C8", style: "dash",  vmin: 0, vmax: 100 },
+        { color: "#FFA300", style: "solid", vmin: 0, vmax: 100 }
+      ];
+    }
+  }
+
+  /* 落点夹进父容器（没父就是画布） */
+  clampToParent(w);
+
+  S.widgets.push(w);
+  S.sel = id;
+  renderAll();
+}
+
+/* 新控件落点。
+ *
+ * 不做任何"自动塞进卡片"的猜测：一律放在页面顶层，
+ * 坐标紧接在已有顶层控件下面排。需要归属哪张卡片，
+ * 加完之后用属性面板的「父容器」下拉手动选。
+ *
+ * （之前是"选中卡片就自动进那张卡 / 否则进最后一个 panel"，
+ *   一旦判断出错，父子关系和坐标就会一起乱，不如全交给用户。）
+ */
+function pickHost(){
+  const n = S.widgets.filter(w =>
+    w.parent == null && w.type !== "title" && w.type !== "hint").length;
+
+  return {
+    parent: null,
+    px: 0,
+    py: 90,
+    pw: M.W,
+    ph: M.H - M.HINT_H,
+    n : n
+  };
+}
+
+function delWidget(id){
+  /* 坐标是绝对的，删父容器只要把孩子的 parent 清掉，位置一动不动 */
+  S.widgets = S.widgets.filter(w => w.id !== id);
+  S.widgets.forEach(w => { if (w.parent === id) w.parent = null; });
+
+  if (S.sel === id) S.sel = null;
+  renderAll();
+}
+
+function getW(id){ return S.widgets.find(w => w.id === id); }
+
+/* ============================================================
+ *  渲染
+ * ============================================================ */
+function renderAll(){
+  /* 先把脏掉的父链修干净，否则控件会被渲染到一个"隐形容器"里：
+   * 画布位置 = 那个容器的偏移 + 相对坐标，而面板显示的是相对坐标，两边对不上。 */
+  const fixed = normalizeTree();
+  if (fixed.length){
+    toast("已修正 " + fixed.length + " 个控件的父子关系");
+  }
+
+  /* 扁平渲染：所有控件都直接挂在 stage 上，按数组顺序叠放（后加的在上）。
+   * 坐标是绝对屏幕坐标，父子关系只影响生成代码，不参与定位。 */
+  stage.innerHTML = "";
+  S.widgets.forEach(w => stage.appendChild(buildEl(w)));
+
+  renderInspector();
+  genCode();
+}
+
+/* ============================================================
+ *  横屏 / 竖屏
+ *
+ *  只改画布尺寸，不碰代码生成：
+ *    · 标题栏 / 提示条是"固定件"，按新宽度铺满、提示条贴底
+ *    · 其余控件夹回边界（顶层按画布算，子控件按父容器算）
+ *  注意：画布比例不会写进生成的 C 代码，屏幕上怎么摆由 LCD 驱动决定。
+ * ============================================================ */
+function clampAll(){
+  /* 1. 固定件跟着画布走 */
+  S.widgets.forEach(w => {
+    if (w.type === "title"){
+      w.x = 12; w.y = 10; w.w = M.W - 24; w.h = M.TITLE_H - 10;
+    } else if (w.type === "hint"){
+      w.x = 24; w.y = M.H - 46; w.w = M.W - 48; w.h = 36;
+    }
+  });
+
+  /* 2. 先把父容器夹进画布，再把子控件夹进父容器（两轮够处理嵌套） */
+  S.widgets.forEach(w => { if (w.parent == null) clampToParent(w); });
+  S.widgets.forEach(w => { if (w.parent != null) clampToParent(w); });
+}
+
+function setOrient(mode){
+  const portrait = (mode !== "landscape");
+
+  M.ORIENT = portrait ? "portrait" : "landscape";
+  M.W = portrait ? 320 : 480;
+  M.H = portrait ? 480 : 320;
+
+  /* CSS 里给的是 320x480 的默认值，这里用内联样式覆盖 */
+  stage.style.width  = M.W + "px";
+  stage.style.height = M.H + "px";
+
+  const sub = document.getElementById("subSize");
+  if (sub) sub.textContent = M.W + "×" + M.H;
+
+  clampAll();
+  renderAll();                 /* 没选中的控件也可能被夹小，整个重画 */
+
+  return M.W + "x" + M.H;
+}
+
+/* 曲线图的预览内容：网格 + 两条折线（画布用，和生成的代码无关） */
+function plotInner(w){
+  const ch = (w.ch && w.ch.length === 2) ? w.ch : [
+    { color: "#00A0C8", style: "dash"  },
+    { color: "#FFA300", style: "solid" }
+  ];
+  const dash = c => c.style === "dash" ? ' stroke-dasharray="4 3"' : "";
+
+  return '<div class="grid"></div>'
+    + '<svg viewBox="0 0 100 100" preserveAspectRatio="none">'
+    + '<polyline points="0,78 18,62 36,70 54,34 72,48 100,22"'
+    +   ' stroke="' + ch[0].color + '" stroke-width="2"' + dash(ch[0]) + '/>'
+    + '<polyline points="0,90 18,84 36,58 54,52 72,26 100,32"'
+    +   ' stroke="' + ch[1].color + '" stroke-width="2"' + dash(ch[1]) + '/>'
+    + '</svg>';
+}
+
+function buildEl(w){
+  const el = document.createElement("div");
+  el.className = "w";
+  el.dataset.id = w.id;
+  el.dataset.tag = tagOf(w);
+  el.style.left = w.x + "px";
+  el.style.top  = w.y + "px";
+  el.style.width  = w.w + "px";
+  el.style.height = w.h + "px";
+  if (w.id === S.sel) el.classList.add("sel");
+
+  if (w.type === "panel"){
+    el.classList.add("w-panel");
+    el.style.background = w.color;
+    el.style.borderRadius = w.radius + "px";
+    el.style.boxShadow = "0 1px 3px rgba(58,46,57,.06)";
+
+  } else if (w.type === "title"){
+    el.classList.add("w-title");
+    el.innerHTML = '<span class="l">' + esc(S.title) + '</span>' +
+                   '<span class="r">' + esc(S.right) + '</span>';
+
+  } else if (w.type === "hint"){
+    el.classList.add("w-hint");
+    el.textContent = S.hint;
+
+  } else if (w.type === "row"){
+    el.classList.add("w-row");
+    el.innerHTML = '<span class="lb">' + esc(w.label) + '</span>' +
+                   '<span class="vl" style="color:' + w.color + '">' + esc(w.value) + '</span>';
+
+  } else if (w.type === "text"){
+    el.classList.add("w-text");
+    el.textContent = w.text;
+    el.style.color = w.color;
+
+  } else if (w.type === "bar"){
+    el.classList.add("w-bar");
+    el.innerHTML = '<div class="fill" style="width:' + w.value + '%;background:' + w.color + '"></div>';
+
+  } else if (w.type === "divider"){
+    el.classList.add("w-div");
+    el.style.background = w.color;
+
+  } else if (w.type === "circle"){
+    el.classList.add("w-circle");
+    el.style.background = w.color;
+
+  } else if (w.type === "slider"){
+    el.classList.add("w-slider");
+    const p = pctOf(w);
+    el.innerHTML = '<div class="fill" style="width:' + p + '%"></div>' +
+                   '<div class="knob" style="left:' + p + '%"></div>';
+
+  } else if (w.type === "button"){
+    el.classList.add("w-btn");
+    el.style.borderRadius = w.radius + "px";
+    el.textContent = w.text;
+
+  } else if (w.type === "card"){
+    el.classList.add("w-card");
+    el.innerHTML = '<div class="cap">' + esc(w.title || "") + '</div>' +
+                   '<div class="val">' + esc(w.value || "--") + '</div>';
+
+  } else if (w.type === "plot"){
+    el.classList.add("w-plot");
+    el.innerHTML = plotInner(w);
+
+  }
+
+  /* 注意：这里不再把子控件 append 进来。
+   * 所有控件都平铺在 stage 上，坐标是绝对屏幕坐标，
+   * 父子关系只影响生成代码时的层级（和裁剪），不影响画布位置。 */
+  bindDrag(el, w);
+  return el;
+}
+
+function tagOf(w){
+  const map = { panel:"PANEL", text:"TEXT", row:"ROW", title:"TITLE", hint:"HINT",
+                bar:"BAR", divider:"DIV", circle:"DOT", slider:"SLIDER", button:"BTN",
+                card:"CARD", plot:"PLOT" };
+  return (map[w.type] || w.type.toUpperCase()) + " #" + w.id +
+         (w.anim && w.anim !== "none" ? " · " + w.anim : "");
+}
+
+/* 滑条填充百分比 */
+function pctOf(w){
+  const span = (w.max - w.min) || 1;
+  return Math.max(0, Math.min(100, (w.value - w.min) / span * 100)).toFixed(1);
+}
+
+/* ---------- 吸附 ---------- */
+let snapMode = "both";      /* both | smart | grid | off */
+let gridOn   = true;
+
+/* ============================================================
+ *  坐标系（重构后）
+ *
+ *  w.x / w.y 就是【绝对屏幕坐标】，相对页面左上角。
+ *  父子关系只决定"生成代码时挂在谁下面"，不参与画布定位。
+ *
+ *  这样做的好处：
+ *    · 面板上显示的 X/Y 就是你在画布上看到的位置，永远对得上
+ *    · 换父容器 / 删父容器，控件一动不动
+ *    · 画布是扁平渲染，不存在"隐形容器把坐标带偏"的可能
+ *  生成代码时才反算相对坐标（x - 父.x）。
+ * ============================================================ */
+function absPos(w){
+  return { x: w.x, y: w.y };
+}
+
+/* 父链自检：父必须存在、必须是 panel、不能是自己、不能成环。
+ * 不合法就退回页面顶层。坐标不用动 —— 本来就是绝对坐标。 */
+function normalizeTree(){
+  const fixed = [];
+
+  S.widgets.forEach(w => {
+    if (w.parent == null) return;
+
+    const p = getW(w.parent);
+    let bad = (!p || p.type !== "panel" || p.id === w.id);
+
+    /* 沿父链往上走，遇到自己就是环 */
+    if (!bad){
+      let q = p, guard = 0;
+
+      while (q && guard++ < 32){
+        if (q.id === w.id){ bad = true; break; }
+        q = (q.parent != null) ? getW(q.parent) : null;
+      }
+    }
+
+    if (bad){
+      w.parent = null;
+      fixed.push(w);
+    }
+  });
+
+  return fixed;
+}
+
+/* ============================================================
+ *  父容器（子对象归属）
+ *
+ *  只有 panel 能装东西：card 返回的是 lv_obj_t*（数值 label），
+ *  plot 返回的是 ui_plot_t*，都不是能挂孩子的普通对象。
+ *  换父容器时保持"屏幕上的绝对位置"不变，只换算相对坐标。
+ * ============================================================ */
+
+/* node 是不是 ancestorId 的子孙？用来防止把 panel 塞进自己的子 panel */
+function isDescendant(node, ancestorId){
+  let p = node.parent;
+  while (p != null){
+    if (p === ancestorId) return true;
+    const o = getW(p);
+    p = o ? o.parent : null;
+  }
+  return false;
+}
+
+/* 可以当父容器的候选列表 */
+function hostCandidates(w){
+  return S.widgets.filter(p =>
+    p.type === "panel" && p.id !== w.id && !isDescendant(p, w.id));
+}
+
+/* 把控件夹进它当前的父容器（顶层就是画布）。
+ * 由于坐标是绝对的，父容器的范围要换算成 [p.x, p.x+p.w]。 */
+function clampToParent(w){
+  const p  = (w.parent != null) ? getW(w.parent) : null;
+
+  const L  = p ? p.x : 0;
+  const T  = p ? p.y : 0;
+  const PW = p ? p.w : M.W;
+  const PH = p ? p.h : M.H;
+
+  w.w = Math.min(w.w, PW);
+  w.h = Math.min(w.h, PH);
+  w.x = clamp(w.x, L, Math.max(L, L + PW - w.w));
+  w.y = clamp(w.y, T, Math.max(T, T + PH - w.h));
+}
+
+/* 夹进父容器；如果位置被迫变了，子孙要跟着走（坐标是绝对的） */
+function clampWithSubtree(w){
+  const bx = w.x, by = w.y;
+
+  clampToParent(w);
+
+  const dx = w.x - bx;
+  const dy = w.y - by;
+
+  if (dx !== 0 || dy !== 0){
+    moveSubtree(w.id, dx, dy);
+    return true;
+  }
+  return false;
+}
+
+/* 换父容器：只改归属，坐标一点不动（本来就是绝对坐标）。
+ * 只有当新容器装不下时才夹一下，并提示用户。 */
+function setParent(w, newId){
+  w.parent = newId;
+
+  const moved = clampWithSubtree(w);
+
+  renderAll();
+
+  if (moved){
+    toast("新父容器装不下，已把控件收进可视区");
+  }
+}
+
+/* 拖动松手时：看控件中心落在哪个 panel 里（后建的优先，避免被老的抢先） */
+function hitPanel(w){
+  const cx = w.x + w.w / 2;
+  const cy = w.y + w.h / 2;
+  let best = null;
+
+  S.widgets.forEach(p => {
+    if (p.type !== "panel" || p.id === w.id || isDescendant(p, w.id)) return;
+
+    if (cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h){
+      if (best === null || p.id > best.id) best = p;
+    }
+  });
+
+  return best ? best.id : null;
+}
+
+/* 吸附目标：父容器边界 + 中心线 + 同一父容器内其他控件的边/中心（全部用绝对坐标） */
+function snapTargets(w){
+  const xs = [], ys = [];
+  const parent = w.parent != null ? getW(w.parent) : null;
+
+  const L  = parent ? parent.x : 0;
+  const T  = parent ? parent.y : 0;
+  const PW = parent ? parent.w : M.W;
+  const PH = parent ? parent.h : M.H;
+
+  xs.push(L, Math.round(L + PW / 2), L + PW);
+  ys.push(T, Math.round(T + PH / 2), T + PH);
+
+  S.widgets.forEach(o => {
+    if (o.id === w.id || o.parent !== w.parent) return;
+    if (o.type === "title" || o.type === "hint") return;
+    xs.push(o.x, Math.round(o.x + o.w / 2), o.x + o.w);
+    ys.push(o.y, Math.round(o.y + o.h / 2), o.y + o.h);
+  });
+  return { xs: xs, ys: ys };
+}
+
+/* 一维吸附：把"左/中/右"三条边都试着贴到目标线上，取最近的一条 */
+function snapAxis(pos, size, lines, thr){
+  let bd = null, bl = null;
+  const offs = [0, size / 2, size];
+  for (let i = 0; i < lines.length; i++){
+    for (let k = 0; k < 3; k++){
+      const d = lines[i] - (pos + offs[k]);
+      if (Math.abs(d) <= thr && (bd === null || Math.abs(d) < Math.abs(bd))){
+        bd = d; bl = lines[i];
+      }
+    }
+  }
+  return { pos: bd === null ? pos : pos + bd, line: bl };
+}
+
+function guidesEl(){
+  let g = document.getElementById("guides");
+  if (!g){ g = document.createElement("div"); g.id = "guides"; stage.appendChild(g); }
+  return g;
+}
+function clearGuides(){
+  const g = document.getElementById("guides");
+  if (g) g.innerHTML = "";
+}
+function showGuides(w, gx, gy){
+  const g = guidesEl();
+  g.innerHTML = "";
+  const p = w.parent != null ? getW(w.parent) : null;
+  const ox = p ? absPos(p).x : 0;
+  const oy = p ? absPos(p).y : 0;
+
+  if (gx !== null){
+    const d = document.createElement("div");
+    d.className = "guide v";
+    d.style.left = (ox + gx) + "px";
+    g.appendChild(d);
+  }
+  if (gy !== null){
+    const d = document.createElement("div");
+    d.className = "guide h";
+    d.style.top = (oy + gy) + "px";
+    g.appendChild(d);
+  }
+}
+
+/* ---------- 拖动 + 选中 ---------- */
+let drag = null;
+/* 递归遍历某个控件的所有子孙 */
+function eachDescendant(id, fn){
+  S.widgets.forEach(c => {
+    if (c.parent !== id) return;
+    fn(c);
+    eachDescendant(c.id, fn);
+  });
+}
+
+/* 移动父容器时，把所有子孙跟着挪同样的位移（坐标是绝对的，必须一起改） */
+function moveSubtree(id, dx, dy){
+  if (dx === 0 && dy === 0) return;
+
+  eachDescendant(id, c => {
+    c.x += dx;
+    c.y += dy;
+
+    const e = stage.querySelector('[data-id="' + c.id + '"]');
+    if (e){ e.style.left = c.x + "px"; e.style.top = c.y + "px"; }
+  });
+}
+
+/* 生成代码用：把绝对坐标换算成相对父容器的坐标。
+ * 父不合法（不存在 / 不是 panel / 是自己）时按 0 算，
+ * 这样即使数据脏了也不会算出 "X=100 但代码里 160" 这种怪值。 */
+function relXY(w){
+  const p  = (w.parent != null) ? getW(w.parent) : null;
+  const ok = p && p.type === "panel" && p.id !== w.id;
+
+  return {
+    x: w.x - (ok ? p.x : 0),
+    y: w.y - (ok ? p.y : 0)
+  };
+}
+
+/* 生成代码里反复要写 "x, y"，统一从这里出（相对父容器） */
+function xyOf(w){
+  const r = relXY(w);
+  return r.x + ", " + r.y;
+}
+
+function bindDrag(el, w){
+  el.addEventListener("mousedown", ev => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    select(w.id);
+
+    const sx = ev.clientX, sy = ev.clientY, ox = w.x, oy = w.y;
+    drag = { moved: false };
+
+    const onMove = e2 => {
+      const k = scaleOf();
+      let nx = ox + Math.round((e2.clientX - sx) / k);
+      let ny = oy + Math.round((e2.clientY - sy) / k);
+      if (!drag.moved && nx === ox && ny === oy) return;
+      drag.moved = true;
+
+      const noSnap = e2.altKey;      /* 按住 Alt 临时不吸附，想放哪放哪 */
+      let gx = null, gy = null;
+
+      if (!noSnap && (snapMode === "smart" || snapMode === "both")){
+        const t = snapTargets(w);
+        const rx = snapAxis(nx, w.w, t.xs, 6);
+        const ry = snapAxis(ny, w.h, t.ys, 6);
+        nx = rx.pos; gx = rx.line;
+        ny = ry.pos; gy = ry.line;
+      }
+      if (!noSnap && (snapMode === "grid" || snapMode === "both")){
+        if (gx === null) nx = Math.round(nx / 4) * 4;
+        if (gy === null) ny = Math.round(ny / 4) * 4;
+      }
+
+      /* 夹在画布内，不允许负坐标 */
+      const nx2 = clamp(nx, 0, Math.max(0, M.W - w.w));
+      const ny2 = clamp(ny, 0, Math.max(0, M.H - w.h));
+      const dx2 = nx2 - w.x;
+      const dy2 = ny2 - w.y;
+
+      if (dx2 !== 0 || dy2 !== 0){
+        w.x = nx2;
+        w.y = ny2;
+        el.style.left = w.x + "px";
+        el.style.top  = w.y + "px";
+
+        /* 拖动卡片时，里面的控件要跟着走（它们存的是绝对坐标） */
+        moveSubtree(w.id, dx2, dy2);
+      }
+      el.dataset.tag = w.x + "," + w.y + "   " + w.w + "×" + w.h + (noSnap ? "   自由" : "");
+
+      if (gx !== null || gy !== null) showGuides(w, gx, gy); else clearGuides();
+      syncNums(w);
+    };
+
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      clearGuides();
+      if (drag && drag.moved){
+        const node = stage.querySelector('[data-id="' + w.id + '"]');
+        if (node) node.dataset.tag = tagOf(w);
+        syncNums(w);
+
+        /* 拖完只做一件事：确保没被拖出可视区。
+         * 不再自动吸附进卡片 —— 归属完全由「父容器」下拉决定。 */
+        if (clampWithSubtree(w)){
+          renderAll();
+          return;
+        }
+
+        genCode();
+      }
+      drag = null;
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+function scaleOf(){
+  const r = stage.getBoundingClientRect();
+  return r.width / M.W || 1;
+}
+
+stage.addEventListener("mousedown", e => {
+  if (e.target === stage){ S.sel = null; renderAll(); }
+});
+
+function select(id){
+  if (S.sel === id && insp.dataset.id === String(id)) return;
+  S.sel = id;
+  document.querySelectorAll(".w.sel").forEach(el => el.classList.remove("sel"));
+  const el = stage.querySelector('[data-id="' + id + '"]');
+  if (el) el.classList.add("sel");
+  renderInspector();
+}
+
+/* ============================================================
+ *  属性面板
+ * ============================================================ */
+/* 父容器下拉：切换后保持屏幕绝对位置不变 */
+function parentField(w){
+  const hosts = hostCandidates(w);
+
+  let h = '<div class="field"><label>父容器</label><select data-k="parent">'
+        + '<option value=""' + ((w.parent == null) ? " selected" : "") + '>（页面顶层）</option>';
+
+  hosts.forEach(p => {
+    h += '<option value="' + p.id + '"' + (w.parent === p.id ? " selected" : "") + '>'
+       + tagOf(p) + '</option>';
+  });
+
+  h += '</select></div>';
+
+  if (w.parent != null){
+    const pp = getW(w.parent);
+
+    if (!pp || pp.type !== "panel"){
+      h += '<div class="warn">原来的父容器已失效（被删掉、或者不是卡片），'
+         + '已按屏幕绝对位置改回页面顶层。</div>';
+    }
+  }
+
+  if (!hosts.length){
+    h += '<div class="mini">页面里还没有卡片（PANEL）。'
+       + '要设置归属，先加一张「面板」，再回来这里选。</div>';
+  }
+
+  return h;
+}
+
+/* render 形参设置：勾不勾、什么类型、单位 */
+function paramFields(w){
+  const on = (w.param !== false);
+  const t  = w.ptype || "str";
+
+  let h = '<div class="sec">render 形参</div>';
+  h += '<div class="field"><label style="display:flex;align-items:center;gap:6px">'
+     + '<input type="checkbox" data-k="param"' + (on ? " checked" : "") + '>'
+     + ' 作为形参传入</label></div>';
+
+  if (!on) return h;
+
+  h += '<div class="field"><label>类型</label><select data-k="ptype">'
+     + '<option value="str"' + (t === "str" ? " selected" : "") + '>字符串 const char *</option>'
+     + '<option value="int"' + (t === "int" ? " selected" : "") + '>整数 int32_t</option>'
+     + '<option value="x10"' + (t === "x10" ? " selected" : "") + '>一位小数 int32_t</option>'
+     + '<option value="pct"' + (t === "pct" ? " selected" : "") + '>百分比 uint8_t</option>'
+     + '</select></div>';
+
+  if (t === "int" || t === "x10"){
+    h += textField("单位（可空）", "punit", w.punit);
+  }
+
+  h += textField("参数名（留空按标签自动生成）", "pname", w.pname || "");
+
+  return h;
+}
+
+function renderInspector(){
+  const w = getW(S.sel);
+  insp.dataset.id = S.sel == null ? "" : String(S.sel);
+
+  if (!w){
+    insp.className = "empty";
+    insp.innerHTML = "在左侧添加控件<br>点选后可拖动、改属性<br><br>"
+      + "<b style='color:var(--fg2)'>Delete</b> 删除<br>"
+      + "<b style='color:var(--fg2)'>方向键</b> 微调 1px<br>"
+      + "<b style='color:var(--fg2)'>Shift+方向键</b> 10px<br>"
+      + "<b style='color:var(--fg2)'>Alt+拖</b> 临时关吸附";
+    return;
+  }
+  insp.className = "";
+  const anims = Object.keys(ANIMS).filter(k => ANIMS[k].types.length === 0 || ANIMS[k].types.includes(w.type));
+
+  let h = "";
+  h += '<div class="field"><label>类型</label><div style="color:var(--fg);font-size:12px">'
+     + tagOf(w) + '</div></div>';
+
+  const fixed = (w.type === "title" || w.type === "hint");
+
+  if (!fixed){
+    h += parentField(w);
+    h += '<div class="row2">' + num("X", "x", w.x) + num("Y", "y", w.y) + '</div>';
+
+    /* 输入框里的 X/Y 就是屏幕绝对坐标（= 画布上看到的位置）。
+     * 生成代码时自动换算成相对父容器，这里把结果显示出来方便对照。 */
+    {
+      const r = relXY(w);
+      const p = (w.parent != null) ? getW(w.parent) : null;
+
+      h += '<div class="mini" style="margin:-2px 0 8px">代码里的坐标（相对'
+         + (p ? " " + tagOf(p) : "页面") + '）：(' + r.x + ', ' + r.y + ')</div>';
+    }
+    if (w.type !== "row"){
+      h += '<div class="row2">' + num("宽", "w", w.w) + num("高", "h", w.h) + '</div>';
+    }
+    h += '<div class="align-grid">'
+       + '<button data-al="left" title="贴左">左</button>'
+       + '<button data-al="hcenter" title="水平居中">居中</button>'
+       + '<button data-al="right" title="贴右">右</button>'
+       + '<button data-al="top" title="贴顶">上</button>'
+       + '<button data-al="vcenter" title="垂直居中">中</button>'
+       + '<button data-al="bottom" title="贴底">下</button>'
+       + '</div>';
+  }
+
+  if (w.type === "row"){
+    h += textField("标签", "label", w.label);
+    h += textField("数值（render 里更新）", "value", w.value);
+    h += paramFields(w);
+  }
+
+  if (w.type === "text" || w.type === "button"){
+    h += textField("文字", "text", w.text);
+    h += '<div class="field"><label>字体</label><select data-k="font">'
+       + FONTS.map(f => '<option value="' + f + '"' + (w.font === f ? " selected" : "") + '>'
+                        + f.replace("UI_FONT_", "") + '</option>').join("")
+       + '</select></div>';
+    if (w.type === "text") h += paramFields(w);
+  }
+
+  if (w.type === "slider"){
+    h += '<div class="row2">' + num("最小", "min", w.min) + num("最大", "max", w.max) + '</div>';
+    h += num("当前值", "value", w.value);
+    h += num("事件 id", "evId", w.evId);
+    h += '<div class="mini">拖动时任务会收到 on_set(id, value)</div>';
+  }
+
+  if (w.type === "button"){
+    h += num("事件 id", "evId", w.evId);
+    h += '<div class="field"><label>圆角</label><input type="number" data-k="radius" value="'
+       + w.radius + '"></div>';
+  }
+
+  if (w.type === "bar"){
+    h += num("进度 0-100", "value", w.value);
+  }
+
+  if (w.type === "card"){
+    h += textField("小标题", "title", w.title);
+    h += textField("数值（render 里更新）", "value", w.value);
+    h += paramFields(w);
+  }
+
+  /* 曲线图：网格 + 每个通道一条线（点路径 ch.0.xxx 靠 setPath 写回） */
+  if (w.type === "plot"){
+    h += '<div class="row2">' + num("网格行 y_div", "yd", w.yd)
+       + num("网格列 x_div", "xd", w.xd) + '</div>';
+    h += '<div class="field"><label>网格颜色</label><input type="color" data-k="grid" value="'
+       + (w.grid || "#E8DEE6") + '"></div>';
+
+    (w.ch || []).forEach((c, i) => {
+      h += '<div class="sec">通道 ' + i + "（" + (c.style === "dash" ? "虚线" : "实线") + "）</div>";
+      h += '<div class="row2">' + num("vmin", "ch." + i + ".vmin", c.vmin)
+         + num("vmax", "ch." + i + ".vmax", c.vmax) + '</div>';
+      h += '<div class="field"><label>颜色</label><input type="color" data-k="ch.' + i
+         + '.color" value="' + c.color + '"></div>';
+      h += '<div class="field"><label>线型</label><select data-k="ch.' + i + '.style">'
+         + '<option value="solid"' + (c.style === "solid" ? " selected" : "") + '>实线</option>'
+         + '<option value="dash"'  + (c.style === "dash"  ? " selected" : "") + '>虚线</option>'
+         + '</select></div>';
+    });
+    h += '<div class="mini">vmin/vmax 是这条线的量程，超出画到框外；<br>'
+       + '两条线共用一个 y 轴，量纲不同的话先归一化。</div>';
+  }
+
+  if (!fixed && w.type !== "plot"){
+    h += colorField(w);
+  }
+
+  if (w.type === "panel"){
+    h += '<div class="field"><label>圆角</label><input type="number" data-k="radius" value="'
+       + w.radius + '"></div>';
+  }
+
+  /* 动画 */
+  h += '<div class="sec">动画（anime.c）</div>';
+  h += '<div class="field"><label>类型</label><select data-k="anim">'
+     + anims.map(k => '<option value="' + k + '"' + ((w.anim||"none") === k ? " selected" : "") + '>'
+                      + ANIMS[k].label + '</option>').join("")
+     + '</select></div>';
+
+  if (w.anim && w.anim !== "none"){
+    h += '<div class="row2">' + num("时长 ms", "dur", w.dur || 420)
+       + num("延迟 ms", "delay", w.delay || 0) + '</div>';
+  }
+
+  h += '<div class="sec">对应代码</div>';
+  h += '<div class="mini">' + esc(snippet(w)) + '</div>';
+
+  if (hasNonAscii(w)){
+    h += '<div class="warn">文字里有非 ASCII 字符。当前只编了 montserrat_14，'
+       + '中文会显示成方框，建议用英文或先加字库。</div>';
+  }
+
+  insp.innerHTML = h;
+  bindInspector(w);
+}
+
+function num(label, key, val){
+  return '<div class="field"><label>' + label + '</label>'
+       + '<input type="number" data-k="' + key + '" value="' + val + '" step="1"></div>';
+}
+
+function textField(label, key, val){
+  return '<div class="field"><label>' + label + '</label>'
+       + '<input type="text" data-k="' + key + '" value="'
+       + esc(val == null ? "" : val) + '"></div>';
+}
+
+function colorField(w){
+  const cur = w.color || "#FFFFFF";
+  const keyName = colorNameOf(cur);
+  let h = '<div class="field"><label>颜色' + (keyName ? " · " + keyName : "") + '</label>'
+        + '<input type="color" data-k="color" value="' + cur + '">'
+        + '<div class="swatches">';
+  COLOR_KEYS.forEach(([k,v]) => {
+    h += '<div class="sw" data-swatch="' + v + '" title="' + k + '" '
+       + 'style="background:' + v + '"></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
+function colorNameOf(hex){
+  const hit = COLOR_KEYS.find(([k,v]) => v.toUpperCase() === String(hex).toUpperCase());
+  return hit ? hit[0] : null;
+}
+
+function hasNonAscii(w){
+  const s = [w.text, w.label, w.value].filter(Boolean).join("");
+  return /[^\x00-\x7F]/.test(s);
+}
+
+/* data-k 支持点路径，例如 "ch.0.vmax"，直接 w[k]=v 会建出一个叫 ch.0.vmax 的字段 */
+function setPath(obj, path, val){
+  const p = String(path).split(".");
+  let o = obj;
+  for (let i = 0; i < p.length - 1; i++) o = o[p[i]];
+  o[p[p.length - 1]] = val;
+}
+
+/* 属性面板事件绑定 */
+function bindInspector(w){
+  insp.querySelectorAll("[data-k]").forEach(inp => {
+    const k = inp.dataset.k;
+    const handler = () => {
+      let v = inp.value;
+      if (inp.type === "number") v = parseInt(v, 10) || 0;
+      else if (inp.type === "checkbox") v = inp.checked;
+
+      /* 换父容器要走专门的换算，不能直接 w.parent = ... */
+      if (k === "parent"){
+        setParent(w, (v === "" || v == null) ? null : parseInt(v, 10));
+        return;
+      }
+
+      setPath(w, k, v);
+
+      /* 手输坐标也夹一次，免得写出负值或者大得离谱的值 */
+      if (k === "x" || k === "y" || k === "w" || k === "h"){
+        w.w = clamp(w.w, 4, M.W);
+        w.h = clamp(w.h, 1, M.H);
+        clampToParent(w);
+      }
+
+      if (k === "anim" && (w.dur == null)){ w.dur = 420; w.delay = 0; }
+      renderAll();
+    };
+    inp.addEventListener("change", handler);
+    if (inp.type === "number") inp.addEventListener("input", () => {
+      const v = parseInt(inp.value, 10);
+      if (!isNaN(v)){ setPath(w, k, v); updateDomOnly(w); genCode(); }
+    });
+    if (inp.type === "text") inp.addEventListener("input", () => {
+      setPath(w, k, inp.value); updateDomOnly(w); genCode();
+    });
+  });
+
+  insp.querySelectorAll("[data-swatch]").forEach(sw => {
+    sw.addEventListener("click", () => {
+      w.color = sw.dataset.swatch;
+      renderAll();
+    });
+  });
+
+  /* 一键对齐到父容器（画布或 panel）：坐标是绝对的，所以要把父容器位置加上 */
+  insp.querySelectorAll("[data-al]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p  = w.parent != null ? getW(w.parent) : null;
+      const L  = p ? p.x : 0;
+      const T  = p ? p.y : 0;
+      const PW = p ? p.w : M.W;
+      const PH = p ? p.h : M.H;
+      const a  = btn.dataset.al;
+
+      if (a === "left")         w.x = L;
+      else if (a === "hcenter") w.x = Math.round(L + (PW - w.w) / 2);
+      else if (a === "right")   w.x = L + PW - w.w;
+      else if (a === "top")     w.y = T;
+      else if (a === "vcenter") w.y = Math.round(T + (PH - w.h) / 2);
+      else if (a === "bottom")  w.y = T + PH - w.h;
+
+      renderAll();
+      toast("已" + btn.title);
+    });
+  });
+}
+
+/* 只更新 DOM 不重建（输入时不打断焦点） */
+function updateDomOnly(w){
+  const el = stage.querySelector('[data-id="' + w.id + '"]');
+  if (!el) return;
+  el.style.left = w.x + "px"; el.style.top = w.y + "px";
+  el.style.width = w.w + "px"; el.style.height = w.h + "px";
+  if (w.type === "panel"){ el.style.background = w.color; el.style.borderRadius = w.radius + "px"; }
+  if (w.type === "text"){ el.textContent = w.text; el.style.color = w.color; }
+  if (w.type === "row"){
+    const lb = el.querySelector(".lb"), vl = el.querySelector(".vl");
+    if (lb) lb.textContent = w.label;
+    if (vl){ vl.textContent = w.value; vl.style.color = w.color; }
+  }
+  if (w.type === "bar"){
+    const f = el.querySelector(".fill");
+    if (f){ f.style.width = w.value + "%"; f.style.background = w.color; }
+  }
+  if (w.type === "divider" || w.type === "circle"){ el.style.background = w.color; }
+  if (w.type === "slider"){
+    const p = pctOf(w);
+    const f = el.querySelector(".fill"); if (f) f.style.width = p + "%";
+    const k = el.querySelector(".knob"); if (k) k.style.left = p + "%";
+  }
+  if (w.type === "button"){ el.textContent = w.text; el.style.borderRadius = w.radius + "px"; }
+  if (w.type === "card"){
+    const cap = el.querySelector(".cap"), val = el.querySelector(".val");
+    if (cap) cap.textContent = w.title || "";
+    if (val) val.textContent = w.value || "--";
+  }
+  if (w.type === "plot"){ el.innerHTML = plotInner(w); }
+  el.dataset.tag = tagOf(w);
+}
+
+function syncNums(w){
+  const el = insp.querySelector('[data-k="x"]');
+  const ey = insp.querySelector('[data-k="y"]');
+  if (el) el.value = w.x;
+  if (ey) ey.value = w.y;
+  const tag = stage.querySelector('[data-id="' + w.id + '"]');
+  if (tag) tag.dataset.tag = tagOf(w);
+}
+
+/* ============================================================
+ *  代码片段（属性面板里的实时预览）
+ * ============================================================ */
+function varName(w, idx){
+  const n = { panel:"panel", text:"text", row:"row", bar:"bar", divider:"div",
+              circle:"dot", slider:"sl", button:"btn", card:"card", plot:"plot" }[w.type] || w.type;
+  return "s_" + n + idx;
+}
+
+function snippets(){
+  const out = new Map();
+  const cnt = { panel:0, text:0, row:0, bar:0, divider:0, circle:0,
+                slider:0, button:0, card:0, plot:0 };
+  S.widgets.forEach(w => {
+    if (cnt[w.type] !== undefined) out.set(w.id, varName(w, ++cnt[w.type]));
+  });
+  return out;
+}
+
+function snippet(w){
+  const v = snippets().get(w.id) || "s_obj";
+  if (w.type === "panel"){
+    return v + " = ui_panel(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.h + ", " + colorExpr(w.color) + ");";
+  }
+  if (w.type === "text"){
+    return v + " = ui_text(" + parentExpr(w) + ", " + w.font + ", " + colorExpr(w.color) + ");\n"
+         + "ui_text_set(" + v + ", " + cstr(w.text) + ");\n"
+         + "ui_text_align(" + v + ", LV_ALIGN_TOP_LEFT, " + xyOf(w) + ");";
+  }
+  if (w.type === "row"){
+    return v + " = ui_row(" + parentExpr(w) + ", " + relXY(w).y + ", " + cstr(w.label) + ");";
+  }
+  if (w.type === "bar"){
+    return v + " = ui_bar(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.h + ", " + w.value + ", " + colorExpr(w.color) + ");";
+  }
+  if (w.type === "divider"){
+    return v + " = ui_divider(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + colorExpr(w.color) + ");";
+  }
+  if (w.type === "circle"){
+    return v + " = ui_dot(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + colorExpr(w.color) + ");";
+  }
+  if (w.type === "slider"){
+    return v + " = ui_slider(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.min + ", " + w.max + ", " + w.value + ", " + w.evId + ");";
+  }
+  if (w.type === "button"){
+    return v + " = ui_button(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.h + ", " + cstr(w.text) + ", " + w.evId + ");";
+  }
+  if (w.type === "card"){
+    return v + " = ui_card(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.h + ", " + cstr(w.title) + ", " + cstr(w.value) + ");";
+  }
+  if (w.type === "plot"){
+    return v + " = ui_plot_create(" + parentExpr(w) + ", " + xyOf(w) + ", "
+         + w.w + ", " + w.h + ");\n"
+         + "ui_plot_axis(" + v + ", " + w.yd + ", " + w.xd + ", " + hexExpr(w.grid) + ");";
+  }
+  if (w.type === "title"){
+    return "ui_title_bar(s_page, " + cstr(S.title) + ", " + cstr(S.right) + ");";
+  }
+  return "ui_hint_bar(s_page, " + cstr(S.hint) + ");";
+}
+
+function parentExpr(w){
+  if (w.parent == null) return "s_page";
+  return snippets().get(w.parent) || "s_page";
+}
+
+function colorExpr(hex){
+  const n = colorNameOf(hex);
+  return n ? n : "lv_color_hex(0x" + String(hex).replace("#","").toUpperCase() + ")";
+}
+
+/* ui_plot_* 收的是 uint32 的 0xRRGGBB，不能套 lv_color_hex() */
+function hexExpr(hex){
+  return "0x" + String(hex || "#E8DEE6").replace("#","").toUpperCase();
+}
+
+/* ============================================================
+ *  代码生成
+ * ============================================================ */
+/* ============================================================
+ *  render 形参
+ *
+ *  row / text / card 默认都作为形参传给 xxx_ui_render()，
+ *  生成的函数直接就能接实时数据，不用再手动把写死的字符串改成变量。
+ *  在属性面板里取消「作为形参」就退回旧行为（写死字符串）。
+ *
+ *  曲线图的每个通道也各给一个 int32_t，省得手写 v0 / v1 占位。
+ * ============================================================ */
+function buildParams(){
+  const used = new Set();
+  const text = new Map();      /* 控件 id -> {name, type, decl} */
+  const plot = new Map();      /* plot id -> [{name,...}, {name,...}] */
+  const decls = [];
+
+  /* 名字要合法且不重复：STATE -> state，重复的自动加 2、3 */
+  const unique = (base) => {
+    let name = base, i = 2;
+    while (used.has(name)) name = base + i++;
+    used.add(name);
+    return name;
+  };
+
+  S.widgets
+    .filter(w => (w.type === "row" || w.type === "text" || w.type === "card") && w.param !== false)
+    .sort((a, b) => a.id - b.id)
+    .forEach(w => {
+      /* 用「参数名」优先，其次标签/小标题；中文和符号换成下划线，空了用 v<id> */
+      let base = String(w.pname || w.label || w.title || ("v" + w.id))
+                   .toLowerCase()
+                   .replace(/[^a-z0-9_]+/g, "_")
+                   .replace(/^_+|_+$/g, "");
+
+      if (!base) base = "v" + w.id;
+      if (/^[0-9]/.test(base)) base = "v_" + base;
+
+      const t     = w.ptype || "str";
+      const name  = unique(base);
+      const decl  = (t === "str") ? "const char *" + name
+                  : (t === "pct") ? "uint8_t " + name
+                  :                 "int32_t " + name;
+
+      text.set(w.id, { name: name, type: t, decl: decl });
+      decls.push(decl);
+    });
+
+  S.widgets.filter(w => w.type === "plot").sort((a, b) => a.id - b.id)
+    .forEach(p => {
+      const arr = [];
+
+      (p.ch || []).forEach((c, i) => {
+        const name = unique("ch" + i);
+        const decl = "int32_t " + name;
+
+        arr.push({ name: name, type: "int", decl: decl });
+        decls.push(decl);
+      });
+
+      plot.set(p.id, arr);
+    });
+
+  return { text: text, plot: plot, decls: decls,
+           sig: decls.length ? decls.join(", ") : "void" };
+}
+
+/* 一个 row / text / card 在更新区的那一行代码 */
+function updateLine(w, P){
+  const v = snippets().get(w.id);
+  const p = P.text.get(w.id);
+
+  /* 没勾"作为形参"：保持原来的静态字符串 */
+  if (!p){
+    const s = (w.type === "card") ? (w.value || "--")
+            : (w.type === "text") ? w.text
+            : w.value;
+    return "    ui_text_set(" + v + ", " + cstr(s) + ");";
+  }
+
+  const unit = w.punit ? cstr(w.punit) : "(const char *)0";
+
+  if (p.type === "str") return "    ui_text_set(" + v + ", " + p.name + ");";
+  if (p.type === "pct") return "    ui_text_pct(" + v + ", " + p.name + ");";
+  if (p.type === "x10") return "    ui_text_x10(" + v + ", " + p.name + ", " + unit + ");";
+  return "    ui_text_num(" + v + ", " + p.name + ", " + unit + ");";
+}
+
+function genCode(){
+  normalizeTree();      /* 复制 / 下载也可能直接走到这里，先保证父链干净 */
+
+  const fname = (S.name || "custom").toLowerCase().replace(/[^a-z0-9_]/g, "_") || "custom";
+  const vars = snippets();
+  const P    = buildParams();
+
+  const panels = S.widgets.filter(w => w.type === "panel");
+  const texts  = S.widgets.filter(w => w.type === "text");
+  const rows   = S.widgets.filter(w => w.type === "row");
+  const bars   = S.widgets.filter(w => w.type === "bar");
+  const divs   = S.widgets.filter(w => w.type === "divider");
+  const dots   = S.widgets.filter(w => w.type === "circle");
+  const sliders= S.widgets.filter(w => w.type === "slider");
+  const btns   = S.widgets.filter(w => w.type === "button");
+  const cards  = S.widgets.filter(w => w.type === "card");
+  const plots  = S.widgets.filter(w => w.type === "plot");
+  const title  = S.widgets.find(w => w.type === "title");
+  const hint   = S.widgets.find(w => w.type === "hint");
+
+  /* 变量必须是文件级 static —— destroy() 也要用它们 */
+  const decls = [];
+  decls.push("static lv_obj_t *s_page = NULL;");
+  panels.forEach(x => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  texts.forEach(x  => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  rows.forEach(x   => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  bars.forEach(x   => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  divs.forEach(x   => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  dots.forEach(x   => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  sliders.forEach(x=> decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  btns.forEach(x   => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  cards.forEach(x  => decls.push("static lv_obj_t *" + vars.get(x.id) + " = NULL;"));
+  /* 画布不是 lv_obj_t，是 ui_plot_t*（内部自己 lv_mem_alloc，要单独 delete） */
+  plots.forEach(x  => decls.push("static ui_plot_t *" + vars.get(x.id) + " = NULL;"));
+
+  /* ---- 创建块 ---- */
+  const create = [];
+  create.push("        s_page = ui_page_create();");
+  create.push("");
+  if (title) create.push("        ui_title_bar(s_page, " + cstr(S.title) + ", " + cstr(S.right) + ");");
+
+  const emitted = new Set();
+  function emit(w, indent){
+    if (emitted.has(w.id)) return;
+    emitted.add(w.id);
+    const v = vars.get(w.id);
+    const pad = " ".repeat(indent);
+    /* 同类型兄弟的序号，给 list_in 当延迟倍数用 */
+    const idx = S.widgets.filter(x => x.parent === w.parent && x.type === w.type && x.id < w.id).length;
+
+    if (w.type === "panel"){
+      create.push("");
+      create.push(pad + v + " = ui_panel(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.h + ", " + colorExpr(w.color) + ");");
+      if (w.radius !== M.RADIUS)
+        create.push(pad + "lv_obj_set_style_radius(" + v + ", " + w.radius + ", 0);");
+      if (w.anim && w.anim !== "none" && w.anim !== "page_in")
+        create.push(pad + animCall(w, v));
+
+    } else if (w.type === "text"){
+      create.push("");
+      create.push(pad + v + " = ui_text(" + parentExpr(w) + ", " + w.font + ", "
+                  + colorExpr(w.color) + ");");
+      create.push(pad + "ui_text_set(" + v + ", " + cstr(w.text) + ");");
+      create.push(pad + "ui_text_align(" + v + ", LV_ALIGN_TOP_LEFT, " + xyOf(w) + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v));
+
+    } else if (w.type === "row"){
+      create.push("");
+      create.push(pad + v + " = ui_row(" + parentExpr(w) + ", " + relXY(w).y + ", " + cstr(w.label) + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v));
+
+    } else if (w.type === "bar"){
+      create.push("");
+      create.push(pad + v + " = ui_bar(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.h + ", " + w.value + ", " + colorExpr(w.color) + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "divider"){
+      create.push("");
+      create.push(pad + v + " = ui_divider(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + colorExpr(w.color) + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "circle"){
+      create.push("");
+      create.push(pad + v + " = ui_dot(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + colorExpr(w.color) + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "slider"){
+      create.push("");
+      create.push(pad + v + " = ui_slider(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.min + ", " + w.max + ", " + w.value + ", " + w.evId + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "button"){
+      create.push("");
+      create.push(pad + v + " = ui_button(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.h + ", " + cstr(w.text) + ", " + w.evId + ");");
+      if (w.anim && w.anim !== "none" && w.anim !== "press")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "card"){
+      create.push("");
+      create.push(pad + v + " = ui_card(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.h + ", " + cstr(w.title || "TITLE") + ", "
+                  + cstr(w.value || "--") + ");");
+      if (w.anim && w.anim !== "none")
+        create.push(pad + animCall(w, v, idx));
+
+    } else if (w.type === "plot"){
+      create.push("");
+      create.push(pad + v + " = ui_plot_create(" + parentExpr(w) + ", " + xyOf(w) + ", "
+                  + w.w + ", " + w.h + ");");
+      create.push(pad + "ui_plot_axis(" + v + ", " + w.yd + ", " + w.xd + ", "
+                  + hexExpr(w.grid) + ");");
+      (w.ch || []).forEach((c, i) => {
+        create.push(pad + "ui_plot_line(" + v + ", " + i + ", &(ui_plot_line_t){");
+        create.push(pad + "        .color = " + hexExpr(c.color) + ", .width = 2,");
+        create.push(pad + "        .style = "
+                    + (c.style === "dash" ? "UI_LINE_DASH, .dash = 4, .gap = 3,"
+                                          : "UI_LINE_SOLID,"));
+        create.push(pad + "        .vmin  = " + c.vmin + ", .vmax = " + c.vmax + " });");
+      });
+    }
+    /* 子控件紧跟父之后 */
+    S.widgets.filter(c => c.parent === w.id).forEach(c => emit(c, indent));
+  }
+
+  panels.forEach(p => emit(p, 8));
+  S.widgets.filter(w => w.parent == null &&
+                        w.type !== "panel" && w.type !== "title" && w.type !== "hint")
+           .forEach(w => emit(w, 8));
+
+  if (hint){
+    create.push("");
+    create.push("        ui_hint_bar(s_page, " + cstr(S.hint) + ");");
+  }
+
+  /* ---- 切页 + page_in ---- */
+  const pageAnim = panels.find(p => p.anim === "page_in") || panels[0];
+  const afterLoad = [];
+  afterLoad.push("        ui_page_load(s_page);");
+  if (pageAnim) afterLoad.push("        anime_page_in(" + vars.get(pageAnim.id) + ");");
+
+  /* ---- 更新区 ---- */
+  const upd = [];
+  rows.forEach(r  => upd.push(updateLine(r, P)));
+  texts.forEach(t => upd.push(updateLine(t, P)));
+  cards.forEach(c => upd.push(updateLine(c, P)));
+
+  /* 曲线：每个通道都从形参来，每帧 refresh（内部有 dirty 判断，不亏） */
+  plots.forEach(p => {
+    const pp = P.plot.get(p.id) || [];
+
+    (p.ch || []).forEach((c, i) => {
+      const a = pp[i];
+      upd.push("    ui_plot_push(" + vars.get(p.id) + ", " + i + ", "
+               + (a ? a.name : "0") + ");");
+    });
+    upd.push("    ui_plot_refresh(" + vars.get(p.id) + ");");
+  });
+
+  /* ---- 销毁 ---- */
+  const clear = [];
+  panels.forEach(x => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  texts.forEach(x  => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  rows.forEach(x   => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  bars.forEach(x   => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  divs.forEach(x   => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  dots.forEach(x   => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  sliders.forEach(x=> clear.push("    " + vars.get(x.id) + " = NULL;"));
+  btns.forEach(x   => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  cards.forEach(x  => clear.push("    " + vars.get(x.id) + " = NULL;"));
+  plots.forEach(x  => clear.push("    " + vars.get(x.id) + " = NULL;"));
+
+  /* ---- 拼 ---- */
+  let src = "";
+  src += "/* ============================================================\n";
+  src += " * 由 ui_designer 生成 —— " + new Date().toISOString().slice(0,10) + "\n";
+  src += " * 页面：" + S.name + "\n";
+  src += " * 用法：另存为 ui/task_" + fname + "_ui.c，在 .h 里声明两个函数，\n";
+  src += " *       再到 task_" + fname + ".c 的 app_task_t 里挂上 .render / .ui_destroy\n";
+  if (P.decls.length){
+    src += " * 注意：render 带 " + P.decls.length + " 个形参，任务里要把实时数据传进来\n";
+  }
+  src += " * ============================================================ */\n\n";
+  src += '#include "task_' + fname + '_ui.h"\n';
+  src += '#include "common.h"\n';
+  src += '#include "anime.h"\n\n';
+  /* ---- 交互控件的事件回调已经在 common.c 里了，这里不用再生成 ---- */
+  src += decls.join("\n") + "\n\n";
+  src += "void " + fname + "_ui_render(" + P.sig + ")\n{\n";
+  src += "    if(s_page == NULL)\n    {\n";
+  src += create.join("\n") + "\n    }\n\n";
+  src += "    if(!ui_page_is_active(s_page))\n    {\n";
+  src += afterLoad.join("\n") + "\n    }\n\n";
+  if (upd.length){
+    src += "    /* ---- 每帧更新：把下面这些换成你的实时数据 ---- */\n";
+    src += upd.join("\n") + "\n";
+  } else {
+    src += "    /* ---- 每帧更新：把静态内容换成实时数据 ---- */\n";
+  }
+  src += "}\n\n";
+  src += "void " + fname + "_ui_destroy(void)\n{\n";
+  /* 画布是 lv_mem_alloc 单独分配的，必须在删页面之前还掉，
+   * 放后面的话 ui_plot_delete 里的 p->obj 已经被父页面删成野指针了 */
+  plots.forEach(p => { src += "    ui_plot_delete(" + vars.get(p.id) + ");\n"; });
+  if (plots.length) src += "\n";
+  src += "    ui_page_destroy(&s_page);\n\n";
+  if (clear.length) src += clear.join("\n") + "\n";
+  src += "}\n\n";
+
+  const guard = "__TASK_" + fname.toUpperCase() + "_UI_H";
+  src += "/* ---- 配套头文件：task_" + fname + "_ui.h ----\n";
+  src += "#ifndef " + guard + "\n";
+  src += "#define " + guard + "\n\n";
+  src += '#include "common.h"\n';
+  if (/int32_t|uint8_t/.test(P.sig)) src += '#include <stdint.h>\n';
+  src += "\n";
+  src += "void " + fname + "_ui_render(" + P.sig + ");\n";
+  src += "void " + fname + "_ui_destroy(void);\n\n";
+  src += "#endif\n";
+  src += "*/\n";
+
+  codeEl.innerHTML = highlight(src);
+  codeFile.textContent = "task_" + fname + "_ui.c";
+  return src;
+}
+
+function animCall(w, v, idx){
+  const d = w.dur || 420, dl = w.delay || 0;
+  const i = (idx == null ? 0 : idx);
+  switch (w.anim){
+    case "slide_in":    return "anime_slide_in(" + v + ", 1);";
+    case "pop_in":      return "anime_pop_in(" + v + ", " + dl + ");";
+    case "bounce_in":   return "anime_bounce_in(" + v + ", " + dl + ");";
+    case "fade":        return "anime_fade(" + v + ", 0, 255, " + d + ", " + dl + ");";
+    case "fade_out":    return "anime_fade_out(" + v + ", " + d + ", " + dl + ");";
+    case "move_y":      return "anime_move_y(" + v + ", 12, 0, " + d + ", " + dl + ");";
+    case "value_flash": return "anime_value_flash(" + v + ");";
+    case "press":       return "anime_press(" + v + ");";
+    case "shake":       return "anime_shake(" + v + ");";
+    case "pulse":       return "anime_pulse(" + v + ", 2);";
+    case "bg_flash":    return "anime_bg_flash(" + v + ", 0xE7F3FF);";
+    case "grow_w":      return "anime_grow_w(" + v + ", " + d + ", " + dl + ");";
+    case "grow_h":      return "anime_grow_h(" + v + ", " + d + ", " + dl + ");";
+    case "list_in":     return "anime_list_in(" + v + ", " + i + ");";
+    default:            return "";
+  }
+}
+
+/* 极简语法高亮 */
+function highlight(src){
+  return esc(src)
+    .replace(/(\/\*[\s\S]*?\*\/)|(\/\/[^\n]*)/g, m => '<span class="c">' + m + '</span>')
+    .replace(/\b(void|static|lv_obj_t|if|else|NULL|const|uint8_t|int32_t|uint32_t)\b/g,
+             '<span class="k">$1</span>')
+    .replace(/\b(ui_[a-z_]+|anime_[a-z_]+|lv_[a-z_]+)\b/g, '<span class="f">$1</span>')
+    .replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span class="s">$1</span>')
+    .replace(/\b(UI_[A-Z_]+|LV_ALIGN_[A-Z_]+)\b/g, '<span class="n">$1</span>');
+}
+
+/* ============================================================
+ *  动画播放
+ * ============================================================ */
+function playAll(){
+  const clsMap = { page_in:"play-in", pop_in:"play-pop", fade:"play-fade",
+                   move_y:"play-move", value_flash:"play-flash", press:"play-press" };
+  S.widgets.forEach(w => {
+    if (!w.anim || w.anim === "none") return;
+    const el = stage.querySelector('[data-id="' + w.id + '"]');
+    if (!el) return;
+    const cls = clsMap[w.anim];
+    if (!cls) return;
+    const delay = (w.dur && w.anim === "page_in") ? 0 : (w.delay || 0);
+    el.style.animationDelay = delay + "ms";
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(() => { el.classList.remove(cls); el.style.animationDelay = ""; }, 1200 + delay);
+  });
+}
+
+/* ============================================================
+ *  顶栏 / 左栏 / 快捷键
+ * ============================================================ */
+document.querySelectorAll("[data-add]").forEach(b => {
+  b.addEventListener("click", () => addWidget(b.dataset.add));
+});
+
+document.getElementById("btnClear").addEventListener("click", () => {
+  if (!confirm("清空当前页面？")) return;
+  S.widgets = []; S.sel = null; renderAll();
+});
+
+document.getElementById("btnPlay").addEventListener("click", playAll);
+
+document.getElementById("btnGrid").addEventListener("click", e => {
+  gridOn = !gridOn;
+  stage.classList.toggle("grid", gridOn);
+  e.target.style.borderColor = gridOn ? "var(--accent2)" : "var(--line)";
+  e.target.textContent = gridOn ? "显示网格" : "隐藏网格";
+});
+
+document.getElementById("snapMode").addEventListener("change", e => {
+  snapMode = e.target.value;
+  const tx = e.target.options[e.target.selectedIndex].text;
+  toast("吸附模式：" + tx);
+});
+
+document.getElementById("orientMode").addEventListener("change", e => {
+  const size = setOrient(e.target.value);
+
+  toast(e.target.value === "landscape"
+        ? "横屏 " + size + "：超出的控件已夹回边界"
+        : "竖屏 " + size);
+});
+
+document.getElementById("btnCopy").addEventListener("click", async () => {
+  const src = genCode();
+  try { await navigator.clipboard.writeText(src); toast("代码已复制"); }
+  catch { toast("复制失败，请手动选中"); }
+});
+
+document.getElementById("btnDownload").addEventListener("click", () => {
+  const src = genCode();
+  const fname = (S.name || "custom").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+  const blob = new Blob([src], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "task_" + fname + "_ui.c";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("已下载 task_" + fname + "_ui.c");
+});
+
+["pageName","pageTitle","pageRight","pageHint"].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener("input", () => {
+    S.name  = document.getElementById("pageName").value || "CUSTOM";
+    S.title = document.getElementById("pageTitle").value;
+    S.right = document.getElementById("pageRight").value;
+    S.hint  = document.getElementById("pageHint").value;
+    S.widgets.forEach(w => {
+      if (w.type === "title" || w.type === "hint"){
+        const e2 = stage.querySelector('[data-id="' + w.id + '"]');
+        if (e2){
+          if (w.type === "title")
+            e2.innerHTML = '<span class="l">' + esc(S.title) + '</span>' +
+                           '<span class="r">' + esc(S.right) + '</span>';
+          else e2.textContent = S.hint;
+        }
+      }
+    });
+    genCode();
+  });
+});
+
+document.addEventListener("keydown", e => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "select" || tag === "textarea") return;
+  const w = getW(S.sel);
+  if (!w) return;
+
+  if (e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); delWidget(w.id); return; }
+  const step = e.shiftKey ? 10 : 1;
+  let used = true;
+  if (e.key === "ArrowLeft")  w.x -= step;
+  else if (e.key === "ArrowRight") w.x += step;
+  else if (e.key === "ArrowUp")    w.y -= step;
+  else if (e.key === "ArrowDown")  w.y += step;
+  else used = false;
+  if (used){
+    e.preventDefault();
+    w.x = clamp(w.x, 0, M.W - 8); w.y = clamp(w.y, 0, M.H - 8);
+    updateDomOnly(w); syncNums(w); genCode();
+  }
+});
+
+/* ============================================================
+ *  示例
+ * ============================================================ */
+function presetLed(){
+  S.name = "CUSTOM"; S.title = "LED"; S.right = "1/1"; S.hint = "K3 COLOR   K1 ON   K2 OFF";
+  S.widgets = []; S.seq = 0; S.sel = null;
+
+  /* 全部用绝对坐标：panel 在 (16,90)，所以 row 的绝对 y = 90+28 / 90+96 */
+  const p = { id: ++S.seq, type:"panel", x:16, y:90, w:288, h:170, color:"#FFFFFF",
+              radius:22, anim:"page_in", dur:360, delay:0 };
+  S.widgets.push(p);
+  const r1 = { id: ++S.seq, type:"row", x:16, y:118, w:288, h:26, parent:p.id,
+               label:"STATE", value:"ON", color:"#FF4F8B", anim:"fade", dur:420, delay:0 };
+  const r2 = { id: ++S.seq, type:"row", x:16, y:186, w:288, h:26, parent:p.id,
+               label:"COLOR", value:"RED", color:"#FF4F8B", anim:"fade", dur:420, delay:60 };
+  S.widgets.push(r1, r2);
+  S.widgets.push({ id: ++S.seq, type:"title", x:12, y:10, w:296, h:46 });
+  S.widgets.push({ id: ++S.seq, type:"hint", x:24, y:434, w:272, h:36 });
+  syncPageFields(); clampAll(); renderAll();
+}
+
+function presetDac(){
+  S.name = "CUSTOM"; S.title = "DAC"; S.right = "1/1"; S.hint = "K1 WAVE   K4 EXIT";
+  S.widgets = []; S.seq = 0; S.sel = null;
+
+  const p1 = { id: ++S.seq, type:"panel", x:16, y:66, w:288, h:130, color:"#FFFFFF",
+               radius:22, anim:"slide_in", dur:300, delay:0 };
+  const p2 = { id: ++S.seq, type:"panel", x:16, y:312, w:288, h:112, color:"#FFFFFF",
+               radius:22, anim:"pop_in", dur:380, delay:120 };
+  S.widgets.push(p1, p2);
+
+  /* 绝对坐标：p1 在 (16,66)，所以 text 的绝对位置 = 16+180, 66+10 */
+  S.widgets.push({ id: ++S.seq, type:"text", x:196, y:76, w:96, h:18, parent:p1.id,
+                   text:"2.0ms", color:"#9A8C98", font:"UI_FONT_SMALL",
+                   anim:"fade", dur:420, delay:160 });
+
+  /* 两张数据卡片：下拉回弹 + 底色渐入 */
+  S.widgets.push({ id: ++S.seq, type:"card", x:16, y:206, w:138, h:92,
+                   title:"FREQ", value:"1000 Hz", anim:"bounce_in", dur:380, delay:60 });
+  S.widgets.push({ id: ++S.seq, type:"card", x:166, y:206, w:138, h:92,
+                   title:"VPP", value:"2100 mV", anim:"bounce_in", dur:380, delay:140 });
+
+  /* 参数区：滑条 + 数值行（绝对坐标 = p2 的 16,312 加上相对偏移） */
+  S.widgets.push({ id: ++S.seq, type:"row", x:16, y:322, w:288, h:26, parent:p2.id,
+                   label:"FREQ", value:"1000 Hz", color:"#FF4F8B", anim:"list_in", dur:320, delay:0 });
+  S.widgets.push({ id: ++S.seq, type:"slider", x:20, y:352, w:248, h:10, parent:p2.id,
+                   min:20, max:10000, value:1000, evId:0 });
+  S.widgets.push({ id: ++S.seq, type:"row", x:16, y:378, w:288, h:26, parent:p2.id,
+                   label:"HIGH", value:"3300 mV", color:"#FF4F8B", anim:"list_in", dur:320, delay:0 });
+  S.widgets.push({ id: ++S.seq, type:"slider", x:20, y:404, w:248, h:10, parent:p2.id,
+                   min:1, max:3300, value:3300, evId:1 });
+
+  S.widgets.push({ id: ++S.seq, type:"title", x:12, y:10, w:296, h:46 });
+  S.widgets.push({ id: ++S.seq, type:"hint", x:24, y:434, w:272, h:36 });
+  syncPageFields(); clampAll(); renderAll();
+}
+
+function syncPageFields(){
+  document.getElementById("pageName").value = S.name;
+  document.getElementById("pageTitle").value = S.title;
+  document.getElementById("pageRight").value = S.right;
+  document.getElementById("pageHint").value = S.hint;
+}
+
+document.querySelectorAll("[data-preset]").forEach(b => {
+  b.addEventListener("click", () => {
+    if (b.dataset.preset === "led") presetLed(); else presetDac();
+  });
+});
+
+/* ============================================================
+ *  启动
+ * ============================================================ */
+stage.classList.add("grid");
+presetLed();
+</script>
+</body>
+</html>

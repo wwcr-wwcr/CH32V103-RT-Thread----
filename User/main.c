@@ -1,9 +1,48 @@
-/* CH32V307VCT6ï¼šLVGL é€šè¿‡ INIT_APP_EXPORT è‡ªåŠ¨å¯åŠ¨ã€‚ */
-#include "ch32v30x.h"
-#include <rtthread.h>
+/********************************** (C) COPYRIGHT *******************************
+*     main ©¤©¤> kernel ©¤©¤> event.h / lvgl / rt-thread
+*       ©¦ ©¸©¤©¤> app   ©¤©¤> event.h / key.h / rt-thread
+*       ©¦       ©¸©¤©¤©¤©¤©¤> (ÊÂ¼şÓÉ kernel µ÷½ø app£¬app ²»ÈÏÊ¶ kernel)
+*       ©¸©¤©¤> key / bsp / lv_port£¨HAL ²ã£¬¸÷¹Ü¸÷µÄ£©
+*********************************************************************************/
+
+#include "rtthread.h"
+#include "lcd.h"
+#include "key.h"
+#include "i2c.h"
+#include "kernel.h"
+#include "app.h"
+#include "lv_port_disp_template.h"
+#include "lv_port_indev_template.h"
+
+/* Ê×Ò³Ó¦ÓÃ£¬¶¨ÒåÔÚ task/menu.c Àï */
+extern const app_task_t task_menu;
+
+/**
+ * @brief  °´¼üÏß³ÌµÄ»Øµ÷£º×ª³ÉÒ»¸ö type=0 µÄÊÂ¼ş£¨0 = °´¼ü£©
+ */
+static void on_key(key_id_t key)
+{
+    kernel_post(0, (uint8_t)key, 0);
+}
+
 int main(void)
 {
     SystemCoreClockUpdate();
-    rt_kprintf("CH32V307VCT6 RT-Thread + LVGL 8.3.11\n");
+
+    lcd_init();
+    i2c_init(I2C_DEFAULT_SPEED);
+
+    /* 2. äÖÈ¾Í¨µÀ£ºÏÔÊ¾ + ´¥Ãş£¨GT911£© */
+    lv_port_disp_init();
+    lv_port_indev_init();
+    
+    key_init();                         //×¢²á°´¼ü
+    key_event_register(on_key);
+    key_start();
+
+    app_init(&task_menu);       //¿ªÊ¼Ò³
+
+    kernel_run(app_handle, app_render);
+
     return 0;
 }
