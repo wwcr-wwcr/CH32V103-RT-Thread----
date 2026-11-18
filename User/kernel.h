@@ -7,12 +7,15 @@ extern "C" {
 
 #include "event.h"
 
-/* 事件处理函数：main 里传的是 router_dispatch */
-typedef void (*evt_handler_t)(const message *ev);
+typedef void (*evt_handler_t)(const message *ev);       //事件处理函数：main 里传的是 router_dispatch
+typedef void (*render_cb_t)(void);      //渲染函数：每拍调一次，main 里传的是 router_render 
 
-/* 渲染函数：每拍调一次，main 里传的是 router_render */
-typedef void (*render_cb_t)(void);
-
+/**
+ * @brief  开始运行事件
+ * @param  on_evt   事件函数地址
+ * @param  on_render   循环函数地址
+ * @note   任何线程都能调，不阻塞：队列满了丢一个事件，返回就行
+ */
 void kernel_run(evt_handler_t on_evt, render_cb_t on_render);
 
 /**

@@ -42,7 +42,6 @@ typedef struct
 } demo_view_t;
 
 static demo_view_t s_view;
-
 /**
  * @brief  把当前状态拷一份给渲染用（关中断，防止渲染读到一半被改）
  */
@@ -60,20 +59,10 @@ static void view_push(void)
     rt_hw_interrupt_enable(level);
 }
 
-/**************************************************************************************************
- *                                        线程资源（我自己的）
- **************************************************************************************************/
 static rt_mq_t     s_q   = RT_NULL;     /* 我自己的队列 */
 static rt_thread_t s_tid = RT_NULL;     /* 我自己的线程 */
 static struct rt_semaphore s_exit;      /* 退出握手：线程 exit，close 等它 */
-
-/**************************************************************************************************
- *                                        业务逻辑（跑在自己的线程里）
- **************************************************************************************************/
-/**
- * @brief  周期活：每拍调用一次
- * @note   换成真实业务时，采样、喂音频、刷新数码管都写这里
- */
+static void demo_close(void);
 static void demo_tick(void)
 {
     if(s_run != 0)
@@ -82,11 +71,6 @@ static void demo_tick(void)
         view_push();
     }
 }
-
-/**
- * @brief  实体按键
- * @param  key  K1~K3，K4 被 router 拦下了，收不到
- */
 static void demo_key(key_id_t key)
 {
     switch(key)
@@ -110,13 +94,7 @@ static void demo_key(key_id_t key)
     s_events++;
     view_push();
 }
-
-/**
- * @brief  触摸控件事件
- * @param  id     控件编号，见 ui/task_example_ui.c（1 +10 / 2 CLR / 3 QUIT）
- * @param  value  控件给的数值（按钮用不上）
- */
-static void demo_set(uint8_t id, int32_t value)
+static void demo_set(uint8_t id, int32_t value)         //触摸
 {
     (void)value;
 
@@ -134,22 +112,13 @@ static void demo_set(uint8_t id, int32_t value)
             router_go(RT_NULL);                 /* QUIT：回首页（等价于按 K4） */
             return;
 
-        default:
-            return;
+        case 4:
+            demo_close();
     }
 
     s_events++;
     view_push();
 }
-
-/**************************************************************************************************
- *                                        线程本体
- **************************************************************************************************/
-/**
- * @brief  线程入口：rt_thread_create 直接用的就是这个函数
- * @param  arg  没用到
- * @note   100ms 一拍；没有事件也会醒，正好用来跑 demo_tick()
- */
 static void demo_thread(void *arg)
 {
     message msg;
@@ -183,13 +152,6 @@ static void demo_thread(void *arg)
 
     rt_sem_release(&s_exit);                    /* 我走了，close 那边可以往下走 */
 }
-
-/**************************************************************************************************
- *                                        打开 / 关闭 / 投递
- **************************************************************************************************/
-/**
- * @brief  打开：建队列 + 建线程（重复调用直接返回）
- */
 static void demo_open(void)
 {
     if(s_tid != RT_NULL)
@@ -222,10 +184,6 @@ static void demo_open(void)
 
     rt_thread_startup(s_tid);
 }
-
-/**
- * @brief  关闭：让线程退出 -> 等它收尾 -> 删队列
- */
 static void demo_close(void)
 {
     message bye = {2, 0, 0};                    /* 2 = 该退出了 */
@@ -246,10 +204,6 @@ static void demo_close(void)
     s_q   = RT_NULL;
     s_tid = RT_NULL;
 }
-
-/**
- * @brief  投递：把事件塞进自己的队列（跑在 kernel 线程，不阻塞）
- */
 static void demo_post(const message *msg)
 {
     if(s_q == RT_NULL)
@@ -259,13 +213,6 @@ static void demo_post(const message *msg)
 
     (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* 队列只读，转掉 const */
 }
-
-/**************************************************************************************************
- *                                        渲染（kernel 线程）
- **************************************************************************************************/
-/**
- * @brief  每帧渲染：只拿快照 + 调一个界面函数，不碰硬件
- */
 static void demo_render(void)
 {
     demo_view_t v;
@@ -278,9 +225,7 @@ static void demo_render(void)
     demo_ui_render(v.count, v.run, v.events);
 }
 
-/**************************************************************************************************
- *                                        任务描述
- **************************************************************************************************/
+
 const task_t task_example =
 {
     .name       = "DEMO",           /* 调试打印用，也是线程名（<= 7 字符） */

@@ -3,20 +3,30 @@
  * 芯片     : CH32V307VCT6
  * 说明     : 4 个板载按键驱动（PE2~PE5，上拉输入，按下为低）
  *
- * 本驱动自己管一个线程，和原来的轮询版本完全不同：
+ * 本驱动自己管一个线程：
  *
  *     GPIO 电平变化 ──EXTI 中断──> 释放信号量 ──> key 线程
  *                                                    | 15ms 消抖
- *                                                    | 与上次稳定值比较
+ *                                                    | 状态机：按下 / 松开 / 按住
  *                                                    v
  *                                            回调 key_event_cb_t
  *
- * 上层用法只有三步：
- *     key_init();                          // 初始化（中断 + 建线程，不启动）
- *     key_event_register(my_key_cb);       // 注册回调
- *     key_start();                         // 启动按键线程
+ * 三档事件（一次物理动作只报一个，不会同一动作报两次）：
  *
- * 回调在 key 线程上下文执行，里面不要做耗时操作。
+ *     短按    按下后松开，按住 < 800ms                  KEY_ID_1~4       0 ~ 3
+ *     长按    按住到 800ms 立刻报一次，松开不再报短按    KEY_ID_LONG_1~4  5 ~ 8
+ *     双击    松开后 300ms 内又按一下                    KEY_ID_DBL_1~4   9 ~ 12
+ *
+ * 双击的语义要留意：第一下在松开时报一次短按；第二下的"按下沿"立刻报双击，
+ * 第二下松开不再报短按。也就是"双击" = 一次短按 + 一次双击事件。
+ * 业务上不想要第一下的短按，就自己忽略 0~3 里对应那个编号即可。
+ *
+ * 上层用法只有三步：
+ *     key_init();                       // 初始化（中断 + 建线程，不启动）
+ *     key_event_register(my_key_cb);    // 注册回调
+ *     key_start();                      // 启动按键线程
+ *
+ * 回调在 key 线程上下文执行，里面不要做耗时操作（只投事件）。
  ******************************************************************************/
 
 #ifndef __KEY_H
@@ -49,19 +59,36 @@ extern "C" {
 #define KEY_RT_PIN_4        4
 
 /*********************************************************************
- * 类型定义
+ * 事件编号
+ */
+/**
+ * @brief 按键事件编号
+ * @note  0~3 短按、5~8 长按、9~12 双击；
+ *        KEY_ID_MAX 是"物理键个数"，引脚表和循环用它，不要改
  */
 typedef enum
 {
-    KEY_ID_1 = 0,       /* KEY1 / PE2 */
-    KEY_ID_2,           /* KEY2 / PE3 */
-    KEY_ID_3,           /* KEY3 / PE4 */
-    KEY_ID_4,           /* KEY4 / PE5 */
-    KEY_ID_NONE,        /* 没有按键 */
-    KEY_ID_MAX = KEY_ID_NONE
+    KEY_ID_1 = 0,       /* K1 短按 / PE2 */
+    KEY_ID_2,           /* K2 短按 / PE3 */
+    KEY_ID_3,           /* K3 短按 / PE4 */
+    KEY_ID_4,           /* K4 短按 / PE5 */
+
+    KEY_ID_MAX = 4,     /* 物理键个数：引脚表、扫描循环用这个 */
+
+    KEY_ID_LONG_1 = 5,  /* K1 长按（按住 >= 800ms） */
+    KEY_ID_LONG_2,      /* K2 长按 */
+    KEY_ID_LONG_3,      /* K3 长按 */
+    KEY_ID_LONG_4,      /* K4 长按 */
+
+    KEY_ID_DBL_1 = 9,   /* K1 双击（300ms 内两下） */
+    KEY_ID_DBL_2,       /* K2 双击 */
+    KEY_ID_DBL_3,       /* K3 双击 */
+    KEY_ID_DBL_4,       /* K4 双击 */
+
+    KEY_ID_NONE = 0xFF  /* 没有按键（不会下发给回调） */
 } key_id_t;
 
-/* 位掩码，便于一次判断多个按键 */
+/* 位掩码，便于一次判断多个按键（只对物理键 0~3 有效） */
 #define KEY_BIT(id)         ((uint8_t)(1 << (id)))
 #define KEY_BUTTON_1        KEY_BIT(KEY_ID_1)
 #define KEY_BUTTON_2        KEY_BIT(KEY_ID_2)
@@ -76,8 +103,8 @@ typedef enum
 #define KEY_PUSH_BUTTON_4() (GPIO_ReadInputDataBit(KEY4_GPIO, KEY4_PIN) == Bit_RESET)
 
 /**
- * @brief 按键按下事件回调（在 key 线程里被调用）
- * @param key 被按下的按键
+ * @brief 按键事件回调（在 key 线程里被调用）
+ * @param key 事件编号，可能是短按 0~3、长按 5~8、双击 9~12
  */
 typedef void (*key_event_cb_t)(key_id_t key);
 
@@ -111,8 +138,8 @@ void key_event_register(key_event_cb_t cb);
 uint8_t key_state_get(void);
 
 /**
- * @brief  某个按键当前是否按下（已消抖）
- * @return 1 按下，0 未按下
+ * @brief  某个物理键当前是否按下（已消抖）
+ * @return 1 按下，0 未按下（长按/双击编号传进来一律返回 0）
  */
 uint8_t key_is_pressed(key_id_t id);
 

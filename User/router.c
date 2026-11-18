@@ -4,7 +4,6 @@
 static const task_t *s_home = RT_NULL;      //返回标准页
 static const task_t *s_cur = RT_NULL;       //前台事件
 static const task_t *volatile s_want = RT_NULL;     //将要切的事件
-static uint32_t s_lost = 0;
 
 /**
  * @brief  把前台换成 want（只在 kernel 线程里调）
@@ -18,7 +17,7 @@ static void fore_switch(const task_t *want)
     if(want == old)
     {
         return;
-    }
+    }                       //防止新任务是老任务
 
     /* 1. 新任务上场：open 由任务自己实现（重复调用要能挡住） */
     if(want != RT_NULL)
@@ -83,10 +82,6 @@ void router_dispatch(const message *msg)
     {
         s_cur->post(msg);
     }
-    else
-    {
-        s_lost++;
-    }
 }
 
 void router_render(void)
@@ -108,11 +103,5 @@ void router_render(void)
  **************************************************************************************************/
 static void router_cmd(void)
 {
-    rt_kprintf("router: cur=%s home=%s lost=%lu\r\n",
-               (s_cur != RT_NULL) ? s_cur->name : "-",
-               (s_home != RT_NULL) ? s_home->name : "-",
-               (unsigned long)s_lost);
-    rt_kprintf("        want=%s\r\n",
-               (s_want != RT_NULL) ? s_want->name : "-");
 }
 MSH_CMD_EXPORT_ALIAS(router_cmd, router, show current page and pending switch);
