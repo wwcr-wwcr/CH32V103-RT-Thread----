@@ -23,6 +23,9 @@
 #define KEY_THREAD_TICK         5
 #define KEY_DEBOUNCE_MS         15          /* 消抖窗口 */
 #define KEY_SYNC_MS             100         /* 没有中断时的兜底同步周期 */
+#define KEY_LONG_MS             800         /* 按住超过这个时间算长按 */
+#define KEY_DBL_MS              300         /* 两次按下间隔在此时间内算双击 */
+#define KEY_SCAN_MS             10          /* 按住期间的轮询周期，长按靠它计时 */
 
 /**************************************************************************************************
  *                                        内部变量
@@ -36,6 +39,18 @@ static uint8_t        s_stable  = 0;        /* 上一次确认过的稳定电平 */
 static uint8_t        s_inited  = 0;
 
 /* 按键编号 -> RT-Thread 引脚号 */
+/* 每个物理键一份状态，长按 / 双击都靠它 */
+typedef struct
+{
+    uint32_t down_tick;     /* 这次按下的时刻 */
+    uint32_t up_tick;       /* 上次松开的时刻（0 = 还没松开过） */
+    uint8_t  down;          /* 1 = 现在按着 */
+    uint8_t  long_sent;     /* 这次按住已经报过长按 */
+    uint8_t  dbl_sent;      /* 这次按住算双击的第二下，松开不再报短按 */
+} key_state_t;
+
+static key_state_t s_key[KEY_ID_MAX];
+
 static const rt_base_t s_rt_pin[KEY_ID_MAX] =
 {
     KEY_RT_PIN_1, KEY_RT_PIN_2, KEY_RT_PIN_3, KEY_RT_PIN_4
@@ -64,38 +79,93 @@ static void key_restore_pullup(void)
 }
 
 /* 按键线程：被中断唤醒 -> 消抖 -> 和稳定值比较 -> 回调 */
+/* 发一个按键事件（0~3 短按 / 5~8 长按 / 9~12 双击） */
+static void key_emit(key_id_t id)
+{
+    if(s_key_cb != RT_NULL)
+    {
+        s_key_cb(id);
+    }
+}
+
+/**
+ * @brief  扫一遍 4 个键，跑状态机
+ * @note   只比较"现在"和"上一拍"，不依赖 EXTI：按下/松开/长按都从这里出
+ */
+static void key_scan(void)
+{
+    uint8_t  now = key_state_get();
+    uint32_t t   = rt_tick_get();
+    uint32_t long_tick = rt_tick_from_millisecond(KEY_LONG_MS);
+    uint32_t dbl_tick  = rt_tick_from_millisecond(KEY_DBL_MS);
+    uint8_t  i;
+
+    for(i = 0; i < KEY_ID_MAX; i++)
+    {
+        key_state_t *k  = &s_key[i];
+        uint8_t      on = (uint8_t)(((now & KEY_BIT(i)) != 0) ? 1 : 0);
+
+        if((on != 0) && (k->down == 0))                 /* 按下沿 */
+        {
+            k->down      = 1;
+            k->down_tick = t;
+            k->long_sent = 0;
+
+            /* 上次松开离现在够近：这是双击的第二下，按下沿就报，不用等松开 */
+            if((k->up_tick != 0) && ((t - k->up_tick) <= dbl_tick))
+            {
+                k->dbl_sent = 1;
+                key_emit((key_id_t)(KEY_ID_DBL_1 + i));
+            }
+            else
+            {
+                k->dbl_sent = 0;
+            }
+        }
+        else if((on == 0) && (k->down != 0))            /* 松开沿 */
+        {
+            k->down    = 0;
+            k->up_tick = t;
+
+            /* 没报过长按、也不是双击的第二下，才算一次短按 */
+            if((k->long_sent == 0) && (k->dbl_sent == 0))
+            {
+                key_emit((key_id_t)i);
+            }
+        }
+        else if((on != 0) && (k->down != 0) && (k->long_sent == 0))
+        {
+            if((t - k->down_tick) >= long_tick)         /* 按住够久：报长按 */
+            {
+                k->long_sent = 1;
+                key_emit((key_id_t)(KEY_ID_LONG_1 + i));
+            }
+        }
+    }
+
+    s_stable = now;
+}
+
+/* 按键线程：中断唤醒（消抖）或定时轮询（长按计时） -> 扫一遍 */
 static void key_entry(void *parameter)
 {
     (void)parameter;
 
     for(;;)
     {
-        /* 有中断就等信号量，没中断则周期性兜底扫描一次（防止漏掉释放） */
-        if(rt_sem_take(&s_key_sem, rt_tick_from_millisecond(KEY_SYNC_MS)) == RT_EOK)
+        /* 有键按着时 10ms 扫一次（长按要计时），全松开时 100ms 一次就够 */
+        rt_int32_t wait = (s_stable != 0) ? (rt_int32_t)rt_tick_from_millisecond(KEY_SCAN_MS)
+                                          : (rt_int32_t)rt_tick_from_millisecond(KEY_SYNC_MS);
+
+        if(rt_sem_take(&s_key_sem, wait) == RT_EOK)
         {
-            /* 抖动会连续触发中断，先清计数，避免醒来好几次 */
+            /* 有边沿：等电平稳下来再扫，顺便把期间攒的中断清掉 */
             rt_sem_control(&s_key_sem, RT_IPC_CMD_RESET, RT_NULL);
             rt_thread_mdelay(KEY_DEBOUNCE_MS);
             rt_sem_control(&s_key_sem, RT_IPC_CMD_RESET, RT_NULL);
         }
 
-        {
-            uint8_t now     = key_state_get();
-            uint8_t pressed = (uint8_t)(now & (~s_stable));     /* 只有新按下的才算事件 */
-
-            s_stable = now;
-
-            if(pressed != 0 && s_key_cb != RT_NULL)
-            {
-                for(uint8_t i = 0; i < KEY_ID_MAX; i++)
-                {
-                    if(pressed & KEY_BIT(i))
-                    {
-                        s_key_cb((key_id_t)i);
-                    }
-                }
-            }
-        }
+        key_scan();
     }
 }
 
@@ -174,7 +244,7 @@ uint8_t key_state_get(void)
  */
 uint8_t key_is_pressed(key_id_t id)
 {
-    if(id >= KEY_ID_NONE)
+    if(id >= KEY_ID_MAX)
     {
         return 0;
     }
