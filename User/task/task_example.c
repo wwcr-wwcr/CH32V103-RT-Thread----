@@ -109,6 +109,8 @@ static void demo_open(void)
         if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }
         return;
     }
+//********************在这里写退出逻辑********************//
+
 
 
 
@@ -175,18 +177,18 @@ static void demo_thread(void *arg)
     for(;;)
     {
         /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
-        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)
+        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(10)) == RT_EOK)
         {
-            if(msg.type == 2)            /* 管理端让退出 */
+            if(msg.type == QUIT)               /* 管理端让退出 */
             {
                 break;
             }
 
-            if(msg.type == 0)             /* 实体按键 */
+            if(msg.type == KEY)                 /* 实体按键 */
             {
-                demo_key((key_id_t)msg.code);
+                demo_key(msg.code);
             }
-            else                                /* MSG_CTRL = 触摸控件 */
+            else                                /* 触摸控件 */
             {
                 demo_set(msg.code, msg.value);
             }
