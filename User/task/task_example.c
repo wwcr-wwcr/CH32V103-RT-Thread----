@@ -1,93 +1,36 @@
-/******************************************************************************
- * 文件名   : task_example.c
- * 说明     : EXAMPLE —— 模板任务（纯软件演示，不碰任何硬件）
- *
- * 一个任务的完整样子（本文件和 menu.c 结构完全一致）：
- *     ① 数据      本线程私有状态
- *     ② 快照      给 render 读的一份拷贝（关中断拷，避免读到一半被改）
- *     ③ 资源      s_exit / s_q / s_tid：open 建，close 删
- *     ④ 逻辑      周期活 demo_tick() + 事件 demo_key() / demo_set()
- *     ⑤ 线程本体  demo_thread()：rt_thread_create 的入口就是它
- *     ⑥ 生命周期  open / close / post + render + 任务描述
- *
- * 演示：每 100ms 计一次数
- *     K1 暂停 / 继续      K2 +10      K3 清零
- *     触摸 +10 / CLR / QUIT（QUIT = 回首页，等价于按 K4）
- *
- * 换成真实业务时，只改 ④ 里那三个函数，其余原样保留。
- ******************************************************************************/
-
 #include "router.h"
 #include "key.h"
 #include "ui/task_example_ui.h"
 #include "rtthread.h"
-#include "rthw.h"
 
-/**************************************************************************************************
- *                                        ① 数据（只有本线程写）
- **************************************************************************************************/
-static uint32_t s_count  = 0;       /* 计数器 */
-static uint8_t  s_run    = 1;       /* 1 = 在计数 */
-static uint16_t s_events = 0;       /* 按了多少下（按键 + 触摸） */
-
-/**************************************************************************************************
- *                                        ② 快照（本线程写 / render 读）
- **************************************************************************************************/
-typedef struct
-{
-    uint32_t count;
-    uint8_t  run;
-    uint16_t events;
-} demo_view_t;
-
-static demo_view_t s_view;
-
-/**
- * @brief  把当前状态拷一份给渲染用（关中断，防止渲染读到一半被改）
- */
-static void view_push(void)
-{
-    demo_view_t v;
-    rt_base_t   level;
-
-    v.count  = s_count;
-    v.run    = s_run;
-    v.events = s_events;
-
-    level = rt_hw_interrupt_disable();
-    s_view = v;
-    rt_hw_interrupt_enable(level);
-}
-
-/**************************************************************************************************
- *                                        ③ 资源（open 建 / close 删）
- **************************************************************************************************/
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
-static rt_mq_t     s_q    = RT_NULL;    /* 我自己的队列 */
-static rt_thread_t s_tid  = RT_NULL;    /* 我自己的线程 */
+static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
+static void demo_thread(void *arg);
 
-/**************************************************************************************************
- *                                        ④ 逻辑（跑在自己的线程里）
- **************************************************************************************************/
-/**
- * @brief  周期活：每拍调用一次
- * @note   换成真实业务时，采样、喂音频、刷数码管都写这里
- */
+
+
+//********************在这里写常用变量********************//
+static volatile uint32_t s_count  = 0;      /* 计数器 */
+static volatile uint8_t  s_run    = 1;      /* 1 = 在计数 */
+static volatile uint16_t s_events = 0;      /* 按了多少下（按键 + 触摸） */
+
+
+
+
 static void demo_tick(void)
 {
+//********************在这里写循环逻辑********************//
     if(s_run != 0)
     {
         s_count++;
-        view_push();
     }
+
 }
 
-/**
- * @brief  实体按键
- * @param  key  K1~K3（K4 被 router 拦下）；长按 5~8、双击 9~12 也在这里收
- */
+
 static void demo_key(key_id_t key)
 {
+//********************在这里写按键逻辑********************//
     switch(key)
     {
         case KEY_ID_1:                          /* K1 暂停 / 继续 */
@@ -107,16 +50,13 @@ static void demo_key(key_id_t key)
     }
 
     s_events++;
-    view_push();
+
 }
 
-/**
- * @brief  触摸控件事件
- * @param  id     控件编号，见 ui/task_example_ui.c（1 +10 / 2 CLR / 3 QUIT）
- * @param  value  控件给的数值（按钮用不上）
- */
+
 static void demo_set(uint8_t id, int32_t value)
 {
+//********************在这里写控件逻辑********************//
     (void)value;
 
     switch(id)
@@ -130,71 +70,24 @@ static void demo_set(uint8_t id, int32_t value)
             break;
 
         case 3:
-            /* 只写一个指针，不阻塞。真正的关线程 + 删队列由 router 在
-             * kernel 线程里做（它调 demo_close），这里不能自己 close 自己。 */
-            router_go(RT_NULL);
+            router_go(RT_NULL);                 /* 回首页 */
             return;
 
+        case 4:
+            return;
         default:
             return;
     }
 
     s_events++;
-    view_push();
 }
 
-/**************************************************************************************************
- *                                        ⑤ 线程本体
- **************************************************************************************************/
-/**
- * @brief  线程入口：rt_thread_create 直接用的就是这个函数
- * @param  arg  没用到
- * @note   100ms 一拍；没有事件也会醒，正好用来跑 demo_tick()
- */
-static void demo_thread(void *arg)
-{
-    message msg;
 
-    (void)arg;
-
-    view_push();                                /* 先给渲染一份初值 */
-
-    for(;;)
-    {
-        /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
-        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)
-        {
-            if(msg.type == 2)                   /* 2 = 管理端让退出 */
-            {
-                break;
-            }
-
-            if(msg.type == 0)                   /* 0 = 实体按键 */
-            {
-                demo_key((key_id_t)msg.code);
-            }
-            else                                /* 1 = 触摸控件 */
-            {
-                demo_set(msg.code, msg.value);
-            }
-        }
-
-        demo_tick();
-    }
-
-    rt_sem_release(s_exit);                     /* 我走了，close 那边可以往下走 */
-}
-
-/**************************************************************************************************
- *                                        ⑥ 打开 / 关闭 / 投递 / 渲染
- **************************************************************************************************/
-/**
- * @brief  打开：建信号量 + 队列 + 线程，任何一个失败就把已建的删掉
- * @note   重复调用直接返回（router 可能反复调）
- */
 static void demo_open(void)
 {
-    if(s_tid != RT_NULL)
+    rt_thread_t tid;
+
+    if(s_q != RT_NULL)
     {
         return;                                 /* 已经在跑 */
     }
@@ -205,34 +98,39 @@ static void demo_open(void)
 
     s_exit = rt_sem_create("dexit", 0, RT_IPC_FLAG_FIFO);
     s_q    = rt_mq_create("DEMO", sizeof(message), 4, RT_IPC_FLAG_FIFO);
-    s_tid  = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
+    tid    = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
 
-    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (s_tid == RT_NULL))
+    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))
     {
         rt_kprintf("demo: open failed\r\n");
 
-        if(s_tid  != RT_NULL) { rt_thread_delete(s_tid); s_tid  = RT_NULL; }
+        if(tid    != RT_NULL) { rt_thread_delete(tid); }
         if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }
         if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }
         return;
     }
 
-    rt_thread_startup(s_tid);
+
+
+
+    rt_thread_startup(tid);
 }
 
-/**
- * @brief  关闭：让线程退出 -> 等它收尾 -> 删队列和信号量
- */
+
 static void demo_close(void)
 {
-    message bye = {2, 0, 0};                    /* 2 = 该退出了 */
+    message bye = {2, 0, 0};             /* MSG_QUIT = 该退出了 */
     message drop;
     uint8_t retry;
 
-    if(s_tid == RT_NULL)
+    if(s_q == RT_NULL)
     {
         return;                                 /* 没开，什么都不用做 */
     }
+//********************在这里写退出逻辑********************//
+
+
+
 
     /* 队列可能刚好满：腾一个位置再投，最多试 20 次 */
     for(retry = 0; retry < 20; retry++)
@@ -259,12 +157,48 @@ static void demo_close(void)
     /* 线程已经自己退出（entry return），这里只回收资源 */
     rt_mq_delete(s_q);      s_q    = RT_NULL;
     rt_sem_delete(s_exit);  s_exit = RT_NULL;
-    s_tid = RT_NULL;
 }
 
-/**
- * @brief  投递：把事件塞进自己的队列（跑在 kernel 线程，不阻塞）
- */
+
+static void demo_render(void)
+{
+    demo_ui_render(s_count, s_run, s_events);
+}
+
+
+static void demo_thread(void *arg)
+{
+    message msg;
+
+    (void)arg;
+
+    for(;;)
+    {
+        /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
+        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)
+        {
+            if(msg.type == 2)            /* 管理端让退出 */
+            {
+                break;
+            }
+
+            if(msg.type == 0)             /* 实体按键 */
+            {
+                demo_key((key_id_t)msg.code);
+            }
+            else                                /* MSG_CTRL = 触摸控件 */
+            {
+                demo_set(msg.code, msg.value);
+            }
+        }
+
+        demo_tick();
+    }
+
+    rt_sem_release(s_exit);                     /* 我走了，close 那边可以往下走 */
+}
+
+
 static void demo_post(const message *msg)
 {
     if(s_q != RT_NULL)
@@ -272,22 +206,6 @@ static void demo_post(const message *msg)
         (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* 队列只读，转掉 const */
     }
 }
-
-/**
- * @brief  每帧渲染：只拿快照 + 调一个界面函数，不碰硬件
- */
-static void demo_render(void)
-{
-    demo_view_t v;
-    rt_base_t   level;
-
-    level = rt_hw_interrupt_disable();
-    v = s_view;
-    rt_hw_interrupt_enable(level);
-
-    demo_ui_render(v.count, v.run, v.events);
-}
-
 /**************************************************************************************************
  *                                        任务描述
  **************************************************************************************************/
