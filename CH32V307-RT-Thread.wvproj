@@ -294,7 +294,9 @@
 							"${project}/LVGL/GUI/lvgl/examples/porting",
 							"${project}/Task/L_GUI",
 							"${project}/Task/Lvgl_Task",
-							"${project}/Task/Thread_Task"
+							"${project}/Task/Thread_Task",
+							"${project}/APP",
+							"${project}/BSP"
 						],
 						"include_system_paths": [],
 						"include_files": []
