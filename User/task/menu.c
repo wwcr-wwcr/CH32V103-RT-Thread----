@@ -3,10 +3,10 @@
 #include "ui/menu_ui.h"
 #include "rtthread.h"
 
+
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void menu_thread(void *arg);
-
 
 
 //********************在这里写任务表********************//
@@ -17,8 +17,8 @@ static const task_t *const g_app_list[] =
     &task_example,
 //  &task_x;                                                             <----------在这添加
 };
-static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));
-static const char *s_names[8];                  /* 按钮显示的名字 */
+static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
+static const char *s_names[8];                 
 
 
 //********************在这里写内置变量********************//
@@ -27,12 +27,7 @@ static uint8_t s_cursor = 0;        //当前task
 
 static void menu_enter(uint8_t index)
 {
-//********************在这里写切页逻辑********************//
-    if(index >= g_app_num)
-    {
-        return;
-    }
-
+//********************在这里写进入task逻辑********************//
     s_cursor = index;
     router_go(g_app_list[index]);
 }
@@ -55,7 +50,10 @@ static void menu_key(key_id_t key)
             menu_enter(s_cursor);
             break;
 
-        default:                                /* K4 被 router 拦下，收不到 */
+        case KEY_ID_4:                   
+            break;
+
+        default:                  
             return;
     }
 }
@@ -63,7 +61,7 @@ static void menu_key(key_id_t key)
 
 static void menu_set(uint8_t id, int32_t value)
 {
-//********************在这里写控件逻辑********************//
+//********************在这里写触摸控件逻辑********************//
     (void)value;
 
     if(id > 0)                                  /* 编号 = 按钮下标 + 1 */
@@ -114,7 +112,7 @@ static void menu_close(void)
     {
         return;                                 /* 没开，什么都不用做 */
     }
-//********************在这里写关闭逻辑********************//
+//********************在这里写关闭逻辑(menu的关闭逻辑几乎不会运行)********************//
 
 
 

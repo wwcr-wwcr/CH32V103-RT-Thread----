@@ -5,12 +5,7 @@ static const task_t *s_home = RT_NULL;      //返回标准页
 static const task_t *s_cur = RT_NULL;       //前台事件
 static const task_t *volatile s_want = RT_NULL;     //将要切的事件
 
-/**
- * @brief  把前台换成 want（只在 kernel 线程里调）
- * @note   顺序不能换：先开新的并画一帧，再关老的、删老页面。
- *         LVGL 不许删正在显示的 screen，反了会花屏甚至崩。
- */
-static void fore_switch(const task_t *want)
+static void fore_switch(const task_t *want)         //切换事件调用
 {
     const task_t *old = s_cur;
 
@@ -55,9 +50,6 @@ static void fore_switch(const task_t *want)
     }
 }
 
-/**************************************************************************************************
- *                                        对外接口
- **************************************************************************************************/
 void router_init(const task_t *home)
 {
     s_home = home;
@@ -65,10 +57,10 @@ void router_init(const task_t *home)
     s_cur  = RT_NULL;
 }
 
+//唯一经常使用的函数
 void router_go(const task_t *task)
 {
-    /* 传 NULL = 回首页：任务里的"退出"按钮直接 router_go(RT_NULL) */
-    s_want = (task != RT_NULL) ? task : s_home;
+    s_want = (task != RT_NULL) ? task : s_home;     //在下一次render中刷新
 }
 
 void router_dispatch(const message *msg)
@@ -79,7 +71,7 @@ void router_dispatch(const message *msg)
     }
 
     /* K4 短按 = 全局退出键：任何页面都能回首页，永远不下发给任务 */
-    if((msg->type == KEY) && (msg->code == KEY_ID_4))
+    if((msg->type == KEY) && (msg->code == KEY_ID_LONG_4))
     {
         if(s_cur != s_home)
         {

@@ -75,6 +75,7 @@ static void demo_set(uint8_t id, int32_t value)
 
         case 4:
             return;
+            
         default:
             return;
     }
@@ -134,6 +135,8 @@ static void demo_close(void)
 
 
 
+
+
     /* 队列可能刚好满：腾一个位置再投，最多试 20 次 */
     for(retry = 0; retry < 20; retry++)
     {
@@ -164,7 +167,7 @@ static void demo_close(void)
 
 static void demo_render(void)
 {
-    demo_ui_render(s_count, s_run, s_events);
+    demo_ui_render(s_count, s_run, s_events);   //把值传给render线程
 }
 
 
@@ -213,12 +216,12 @@ static void demo_post(const message *msg)
  **************************************************************************************************/
 const task_t task_example =
 {
-    .name       = "DEMO",           /* 调试打印用，也是线程名（<= 7 字符） */
-    .keep       = 0,                /* 0 = 切走就关线程 */
+    .name       = "DEMO",           /* 线程名*/
+    .keep       = 0,                /* 1 = 前台 */
 
-    .open       = demo_open,        /* 自己建资源 + 线程 */
-    .close      = demo_close,       /* 自己让线程退出 + 删资源 */
-    .post       = demo_post,        /* 自己收事件 */
-    .render     = demo_render,      /* 前台每拍画界面 */
-    .ui_destroy = demo_ui_destroy,  /* 关页时把页面还给 LVGL 堆 */
+    .open       = demo_open,        /* 进入task */
+    .close      = demo_close,       /* 退出task */
+    .post       = demo_post,        /* 事件收取 */
+    .render     = demo_render,      /* 接管屏幕刷新 */
+    .ui_destroy = demo_ui_destroy,  /* lvgl卸载 */
 };
