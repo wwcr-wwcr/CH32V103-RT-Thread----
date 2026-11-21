@@ -116,7 +116,6 @@
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/rtthread}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/L_GUI}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/User/task}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/DAC}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/example}&quot;"/>
                 </option>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.assembler.include.systempaths.496720673" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.assembler.include.systempaths" useByScannerDiscovery="true" valueType="includePath"/>
@@ -132,7 +131,9 @@
               <tool id="ilg.gnumcueclipse.managedbuild.cross.riscv.tool.c.compiler.1731377187" name="GNU RISC-V Cross C Compiler" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.tool.c.compiler">
                 <option id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.nostdinc.1633344562" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.nostdinc" useByScannerDiscovery="true" value="false" valueType="boolean"/>
                 <option id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.preprocessonly.208069239" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.preprocessonly" useByScannerDiscovery="false" value="false" valueType="boolean"/>
-                <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.defs.177116515" name="Defined symbols (-D)" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols"/>
+                <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.defs.177116515" name="Defined symbols (-D)" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.defs" useByScannerDiscovery="true" valueType="definedSymbols">
+                  <listOptionValue builtIn="false" value="LV_SPRINTF_USE_FLOAT=1"/>
+                </option>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.undef.1820512625" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.undef" useByScannerDiscovery="true" valueType="undefDefinedSymbols"/>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.paths.1567947810" name="Include paths (-I)" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.paths" useByScannerDiscovery="true" valueType="includePath">
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Debug}&quot;"/>
@@ -208,27 +209,9 @@
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/LVGL/GUI/lvgl/src/misc}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/LVGL/GUI/lvgl/src/widgets}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/LVGL/GUI_APP}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/ADC}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/ASRPRO}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/Attitude}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/BEEP}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/BleUart}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/CS100}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/DigitalTube}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/FFT}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/FFT/kissfft}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/I2C}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/KEY}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/LCD}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/LED}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/MOTOR}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/NFC}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/NTC}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/PD}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/RingBuffer}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/RTC}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/TIM}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/HAL/VEML7700}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/LVGL/GUI}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/Event}&quot;"/>
@@ -236,10 +219,7 @@
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/L_GUI}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/Lvgl_Task}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/Thread_Task}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/BSP}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP/private}&quot;"/>
-                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP_HAL}&quot;"/>
                 </option>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.systempaths.2011720354" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.systempaths" useByScannerDiscovery="true" valueType="includePath"/>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.files.542153928" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.files" useByScannerDiscovery="true" valueType="includeFiles"/>
@@ -387,7 +367,7 @@
             </toolChain>
           </folderInfo>
           <sourceEntries>
-            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|LVGL/GUI_APP|HAL/ADC|HAL/ASRPRO|HAL/Attitude|HAL/AUDIO|HAL/BEEP|HAL/BleUart|HAL/CS100|HAL/DAC|HAL/DigitalTube|HAL/FFT|HAL/LED|HAL/MIC|HAL/MOTOR|HAL/NTC|HAL/NFC|HAL/RingBuffer|HAL/PD|HAL/RTC|HAL/TIM|HAL/VEML7700" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|LVGL/GUI_APP|HAL/I2C" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
           </sourceEntries>
         </configuration>
       </storageModule>

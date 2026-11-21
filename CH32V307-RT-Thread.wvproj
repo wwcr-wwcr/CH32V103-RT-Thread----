@@ -96,26 +96,7 @@
 					"${project}/User/ui/task_system_ui.h",
 					"${project}/User/ui/task_clock_ui.h",
 					"${project}/LVGL/GUI_APP",
-					"${project}/HAL/ADC",
-					"${project}/HAL/ASRPRO",
-					"${project}/HAL/Attitude",
-					"${project}/HAL/AUDIO",
-					"${project}/HAL/BEEP",
-					"${project}/HAL/BleUart",
-					"${project}/HAL/CS100",
-					"${project}/HAL/DAC",
-					"${project}/HAL/DigitalTube",
-					"${project}/HAL/FFT",
-					"${project}/HAL/LED",
-					"${project}/HAL/MIC",
-					"${project}/HAL/MOTOR",
-					"${project}/HAL/NTC",
-					"${project}/HAL/NFC",
-					"${project}/HAL/RingBuffer",
-					"${project}/HAL/PD",
-					"${project}/HAL/RTC",
-					"${project}/HAL/TIM",
-					"${project}/HAL/VEML7700"
+					"${project}/HAL/I2C"
 				],
 				"optimization": {
 					"level": "size",
@@ -190,7 +171,6 @@
 							"${project}/rtthread",
 							"${project}/Task/L_GUI",
 							"${project}/User/task",
-							"${project}/HAL/DAC",
 							"${project}/example"
 						],
 						"include_system_paths": [],
@@ -209,7 +189,9 @@
 					"preprocessor": {
 						"do_not_search_system_directories": false,
 						"preprocess_only": false,
-						"defined_symbols": [],
+						"defined_symbols": [
+							"LV_SPRINTF_USE_FLOAT=1"
+						],
 						"undefined_symbols": []
 					},
 					"includes": {
@@ -287,27 +269,9 @@
 							"${project}/LVGL/GUI/lvgl/src/misc",
 							"${project}/LVGL/GUI/lvgl/src/widgets",
 							"${project}/LVGL/GUI_APP",
-							"${project}/HAL/ADC",
-							"${project}/HAL/ASRPRO",
-							"${project}/HAL/Attitude",
-							"${project}/HAL/BEEP",
-							"${project}/HAL/BleUart",
-							"${project}/HAL/CS100",
-							"${project}/HAL/DigitalTube",
-							"${project}/HAL/FFT",
-							"${project}/HAL/FFT/kissfft",
 							"${project}/HAL/I2C",
 							"${project}/HAL/KEY",
 							"${project}/HAL/LCD",
-							"${project}/HAL/LED",
-							"${project}/HAL/MOTOR",
-							"${project}/HAL/NFC",
-							"${project}/HAL/NTC",
-							"${project}/HAL/PD",
-							"${project}/HAL/RingBuffer",
-							"${project}/HAL/RTC",
-							"${project}/HAL/TIM",
-							"${project}/HAL/VEML7700",
 							"${project}/LVGL/GUI",
 							"${project}/Task",
 							"${project}/Task/Event",
@@ -315,10 +279,7 @@
 							"${project}/Task/L_GUI",
 							"${project}/Task/Lvgl_Task",
 							"${project}/Task/Thread_Task",
-							"${project}/APP",
-							"${project}/BSP",
-							"${project}/APP/private",
-							"${project}/APP_HAL"
+							"${project}/BSP"
 						],
 						"include_system_paths": [],
 						"include_files": []
