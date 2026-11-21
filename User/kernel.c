@@ -2,8 +2,8 @@
 #include "rtthread.h"
 #include "lvgl/lvgl.h"
 
-static rt_mq_t message_q = RT_NULL;                   //key线程事件队列
-static evt_handler_t event    = RT_NULL;     //事件处理
+static rt_mq_t message_q = RT_NULL;        //key线程事件队列
+static evt_handler_t event    = RT_NULL;   //事件处理
 static render_cb_t   render = RT_NULL;     //事件刷新
 
 static void kernel_loop(void *parameter)

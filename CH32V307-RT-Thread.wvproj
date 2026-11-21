@@ -95,7 +95,27 @@
 					"${project}/User/ui/task_system_ui.c",
 					"${project}/User/ui/task_system_ui.h",
 					"${project}/User/ui/task_clock_ui.h",
-					"${project}/LVGL/GUI_APP"
+					"${project}/LVGL/GUI_APP",
+					"${project}/HAL/ADC",
+					"${project}/HAL/ASRPRO",
+					"${project}/HAL/Attitude",
+					"${project}/HAL/AUDIO",
+					"${project}/HAL/BEEP",
+					"${project}/HAL/BleUart",
+					"${project}/HAL/CS100",
+					"${project}/HAL/DAC",
+					"${project}/HAL/DigitalTube",
+					"${project}/HAL/FFT",
+					"${project}/HAL/LED",
+					"${project}/HAL/MIC",
+					"${project}/HAL/MOTOR",
+					"${project}/HAL/NTC",
+					"${project}/HAL/NFC",
+					"${project}/HAL/RingBuffer",
+					"${project}/HAL/PD",
+					"${project}/HAL/RTC",
+					"${project}/HAL/TIM",
+					"${project}/HAL/VEML7700"
 				],
 				"optimization": {
 					"level": "size",
@@ -296,7 +316,9 @@
 							"${project}/Task/Lvgl_Task",
 							"${project}/Task/Thread_Task",
 							"${project}/APP",
-							"${project}/BSP"
+							"${project}/BSP",
+							"${project}/APP/private",
+							"${project}/APP_HAL"
 						],
 						"include_system_paths": [],
 						"include_files": []

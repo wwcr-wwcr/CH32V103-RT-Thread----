@@ -238,6 +238,8 @@
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Task/Thread_Task}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP}&quot;"/>
                   <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/BSP}&quot;"/>
+                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP/private}&quot;"/>
+                  <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/APP_HAL}&quot;"/>
                 </option>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.systempaths.2011720354" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.systempaths" useByScannerDiscovery="true" valueType="includePath"/>
                 <option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.files.542153928" superClass="ilg.gnumcueclipse.managedbuild.cross.riscv.option.c.compiler.include.files" useByScannerDiscovery="true" valueType="includeFiles"/>
@@ -385,7 +387,7 @@
             </toolChain>
           </folderInfo>
           <sourceEntries>
-            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|LVGL/GUI_APP" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|LVGL/GUI_APP|HAL/ADC|HAL/ASRPRO|HAL/Attitude|HAL/AUDIO|HAL/BEEP|HAL/BleUart|HAL/CS100|HAL/DAC|HAL/DigitalTube|HAL/FFT|HAL/LED|HAL/MIC|HAL/MOTOR|HAL/NTC|HAL/NFC|HAL/RingBuffer|HAL/PD|HAL/RTC|HAL/TIM|HAL/VEML7700" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
           </sourceEntries>
         </configuration>
       </storageModule>

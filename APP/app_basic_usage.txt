@@ -1,0 +1,152 @@
+CH32V307VCT6 / ESAD2025 板载外设 APP 调用手册
+
+一、接入已有工程
+
+应用线程包含 app.h，或单独包含 app_key.h 等设备头。每种设备对应
+App/app_xxx.c 和 App/app_xxx.h，有独立的 app_xxx_init() 和 app_xxx_de_init()。
+初始化一次，按需多次读写，由持有设备的任务负责释放。返回值统一为 app_status_t。
+工程默认 main 已启动显示和触摸，其他设备按需启动。使用默认界面时可以直接调用
+app_display_set_text() 和 app_touch_read()。显示初始化失败时 main 会在控制台报告。
+
+二、可直接使用的例子
+
+以下函数可放进自己的应用 .c 文件。先调用 panel_init()，任务运行期间反复调用
+panel_update()，退出前调用 panel_de_init()。按键在后台每 5 ms 自动扫描。
+单击 K1 亮绿灯，长按 K1 熄灯。第一次单击要等 300 ms 双击窗口结束才会产生。
+
+    #include "app.h"
+
+    app_status_t panel_init(void)
+    {
+        app_status_t rc = app_rgb_init();
+        if (rc != APP_OK) return rc;
+        rc = app_key_init();
+        if (rc != APP_OK) app_rgb_de_init();
+        return rc;
+    }
+
+    app_status_t panel_update(void)
+    {
+        uint8_t events;
+        app_status_t rc = app_key_take_events(APP_KEY_1, &events);
+        if (rc != APP_OK) return rc;
+        if (events & APP_KEY_EVENT_LONG_PRESS) return app_rgb_set(APP_RGB_OFF);
+        if (events & APP_KEY_EVENT_CLICK) return app_rgb_set(APP_RGB_GREEN);
+        return APP_OK;
+    }
+
+    app_status_t panel_de_init(void)
+    {
+        app_status_t key = app_key_de_init();
+        app_status_t rgb = app_rgb_de_init();
+        return key != APP_OK ? key : rgb;
+    }
+
+任务启动时分别调用 app_ntc_init()、app_mic_init()；两者都成功后，周期调用以下函数。
+温度以摄氏度输出，音量以去除直流偏置后的 ADC 有效值输出。退出时分别调用对应 de_init()。
+
+    #include "app.h"
+
+    app_status_t read_environment(float *celsius, float *mic_rms)
+    {
+        if (!celsius || !mic_rms) return APP_ERR_ARG;
+        float temperature, rms;
+        app_status_t rc = app_ntc_read_celsius(&temperature);
+        if (rc == APP_OK) rc = app_mic_update();
+        if (rc == APP_OK) rc = app_mic_get_rms(&rms);
+        if (rc == APP_OK) {
+            *celsius = temperature;
+            *mic_rms = rms;
+        }
+        return rc;
+    }
+
+三、设备速查
+
+下列调用均在相应设备 init 成功后使用。单位、取值范围和错误行为见对应头文件。
+
+app_key         K1~K4。app_key_is_pressed(APP_KEY_1, &pressed) 读消抖状态。
+                app_key_take_events(APP_KEY_1, &events) 一次取走单击、双击、长按位。
+                单独判断时用 app_key_take_short_press、app_key_take_double_click、
+                app_key_take_long_press，参数都是 (key, &detected)。成功时 1 表示发生，
+                0 表示无事件。每个函数只消费所查的那一类。后台扫描自动进行。
+                每个键单独保存事件，同类型重复事件会合并；由一个任务消费。
+app_rgb         共阳 RGB。app_rgb_set(APP_RGB_CYAN) 设青色，APP_RGB_OFF 熄灯。
+                app_rgb_blink(APP_RGB_BLUE, 100, 400, 3) 蓝灯亮 100 ms、灭 400 ms，闪 3 次。
+                app_rgb_blink_alternate(APP_RGB_RED, 150, APP_RGB_BLUE, 250, 4)
+                红灯亮 150 ms 后直接切蓝灯 250 ms，共 4 轮，最后熄灭。
+                两种闪烁提交成功就返回。要提前结束，可用 app_rgb_set(APP_RGB_OFF)。
+app_buzzer      app_buzzer_beep(2000, 80) 发出 2 kHz、80 ms 的短音，期间调用线程等待。
+                持续发声或任务自行计时时用 app_buzzer_start(hz) 与 app_buzzer_stop()。
+                app_buzzer_repeat(2000, 25, 100, 400, 3) 立即启动 2 kHz、25% 占空比，
+                每次响 100 ms，相邻两次之间静音 400 ms，共 3 声。两次起响相隔 500 ms。
+                最后一声结束后自动静音，也可调用 app_buzzer_stop() 提前停止。
+app_segment     CH422G 四位数码管。app_segment_show_number(2027) 显示整数，
+                app_segment_show_fixed(-37, 1) 显示 -3.7，app_segment_clear() 清空。
+                app_segment_show_text("3337") 显示 3337，app_segment_show_text("-1.2.3")
+                依次点亮「-」「1.」「2.」「3」。可传串口组装好的以 '\0' 结尾的文本，
+                行输入可先去掉回车换行。文本左对齐，保留前导零，空串清屏。
+                输入超出四个物理字位或含不支持的字符，返回 APP_ERR_ARG 并保留原显示。
+app_speaker     喇叭。app_speaker_play_pcm(pcm, count, rate_hz) 播放 16 位单声道短片段，
+                在调用线程中占用 TIM6 轮询供样。也可逐点 app_speaker_write_sample(sample)。
+app_ntc         app_ntc_read_celsius(&c) 读温度，app_ntc_read(&sample) 同时得原码和电阻。
+                固件采用 10 kΩ@25 ℃、B=3380 K，B 值取自套件例程，换料时覆盖 APP_NTC_BETA_K。
+app_mic         app_mic_update() 采一帧，可分别取 app_mic_get_peak_to_peak(&pp)、
+                app_mic_get_rms(&rms)、app_mic_get_dbfs(&dbfs)，这些 getter 读取同一帧。
+                app_mic_capture(samples, count) 可取得波形并同步更新各项测量。
+                要直接测频率，用 app_mic_read_frequency_hz(&hz)。适合 100~10000 Hz 的稳定单音，
+                每次以 48 kHz 采 1536 点（32 ms）。无可识别周期时返回 APP_ERR_NOT_FOUND。
+                要直接测数字电平，用 app_mic_read_dbfs(&dbfs)。每调用一次就重新采一帧。
+                若需要同一时刻的频率和电平，可在测频成功后调用 app_mic_get_dbfs(&dbfs)
+                取同一帧的电平，省去第二次采样。
+                要读未计权声压级，让麦克风接收已知声压级的参考声，再调用
+                app_mic_calibrate_spl(reference_db_spl) 输入此时实际的参考值。
+                之后用 app_mic_read_spl(&db_spl)；重新初始化后须重新校准。
+app_light       VEML7700。app_light_read_lux(&lux) 直接读 lx。首帧约 110 ms 后可读。
+app_imu         P4 配套 QMI8658。app_imu_read(&sample) 同时得三轴加速度（g）、
+                三轴角速度（°/s）、芯片温度和采样序号。尚无新样本时下个周期重试。
+app_pd          CH224A。app_pd_read_status(&status) 取协议与协商可用电流。
+                app_pd_request_voltage(APP_PD_9V) 显式请求档位；实际电压由供电端协商。
+app_fan         app_fan_set_speed(60) 输出 60% 风扇驱动；0 停止。
+app_heater      app_heater_set_power(25) 输出 25% 加热占空比；0 关闭。
+app_motor       app_motor_set_speed(40) 正转、-40 反转、0 停转；换向自动留出关断时间。
+app_encoder     app_encoder_read(&sample) 取四倍频增量和累计计数；app_encoder_zero() 清零。
+                两次成功读取间净位移须小于 32768 计数；电机控制和编码器可独立使用。
+app_ultrasonic  P5 配套 CS100A。app_ultrasonic_read_mm(&distance) 触发并返回毫米距离。
+                本次没有有效回波时结果变量保留旧值，请依据返回值决定是否显示。
+app_display     ST7796。app_display_set_text("Ready") 显示文本；app_display_set_backlight(0) 关背光。
+                普通应用线程也可调用。de_init 关闭面板输出，保留现有 LVGL 界面与共享服务。
+app_touch       GT911。app_touch_read(&point) 取横屏当前 pressed、x、y。左上为 (0,0)，
+                横坐标 0~479，纵坐标 0~319。de_init 停止触摸并复位控制器。
+app_ble         板载蓝牙串口。app_ble_send(buf, len, &sent) 透传字节，
+                app_ble_receive(buf, capacity, &received) 取后台已收到的数据。
+                默认 115200/8N1，APP_BLE_BAUD 可覆盖。接收队列可缓存 256 字节。
+app_voice       ASRPRO。app_voice_receive(&cmd) 取已识别的设备号和动作码；
+                app_voice_send(target, action) 发一条模块指令。具体词条由模块固件决定。
+app_nfc         app_nfc_scan() 单次寻卡，app_nfc_read_block(block, data) 取卡上 16 字节。
+                app_nfc_write_data_block(block, data) 写普通数据块，块号范围见头文件。
+app_rtc         app_rtc_set_time(&time) 按年月日时分秒校时，app_rtc_get_time(&time) 直接读取。
+                de_init 后备份域继续计时，掉电保持取决于板上备份供电。
+app_ethernet    app_ethernet_init(mac) 指定本设备单播 MAC，app_ethernet_link(&up) 读网线状态。
+                app_ethernet_send/receive 收发含链路层头的原始帧。IP、TCP/UDP 由协议栈处理。
+app_usb_hub     CH334R 四口集线器。app_usb_hub_init() 枚举板载集线器，
+                app_usb_hub_set_port_power(port, 1) 请求逻辑端口电源，
+                app_usb_hub_read_port(port, &state) 查逻辑端口 1~4 的连接及使能状态。
+                板上插座 VBUS 接 5 V，外接键盘/U盘等设备还各自需要 USB 类驱动。
+
+四、共享资源和调用时机
+
+NTC 使用 ADC1/PB0。麦克风使用 OPA3 和 ADC2/PA1，采隔直电容 C31 前的运放输出；
+PCB 上另有 PC3 的 MIC_ADC 网络。两项采集可以分别开始、停止和读取。
+麦克风固定速率采集期间还使用 TIM4 的内部比较事件、TIM8 计数门控和 DMA1 通道 7，返回后归还。
+光照、姿态和 PD 共用 PB8/PB9 的 I²C1。最后一个设备释放时才关闭总线。
+数码管为 PE0/PE1 独立控制线，触摸也有独立的 PD6/PD7。显示与触摸的 LVGL 操作
+由同一个 GUI 线程执行。原有的 USART1 控制台与 WCH-Link 调试口保留给 RT-Thread。
+风扇、蜂鸣器、加热、电机分别用 TIM5、TIM2、TIM9、TIM1；编码器和测距用 TIM3、TIM10。
+
+APP_OK 表示成功。APP_ERR_BUSY 可表示设备正在使用、重复初始化，或当前没有可读数据；
+APP_ERR_STATE 表示生命周期或调用上下文不合适；APP_ERR_ARG 表示参数错误。
+APP_ERR_TIMEOUT 是等待超时；APP_ERR_IO 是传输、协议或测量异常；
+APP_ERR_NOT_FOUND 是未识别到模块或未寻到卡；APP_ERR_UNSUPPORTED 表示配置不支持。
+在 RT-Thread 任务内调用 APP 接口。不要在 GUI 回调中做长时间的蜂鸣、音频播放或寻卡。
+中断里把工作通知给任务。按设备头文件判断什么时候重试，只有成功后才使用测量结果。
