@@ -6,9 +6,7 @@
 #include "router.h"
 #include "lv_port_disp_template.h"
 #include "lv_port_indev_template.h"
-
-/* 首页任务，定义在 task/menu.c 里 */
-extern const task_t task_menu;
+#include "task/tasks.h"
 
 /**
  * @brief  按键线程的回调：转成一个 type=0 的按键事件
