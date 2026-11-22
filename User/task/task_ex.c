@@ -13,6 +13,38 @@ static void demo_thread(void *arg);
 
 
 
+
+static void demo_open(void)
+{
+    rt_thread_t tid;
+
+    if(s_q != RT_NULL)
+    {
+        return;                                 /* 已经在跑 */
+    }
+
+    s_exit = rt_sem_create("dexit", 0, RT_IPC_FLAG_FIFO);
+    s_q    = rt_mq_create("DEMO", sizeof(message), 4, RT_IPC_FLAG_FIFO);
+    tid    = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
+
+    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))
+    {
+        rt_kprintf("demo: open failed\r\n");
+
+        if(tid    != RT_NULL) { rt_thread_delete(tid); }
+        if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }
+        if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }
+        return;
+    }
+//********************在这里写进入逻辑********************//
+
+
+
+
+
+    rt_thread_startup(tid);
+}
+
 static void demo_tick(void)
 {
 //********************在这里写循环逻辑********************//
@@ -57,39 +89,6 @@ static void demo_set(uint8_t id, int32_t value)
     }
 
 }
-
-
-static void demo_open(void)
-{
-    rt_thread_t tid;
-
-    if(s_q != RT_NULL)
-    {
-        return;                                 /* 已经在跑 */
-    }
-
-    s_exit = rt_sem_create("dexit", 0, RT_IPC_FLAG_FIFO);
-    s_q    = rt_mq_create("DEMO", sizeof(message), 4, RT_IPC_FLAG_FIFO);
-    tid    = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
-
-    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))
-    {
-        rt_kprintf("demo: open failed\r\n");
-
-        if(tid    != RT_NULL) { rt_thread_delete(tid); }
-        if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }
-        if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }
-        return;
-    }
-//********************在这里写退出逻辑********************//
-
-
-
-
-
-    rt_thread_startup(tid);
-}
-
 
 static void demo_close(void)
 {
