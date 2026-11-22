@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LVGL 可视化设计器 — 基于 common.h</title>
+<style>
+:root{
+  --bg:#f7f4f7; --panel:#ffffff; --line:#e8dde6; --text:#3a2e39; --dim:#9a8c98;
+  --accent:#ff4f8b; --accent2:#3fc8b4; --sel:#ff4f8b;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:13px/1.5 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+
+/* ---------- 顶部工具栏 ---------- */
+#bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+#bar .grp{display:flex;gap:4px;align-items:center;padding-right:8px;border-right:1px solid var(--line)}
+#bar .grp:last-child{border:none}
+button{font:inherit;padding:5px 10px;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:8px;cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+button.pri{background:var(--accent2);border-color:var(--accent2);color:#fff}
+input,select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);width:100%}
+label.mini{color:var(--dim);font-size:12px}
+
+/* ---------- 三栏 ---------- */
+#main{flex:1;display:flex;min-height:0}
+#left{width:174px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px}
+#right{width:264px;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:8px}
+#center{flex:1;display:flex;flex-direction:column;min-width:0}
+
+.pal-title{font-size:12px;color:var(--dim);margin:8px 2px 4px}
+.pal{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.pal .it{padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:#fff;text-align:center;cursor:grab;font-size:12px;user-select:none}
+.pal .it:hover{border-color:var(--accent2);background:#f2fdfb}
+.pal .it b{display:block;font-weight:600}
+.pal .it span{color:var(--dim);font-size:11px}
+.pal .it.off{opacity:.55}
+
+/* ---------- 页签 ---------- */
+#tabs{display:flex;gap:4px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);align-items:center}
+#tabs .tab{padding:4px 10px;border:1px solid var(--line);border-radius:8px 8px 0 0;background:#fff;cursor:pointer;font-size:12px}
+#tabs .tab.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ---------- 画布 ---------- */
+#stage{flex:1;overflow:auto;padding:18px;display:flex;align-items:flex-start;justify-content:center;background:
+  linear-gradient(45deg,#efe9ee 25%,transparent 25%,transparent 75%,#efe9ee 75%) 0 0/16px 16px,
+  linear-gradient(45deg,#efe9ee 25%,#f7f4f7 25%,#f7f4f7 75%,#efe9ee 75%) 8px 8px/16px 16px}
+#zoomWrap{transform-origin:top left}
+#canvas{position:relative;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.12);overflow:hidden;
+  background-image:linear-gradient(#00000008 1px,transparent 1px),linear-gradient(90deg,#00000008 1px,transparent 1px);
+  background-size:8px 8px}
+#canvas.grid-off{background-image:none}
+.w{position:absolute;border:1px dashed transparent;cursor:move;overflow:hidden;user-select:none}
+.w.sel{border-color:var(--sel);box-shadow:0 0 0 1px var(--sel) inset}
+.w .hd{position:absolute;width:8px;height:8px;background:#fff;border:1px solid var(--sel);border-radius:2px}
+.w.dragging{opacity:.85}
+#guides{position:absolute;inset:0;pointer-events:none;z-index:60}
+.guide{position:absolute;background:#f24e1e;opacity:.9}
+.guide.v{width:1px;top:0;height:100%}
+.guide.h{height:1px;left:0;width:100%}
+
+/* ---------- 代码弹窗 ---------- */
+#codeMask{position:fixed;inset:0;background:#0006;display:none;z-index:999;align-items:center;justify-content:center}
+#codeMask.on{display:flex}
+#codeBox{width:min(960px,94vw);height:min(80vh,820px);background:#fff;border-radius:14px;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px #0004}
+.cbHead{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+.cbHead .hint{color:var(--dim);font-size:12px;flex:1;text-align:right}
+#codeOut{flex:1;border:0;resize:none;padding:12px 14px;width:100%;
+  font:12px/1.55 Consolas,"Cascadia Mono",monospace;white-space:pre;overflow:auto;color:#3a2e39;outline:none}
+
+/* 各控件外观 */
+.k-card{background:#fff;border:1px solid #ffd9e8;border-radius:22px}
+.k-label{display:flex;align-items:center;color:#3a2e39;font-size:12px;white-space:nowrap}
+.k-btn{display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #ffd9e8;border-radius:18px;color:#ff4f8b;font-size:12px}
+.k-bar{background:#ffd9e8;border-radius:999px;display:flex;align-items:center}
+.k-bar i{display:block;height:100%;background:#3fc8b4;border-radius:999px}
+.k-slider{background:#ffd9e8;border-radius:999px;position:relative;display:flex;align-items:center}
+.k-slider i{height:100%;background:#3fc8b4;border-radius:999px;display:block}
+.k-slider u{position:absolute;width:14px;height:14px;border-radius:50%;background:#3a2e39;transform:translateY(-0px)}
+.k-chart{border:1px solid #ffd9e8;border-radius:14px;background:
+   linear-gradient(#0000000d 1px,transparent 1px) 0 0/100% 25%,
+   linear-gradient(90deg,#0000000d 1px,transparent 1px) 0 0/25% 100%,#fff;
+   position:relative;overflow:hidden}
+.k-chart svg{position:absolute;inset:0;width:100%;height:100%}
+.k-switch{background:#ffd9e8;border-radius:999px;position:relative}
+.k-switch u{position:absolute;top:2px;right:2px;width:50%;height:calc(100% - 4px);background:#3fc8b4;border-radius:999px}
+.k-checkbox{display:flex;align-items:center;gap:6px;color:#3a2e39;font-size:12px}
+.k-checkbox b{width:14px;height:14px;border:1px solid #9a8c98;border-radius:4px;display:inline-block}
+.k-arc{border-radius:50%;border:6px solid #ffd9e8;border-top-color:#3fc8b4;border-right-color:#3fc8b4}
+.k-dd{background:#fff;border:1px solid #ffd9e8;border-radius:10px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:12px;color:#3a2e39}
+.k-roller{background:#fff;border:1px solid #ffd9e8;border-radius:10px;overflow:hidden;font-size:12px;color:#9a8c98;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.k-ta{background:#fff;border:1px solid #ffd9e8;border-radius:10px;padding:6px 8px;font-size:12px;color:#9a8c98}
+.k-led{border-radius:50%;background:#3fc8b4;box-shadow:0 0 12px #3fc8b4aa}
+.k-spin{border-radius:50%;border:4px dashed #3fc8b4}
+.k-line{background:#fff;border:1px solid #ffd9e8;border-radius:6px;background-image:linear-gradient(to top right,transparent 49%,#3fc8b4 49%,#3fc8b4 51%,transparent 51%)}
+.k-img{background:#eee;border:1px dashed #bbb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:18px}
+.k-table{background:#fff;border:1px solid #ffd9e8;border-radius:8px;background-image:
+  linear-gradient(#00000012 1px,transparent 1px),linear-gradient(90deg,#00000012 1px,transparent 1px);
+  background-size:33.33% 33.33%}
+.k-meter{border-radius:50%;border:2px solid #ffd9e8;position:relative;background:#fff}
+.k-meter i{position:absolute;left:50%;bottom:50%;width:2px;height:38%;background:#ff4f8b;transform-origin:bottom center;transform:rotate(-45deg)}
+.k-canvas{background:repeating-linear-gradient(45deg,#f3f3f3,#f3f3f3 6px,#e9e9e9 6px,#e9e9e9 12px);border:1px dashed #bbb;border-radius:6px}
+.k-keyboard{background:#fff;border:1px solid #ffd9e8;border-radius:8px;background-image:
+  linear-gradient(#00000010 1px,transparent 1px),linear-gradient(90deg,#00000010 1px,transparent 1px);
+  background-size:10% 33%;}
+.k-calendar,.k-btnmatrix{background:#fff;border:1px solid #ffd9e8;border-radius:8px;background-image:
+  linear-gradient(#00000012 1px,transparent 1px),linear-gradient(90deg,#00000012 1px,transparent 1px);
+  background-size:14.28% 16.6%}
+
+/* ---------- 右侧面板 ---------- */
+.sec{margin-bottom:10px}
+.sec h4{margin:0 0 6px;font-size:12px;color:var(--dim);font-weight:600;letter-spacing:.5px}
+.row{display:flex;gap:6px;margin-bottom:6px}
+.row>div{flex:1;min-width:0}
+.fld{display:flex;flex-direction:column;gap:2px}
+.fld label{font-size:11px;color:var(--dim)}
+#layers{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+#layers .ly{display:flex;align-items:center;gap:6px;padding:4px 6px;font-size:12px;cursor:pointer;border-bottom:1px solid #f3eef2}
+#layers .ly:last-child{border:none}
+#layers .ly.act{background:#fff0f5}
+#layers .ly em{flex:1;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#layers .ly span{color:var(--dim);font-size:11px}
+.hint{color:var(--dim);font-size:11px;line-height:1.5}
+
+/* ---------- 状态栏 ---------- */
+#status{display:flex;gap:16px;padding:4px 10px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <div class="grp">
+    <button id="btnNew">新建</button>
+    <button id="btnClear" title="一键清空当前页的控件（Ctrl+Z 可撤销）；Shift+点击 = 清空所有页">清空</button>
+    <button id="btnDemo">示例</button>
+    <button id="btnOpen">打开…</button>
+    <button id="btnSave">保存工程</button>
+  </div>
+  <div class="grp">
+    <button id="btnUndo" title="Ctrl+Z">撤销</button>
+    <button id="btnRedo" title="Ctrl+Y">重做</button>
+  </div>
+  <div class="grp">
+    <button id="btnPortrait" class="on">竖屏 320×480</button>
+    <button id="btnLandscape">横屏 480×320</button>
+  </div>
+  <div class="grp">
+    <button id="btnGrid" class="on">网格</button>
+    <select id="snapMode" style="width:118px" title="Alt 拖动 = 临时不吸附">
+      <option value="both" selected>智能对齐+网格</option>
+      <option value="smart">仅智能对齐</option>
+      <option value="grid">仅网格 8px</option>
+      <option value="off">不吸附</option>
+    </select>
+    <select id="zoom" style="width:86px">
+      <option value="0.5">50%</option>
+      <option value="0.75">75%</option>
+      <option value="1" selected>100%</option>
+      <option value="1.25">125%</option>
+      <option value="1.5">150%</option>
+    </select>
+  </div>
+  <div class="grp" style="margin-left:auto">
+    <button id="btnCode" class="pri">查看 / 复制代码</button>
+  </div>
+</header>
+
+<div id="main">
+  <aside id="left"></aside>
+  <section id="center">
+    <div id="tabs"></div>
+    <div id="stage"><div id="zoomWrap"><div id="canvas"></div></div></div>
+  </section>
+  <aside id="right">
+    <div class="sec">
+      <h4>工程</h4>
+      <div class="row"><div class="fld"><label>文件名前缀</label><input id="projName" value="app_ui"></div></div>
+      <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 同时生成 task_xxx.c</label></div></div>
+      <div class="hint">生成的文件可直接放进 <b>User/ui/</b>，包含 theme.h 与 common.h。</div>
+    </div>
+    <div class="sec">
+      <h4>属性</h4>
+      <div id="inspector"><div class="hint">先在画布上选一个控件。</div></div>
+    </div>
+    <div class="sec">
+      <h4>图层（后加的在上）</h4>
+      <div id="layers"></div>
+      <div class="row" style="margin-top:6px">
+        <button id="lyUp">上移</button><button id="lyDown">下移</button><button id="lyDel">删除</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h4>对齐到页面</h4>
+      <div class="row">
+        <button data-al="l">左</button><button data-al="c">中</button><button data-al="r">右</button>
+      </div>
+      <div class="row">
+        <button data-al="t">上</button><button data-al="m">中</button><button data-al="b">下</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer id="status">
+  <span id="stPos">—</span><span id="stSel">未选中</span><span id="stTip">拖动移动 · 方向键微调 · Del 删除 · Ctrl+D 复制</span>
+</footer>
+
+<div id="codeMask">
+  <div id="codeBox">
+    <div class="cbHead">
+      <b id="codeName">app_ui.c</b>
+      <span class="hint">.c 在前面；.h 和 task 以注释形式附在后面，整段复制即可</span>
+      <button id="btnCopyCode" class="pri">复制全部</button>
+      <button id="btnCloseCode">关闭</button>
+    </div>
+    <textarea id="codeOut" spellcheck="false"></textarea>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept=".json" style="display:none">
+
+<script>
+/* ============================================================================
+ *  LVGL 可视化设计器 —— 生成调用 APP/common.h 的 C 代码
+ * ========================================================================== */
+
+/* ---------- 控件表：type -> 生成函数 / 默认属性 / 需要的 lv_conf 宏 ---------- */
+const W = {
+  card:     {n:'卡片',   fn:'ui_card_new',     need:'',            d:{w:240,h:100,radius:22}},
+  label:    {n:'文字',   fn:'ui_label_at',     need:'',            d:{w:80,h:20,text:'TEXT',color:'TEXT'}},
+  btn:      {n:'按钮',   fn:'ui_btn_new',      need:'LV_USE_BTN',  d:{w:96,h:48,text:'BTN',code:1}},
+  bar:      {n:'进度条', fn:'ui_bar_new',      need:'LV_USE_BAR',  d:{w:200,h:10,min:0,max:100,val:60}},
+  slider:   {n:'滑条',   fn:'ui_slider_new',   need:'LV_USE_SLIDER',d:{w:200,h:8,min:0,max:100,val:50,code:200}},
+  chart:    {n:'图表',   fn:'ui_chart_new',    need:'LV_USE_CHART',d:{w:280,h:130,max:1000,points:64,dataSrc:'demo'}},
+  switch:   {n:'开关',   fn:'ui_switch_new',   need:'LV_USE_SWITCH',d:{w:56,h:28,code:1}},
+  checkbox: {n:'复选框', fn:'ui_checkbox_new', need:'LV_USE_CHECKBOX',d:{w:110,h:22,text:'OPT',code:1}},
+  arc:      {n:'圆弧',   fn:'ui_arc_new',      need:'LV_USE_ARC',  d:{w:100,h:100,min:0,max:100,val:50,code:1}},
+  dropdown: {n:'下拉框', fn:'ui_dropdown_new', need:'LV_USE_DROPDOWN',d:{w:150,h:40,options:'AUTO\nMANUAL\nOFF',code:1}},
+  roller:   {n:'滚轮',   fn:'ui_roller_new',   need:'LV_USE_ROLLER',d:{w:100,h:110,options:'ONE\nTWO\nTHREE',code:1}},
+  textarea: {n:'输入框', fn:'ui_textarea_new', need:'LV_USE_TEXTAREA',d:{w:200,h:44,text:'hint',code:1}},
+  keyboard: {n:'键盘',   fn:'ui_keyboard_new', need:'LV_USE_KEYBOARD',d:{w:320,h:140,code:1}},
+  calendar: {n:'日历',   fn:'ui_calendar_new', need:'LV_USE_CALENDAR',d:{w:260,h:220,code:1}},
+  led:      {n:'指示灯', fn:'ui_led_new',      need:'LV_USE_LED',  d:{w:22,h:22,color:'ACCENT'}},
+  spinner:  {n:'转圈',   fn:'ui_spinner_new',  need:'LV_USE_SPINNER',d:{w:48,h:48,ms:1000}},
+  line:     {n:'折线',   fn:'ui_line_new',     need:'LV_USE_LINE', d:{w:200,h:80}},
+  img:      {n:'图片',   fn:'ui_img_new',      need:'LV_USE_IMG',  d:{w:64,h:64}},
+  table:    {n:'表格',   fn:'ui_table_new',    need:'LV_USE_TABLE',d:{w:260,h:110,rows:3,cols:3}},
+  meter:    {n:'仪表',   fn:'ui_meter_new',    need:'LV_USE_METER',d:{w:120,h:120,min:0,max:100,val:50}},
+  canvas:   {n:'画布',   fn:'ui_canvas_new',   need:'LV_USE_CANVAS',d:{w:200,h:100}},
+  btnmatrix:{n:'按钮矩阵',fn:'ui_btnmatrix_new',need:'LV_USE_BTNMATRIX',d:{w:220,h:80,options:'1,2,3\n4,5,6',code:1}},
+};
+const GROUPS = [
+  ['基础', ['card','label','btn','bar','slider','chart']],
+  ['输入', ['switch','checkbox','textarea','dropdown','roller','btnmatrix','keyboard']],
+  ['显示', ['led','spinner','arc','meter','line','img','table','canvas','calendar']],
+];
+/* ---------- 每种控件的专属选项（属性面板里自动出现） ---------- */
+const EXTRA = {
+  chart: [
+    {k:'chartMode', label:'显示模式', type:'select', def:'push',
+     opts:[['push','时间序列（VEML7700/温度等慢变量）'],['scope','ADC 波形快照（示波器）'],['spectrum','频谱柱（FFT）']]},
+    {k:'chartType', label:'图形样式', type:'select', def:'line', opts:[['line','折线'],['bar','柱状']]},
+    {k:'divH', label:'横向网格线', def:'4'},
+    {k:'divV', label:'纵向网格线', def:'6'},
+  ],
+  bar: [
+    {k:'barDir', label:'方向', type:'select', def:'h', opts:[['h','横向（lv_bar）'],['v','竖向（两层 obj 拼）']]},
+  ],
+  label: [
+    {k:'longMode', label:'超长处理', type:'select', def:'none',
+     opts:[['none','不处理（单行）'],['wrap','自动换行'],['dot','末尾省略号'],['scroll','循环滚动']]},
+  ],
+  btn: [
+    {k:'btnStyle', label:'样式', type:'select', def:'normal',
+     opts:[['normal','普通'],['primary','主操作（强调色）'],['warn','警示（玫红）'],['ghost','幽灵（透明）']]},
+  ],
+  switch:   [{k:'initOn', label:'初始打开', type:'bool', def:'0'}],
+  checkbox: [{k:'initOn', label:'初始勾选', type:'bool', def:'0'}],
+  dropdown: [{k:'selected', label:'默认选中（0 开始）', def:'0'}],
+  roller:   [{k:'selected', label:'默认选中（0 开始）', def:'0'},
+             {k:'visible', label:'可见行数', def:'3'}],
+  textarea: [{k:'oneLine', label:'单行模式', type:'bool', def:'1'},
+             {k:'maxLen', label:'最大长度（0=不限）', def:'0'},
+             {k:'password', label:'密码模式', type:'bool', def:'0'}],
+  table:    [{k:'headers', label:'表头（逗号分隔，留空不填）', def:''}],
+  arc:      [{k:'angStart', label:'起始角度', def:'135'},
+             {k:'angEnd', label:'结束角度', def:'45'}],
+  led:      [{k:'initOn', label:'初始点亮', type:'bool', def:'1'}],
+  img:      [{k:'imgName', label:'图片变量名（LV_IMG_DECLARE 的名字）', def:'my_img'}],
+};
+
+/* genWidget 往这里塞"额外声明"和"额外函数"，genCode 统一输出 */
+let GEN_AUX = { decl: [], vbar: [] };
+
+/* 生成代码时对颜色枚举做映射 */
+const COLORS = {TEXT:'UI_C_TEXT', DIM:'UI_C_TEXT_DIM', VALUE:'UI_C_VALUE', ACCENT:'UI_C_ACCENT'};
+
+/* ---------- 状态 ---------- */
+let S = {
+  name:'app_ui',
+  landscape:false,
+  screens:[{name:'Screen1', widgets:[]}],
+  cur:0,
+  sel:-1,
+  seq:1,
+  grid:true, snap:true, snapMode:'both', zoom:1,
+};
+let history=[], future=[];
+
+function W_(w){return S.landscape?480:320}   /* 画布宽 */
+function H_(){return S.landscape?320:480}    /* 画布高 */
+
+/* ---------- 小工具 ---------- */
+const $ = s=>document.querySelector(s);
+const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+const scr = ()=>S.screens[S.cur];
+const wid = i=>scr().widgets[i];
+
+function snapshot(){history.push(JSON.stringify(S.screens)); if(history.length>60)history.shift(); future.length=0;}
+function undo(){
+  if(!history.length) return;
+  const s=JSON.parse(history.pop());
+  if(!Array.isArray(s)) return;
+  future.push(JSON.stringify(S.screens));
+  S.screens=s; S.sel=-1; renderAll();
+}
+function redo(){
+  if(!future.length) return;
+  const s=JSON.parse(future.pop());
+  if(!Array.isArray(s)) return;
+  history.push(JSON.stringify(S.screens));
+  S.screens=s; S.sel=-1; renderAll();
+}
+
+/* ---------- 左侧控件面板 ---------- */
+function buildPalette(){
+  const L=$('#left'); L.innerHTML='';
+  GROUPS.forEach(([g,list])=>{
+    L.appendChild(el('div','pal-title',g));
+    const box=el('div','pal');
+    list.forEach(t=>{
+      const d=W[t];
+      const it=el('div','it'+(d.need?' off':''));
+      it.innerHTML='<b>'+d.n+'</b><span>'+(d.need?d.need.replace('LV_USE_',''):'基础')+'</span>';
+      it.title=d.need?('需要 '+d.need+' = 1（生成的代码会带 #if 保护）'):'不需要额外宏';
+      it.onclick=()=>addWidget(t);
+      box.appendChild(it);
+    });
+    L.appendChild(box);
+  });
+  const tip=el('div','hint');
+  tip.style.marginTop='10px';
+  tip.innerHTML='点一下加到当前页；生成的代码对未启用的控件会自动加 <code>#if</code> 保护。';
+  L.appendChild(tip);
+}
+
+/* ---------- 加控件 ---------- */
+function addWidget(type){
+  const d=W[type]; if(!d)return;
+  snapshot();
+  const n={type, name:type+(S.seq++), x:12, y:12, ...JSON.parse(JSON.stringify(d.d))};
+  /* 级联偏移，避免叠在一起 */
+  const k=scr().widgets.length;
+  n.x=8+(k%8)*12; n.y=64+Math.floor(k/8)*12;
+  if(n.w>W_()-16)n.w=W_()-16;
+  if(n.h>H_()-24)n.h=H_()-24;
+  /* 父级：如果落点在某张卡片里就挂进去 */
+  n.parent=-1;
+  scr().widgets.push(n);
+  S.sel=scr().widgets.length-1;
+  renderAll();
+}
+
+/* ---------- 画布渲染 ---------- */
+function widgetNode(w,i){
+  const n=el('div','w k-'+w.type);
+  const ax=absOf(w);
+  n.style.left=ax.x+'px'; n.style.top=ax.y+'px';
+  n.style.width=w.w+'px'; n.style.height=w.h+'px';
+  n.dataset.i=i;
+  if(i===S.sel)n.classList.add('sel');
+
+  switch(w.type){
+    case 'card': n.style.borderRadius=(w.radius||22)+'px'; break;
+    case 'label': n.textContent=w.text||''; n.style.color=colorOf(w.color); n.style.alignItems='center'; break;
+    case 'btn':   n.textContent=w.text||''; break;
+    case 'bar':   n.innerHTML='<i style="width:'+pct(w.val,w.min,w.max)+'%"></i>'; n.style.height=w.h+'px'; break;
+    case 'slider':n.innerHTML='<i style="width:'+pct(w.val,w.min,w.max)+'%"></i><u style="left:calc('+pct(w.val,w.min,w.max)+'% - 7px);top:calc(50% - 7px)"></u>'; break;
+    case 'chart': n.innerHTML=chartSVG(w); break;
+    case 'switch':n.innerHTML='<u></u>'; break;
+    case 'checkbox':n.innerHTML='<b></b>'+(w.text||''); break;
+    case 'arc':   n.style.borderWidth='6px'; break;
+    case 'dropdown':n.innerHTML='<span>'+(String(w.options||'').split('\n')[0])+'</span><span>▾</span>'; break;
+    case 'roller':n.innerHTML='<div>'+String(w.options||'').split('\n').slice(0,3).join('<br>')+'</div>'; break;
+    case 'textarea':n.textContent=w.text||''; break;
+    case 'led':   n.style.background=colorOf(w.color); break;
+    case 'spinner':n.style.borderColor='#3fc8b4'; break;
+    case 'img':   n.textContent='🖼'; break;
+    case 'meter': n.innerHTML='<i style="transform:rotate('+( -45 + 270*pct(w.val,w.min,w.max)/100 )+'deg)"></i>'; break;
+    default: break;
+  }
+
+  /* 选中框的 8 个缩放手柄 */
+  if(i===S.sel){
+    [['nw',-4,-4],['n',-4,'50%'],['ne',-4,'100%'],['w','50%',-4],['e','50%',-4],['sw','100%',-4],['s','50%','100%'],['se','100%','100%']]
+    .forEach(([dir,lx,ly])=>{
+      const h=el('div','hd'); h.dataset.dir=dir;
+      if(typeof lx==='number')h.style.left=(lx)+'px'; else h.style.left='calc('+lx+' - 4px)';
+      if(typeof ly==='number')h.style.top=(ly)+'px'; else h.style.top='calc('+ly+' - 4px)';
+      h.style.cursor=dir+'-resize';
+      n.appendChild(h);
+    });
+  }
+  return n;
+}
+function colorOf(c){return c==='DIM'?'#9a8c98':c==='VALUE'?'#ff4f8b':c==='ACCENT'?'#3fc8b4':'#3a2e39';}
+function pct(v,min,max){const m=(max-min)||1; let p=((v-min)/m)*100; return Math.max(0,Math.min(100,isNaN(p)?0:p));}
+function chartSVG(w){
+  const n=Math.max(8,Math.min(120,w.points||64)); let d='';
+  for(let i=0;i<n;i++){
+    const x=(i/(n-1))*100;
+    const y=50-38*Math.sin(i/6)*(0.6+0.4*Math.sin(i/17));
+    d+=(i?'L':'M')+x.toFixed(1)+' '+(50-y).toFixed(1)+' ';
+  }
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="'+d+'" fill="none" stroke="#3fc8b4" stroke-width="1.5"/></svg>';
+}
+
+function renderCanvas(){
+  const c=$('#canvas');
+  c.style.width=W_()+'px'; c.style.height=H_()+'px';
+  c.classList.toggle('grid-off',!S.grid);
+  c.innerHTML='';
+  scr().widgets.forEach((w,i)=>c.appendChild(widgetNode(w,i)));
+  const gd=el('div'); gd.id='guides'; c.appendChild(gd);
+  $('#zoomWrap').style.transform='scale('+S.zoom+')';
+  $('#zoomWrap').style.width=(W_()*S.zoom)+'px';
+  $('#zoomWrap').style.height=(H_()*S.zoom)+'px';
+}
+
+/* ---------- 页签 ---------- */
+function renderTabs(){
+  const t=$('#tabs'); t.innerHTML='';
+  S.screens.forEach((s,i)=>{
+    const b=el('div','tab'+(i===S.cur?' act':''),s.name);
+    b.onclick=()=>{S.cur=i;S.sel=-1;renderAll();};
+    b.ondblclick=()=>{const n=prompt('页名',s.name); if(n){s.name=n;renderAll();}};
+    t.appendChild(b);
+  });
+  const add=el('button',null,'+ 页'); add.style.padding='2px 8px';
+  add.onclick=()=>{snapshot();S.screens.push({name:'Screen'+(S.screens.length+1),widgets:[]});S.cur=S.screens.length-1;S.sel=-1;renderAll();};
+  t.appendChild(add);
+  const del=el('button',null,'删页'); del.style.padding='2px 8px';
+  del.onclick=()=>{ if(S.screens.length<2)return; if(!confirm('删除当前页？'))return; snapshot();S.screens.splice(S.cur,1);S.cur=Math.max(0,S.cur-1);S.sel=-1;renderAll(); };
+  t.appendChild(del);
+}
+
+/* ---------- 图层面板 ---------- */
+function renderLayers(){
+  const L=$('#layers'); L.innerHTML='';
+  if(!scr().widgets.length){L.appendChild(el('div','hint','还没有控件'));return;}
+  scr().widgets.forEach((w,i)=>{
+    const r=el('div','ly'+(i===S.sel?' act':''));
+    r.innerHTML='<span>'+W[w.type].n+'</span><em>'+w.name+'</em>'+(w.code!=null?'<span>#'+w.code+'</span>':'');
+    r.onclick=()=>{S.sel=i;renderAll();};
+    L.appendChild(r);
+  });
+}
+
+/* ---------- 属性面板 ---------- */
+const FIELDS = {
+  x:['X','num'], y:['Y','num'], w:['宽','num'], h:['高','num'],
+  radius:['圆角','num'], text:['文字','text'], color:['颜色','color'],
+  min:['最小','num'], max:['最大','num'], val:['当前值','num'],
+  points:['点数','num'], ms:['周期(ms)','num'],
+  options:['选项(换行分隔)','area'], rows:['行','num'], cols:['列','num'],
+  code:['事件编号','num'],
+};
+const FIELDS_BY_TYPE = {
+  card:['x','y','w','h','radius'],
+  label:['x','y','w','h','text','color'],
+  btn:['x','y','w','h','text','code'],
+  bar:['x','y','w','h','min','max','val'],
+  slider:['x','y','w','h','min','max','val','code'],
+  chart:['x','y','w','h','max','points'],
+  switch:['x','y','w','h','code'],
+  checkbox:['x','y','w','h','text','code'],
+  arc:['x','y','w','h','min','max','val','code'],
+  dropdown:['x','y','w','h','options','code'],
+  roller:['x','y','w','h','options','code'],
+  textarea:['x','y','w','h','text','code'],
+  keyboard:['x','y','w','h','code'],
+  calendar:['x','y','w','h','code'],
+  led:['x','y','w','h','color'],
+  spinner:['x','y','w','h','ms'],
+  line:['x','y','w','h'],
+  img:['x','y','w','h'],
+  table:['x','y','w','h','rows','cols'],
+  meter:['x','y','w','h','min','max','val'],
+  canvas:['x','y','w','h'],
+  btnmatrix:['x','y','w','h','options','code'],
+};
+
+function renderInspector(){
+  const box=$('#inspector');
+  if(S.sel<0||!wid(S.sel)){box.innerHTML='<div class="hint">先在画布上选一个控件。</div>';return;}
+  const w=wid(S.sel);
+  box.innerHTML='';
+  /* 名称 + 父级 */
+  const r0=el('div','row');
+  r0.innerHTML='<div class="fld"><label>变量名</label><input id="f_name" value="'+esc(w.name)+'"></div>';
+  box.appendChild(r0);
+  const r1=el('div','row');
+  const opts=['-1|<页面本身>'].concat(scr().widgets.map((o,i)=>o.type==='card'?i+'|'+o.name:null).filter(Boolean));
+  r1.innerHTML='<div class="fld"><label>父级（放进卡片）</label><select id="f_parent">'+
+     opts.map(o=>{const [v,t]=o.split('|');return '<option value="'+v+'"'+((w.parent||-1)==+v?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select></div>';
+  box.appendChild(r1);
+
+  /* 绑定形参：让 render() 自动长出一个参数，并生成对应的 set 代码 */
+  if(['label','bar','chart','led','slider','arc'].includes(w.type)){
+    const d0=el('div','row');
+    d0.innerHTML='<div class="fld"><label>绑定形参名（留空=不绑定）</label>'+
+      '<input id="f_bind" placeholder="例如 count" value="'+esc(w.bind||'')+'"></div>';
+    box.appendChild(d0);
+
+    const d0b=el('div','row');
+    d0b.innerHTML='<div class="fld"><label>类型</label><select id="f_bindType">'+
+      ['int32_t','uint32_t','uint16_t','uint8_t','int16_t','float','const char *']
+      .map(tp=>'<option value="'+tp+'"'+((w.bindType||'int32_t')===tp?' selected':'')+'>'+tp+'</option>').join('')+
+      '</select></div>';
+    box.appendChild(d0b);
+
+    if(w.type==='label'){
+      const d0c=el('div','row');
+      d0c.innerHTML='<div class="fld"><label>数字格式（%d / %.2f，留空自动）</label>'+
+        '<input id="f_bindFmt" value="'+esc(w.bindFmt||'')+'"></div>';
+      box.appendChild(d0c);
+    }
+  }
+
+  if(w.type==='chart'){
+    const d1=el('div','row');
+    d1.innerHTML='<div class="fld"><label>数据来源（生成对应的函数）</label><select id="f_dataSrc">'+
+      [['push','单点推进：xxx_push(值)'],['array','整帧数组：xxx_set(数组,个数)'],['demo','内置演示正弦（先看效果）']]
+      .map(o=>'<option value="'+o[0]+'"'+((w.dataSrc||'demo')===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
+      '</select></div>';
+    box.appendChild(d1);
+  }
+
+  /* 控件专属选项 */
+  (EXTRA[w.type]||[]).forEach(f=>{
+    const d=el('div','row');
+    const cur=(w[f.k]!==undefined && w[f.k]!=='') ? w[f.k] : f.def;
+    if(f.type==='select'){
+      d.innerHTML='<div class="fld"><label>'+f.label+'</label><select id="f_'+f.k+'">'+
+        f.opts.map(o=>'<option value="'+o[0]+'"'+(String(cur)===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
+        '</select></div>';
+    }else if(f.type==='bool'){
+      d.innerHTML='<div class="fld"><label><input type="checkbox" id="f_'+f.k+'" style="width:auto"'+
+        (String(cur)==='1'?' checked':'')+'> '+f.label+'</label></div>';
+    }else{
+      d.innerHTML='<div class="fld"><label>'+f.label+'</label><input id="f_'+f.k+'" value="'+esc(cur)+'"></div>';
+    }
+    box.appendChild(d);
+  });
+
+  (FIELDS_BY_TYPE[w.type]||[]).forEach(k=>{
+    const [lab,kind]=FIELDS[k];
+    const d=el('div','row');
+    const val=w[k]==null?'':w[k];
+    if(kind==='area'){
+      d.innerHTML='<div class="fld"><label>'+lab+'</label><textarea id="f_'+k+'" rows="3" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 6px">'+esc(val)+'</textarea></div>';
+    }else if(kind==='color'){
+      d.innerHTML='<div class="fld"><label>'+lab+'</label><select id="f_'+k+'">'+
+        Object.keys(COLORS).map(c=>'<option value="'+c+'"'+(val===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>';
+    }else{
+      d.innerHTML='<div class="fld"><label>'+lab+'</label><input id="f_'+k+'" type="'+(kind==='num'?'number':'text')+'" value="'+esc(val)+'"></div>';
+    }
+    box.appendChild(d);
+  });
+
+  /* 绑定 */
+  box.querySelectorAll('[id^=f_]').forEach(inp=>{
+    inp.onchange=()=>{
+      const k=inp.id.slice(2);
+      snapshot();
+      if(k==='parent'){ w.parent=+inp.value; }
+      else if(k==='name'){ w.name=inp.value||('w'+S.seq++); }
+      else if(inp.type==='checkbox'){ w[k]=inp.checked?1:0; }
+      else if(inp.type==='number'){ w[k]=inp.value===''?0:+inp.value; }
+      else { w[k]=inp.value; }
+      renderAll();
+    };
+  });
+}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ---------- 交互：选择 / 拖动 / 缩放 ---------- */
+let drag=null;
+
+$('#canvas').addEventListener('pointerdown',e=>{
+  const t=e.target.closest('.w');
+  if(!t){ S.sel=-1; renderAll(); return; }
+  const i=+t.dataset.i;
+  S.sel=i; renderAll();
+  const c=$('#canvas').getBoundingClientRect();
+  const w=wid(i);
+  const dir=e.target.dataset.dir;
+  const a=absOf(w), pa=absOf({x:0,y:0,parent:w.parent});
+  drag={mode:dir?'resize':'move', i, dir, sx:e.clientX, sy:e.clientY,
+        oa:a, pa:{x:a.x-w.x, y:a.y-w.y}, ow:w.w, oh:w.h, rect:c};
+  e.preventDefault();
+});
+/* ---------- 坐标与吸附 ---------- */
+function absOf(w){
+  let x=w.x, y=w.y, p=w.parent, g=0;
+  while(p!=null && p>=0 && g++<32){ const P=scr().widgets[p]; if(!P)break; x+=P.x; y+=P.y; p=P.parent; }
+  return {x:x, y:y};
+}
+function snapTargets(self){
+  const xs=[0, Math.round(W_()/2), W_()], ys=[0, Math.round(H_()/2), H_()];
+  scr().widgets.forEach((o,i)=>{
+    if(i===self) return;
+    const a=absOf(o);
+    xs.push(a.x, Math.round(a.x+o.w/2), a.x+o.w);
+    ys.push(a.y, Math.round(a.y+o.h/2), a.y+o.h);
+  });
+  return {xs:xs, ys:ys};
+}
+/* 一维吸附：左/中/右三条边分别贴向候选线，取最近的一条 */
+function snapAxis(pos, size, lines, thr){
+  let bestLine=null, bestOff=0, bestD=thr+1;
+  [0, size/2, size].forEach(k=>{
+    lines.forEach(L=>{
+      const d=Math.abs(pos+k-L);
+      if(d<bestD){ bestD=d; bestLine=L; bestOff=L-(pos+k); }
+    });
+  });
+  return bestLine==null ? {pos:pos, line:null} : {pos:Math.round(pos+bestOff), line:bestLine};
+}
+function drawGuides(gx, gy){
+  const g=document.getElementById('guides'); if(!g)return;
+  g.innerHTML='';
+  if(gx!=null){ const d=el('div','guide v'); d.style.left=gx+'px'; g.appendChild(d); }
+  if(gy!=null){ const d=el('div','guide h'); d.style.top=gy+'px'; g.appendChild(d); }
+}
+
+window.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const w=wid(drag.i); if(!w) return;
+  const k=S.zoom;
+  const dx=(e.clientX-drag.sx)/k, dy=(e.clientY-drag.sy)/k;
+  const mode = e.altKey ? 'off' : S.snapMode;
+  let gx=null, gy=null;
+
+  if(drag.mode==='move'){
+    let nx=drag.oa.x+dx, ny=drag.oa.y+dy;
+    if(mode==='grid'||mode==='both'){ nx=Math.round(nx/8)*8; ny=Math.round(ny/8)*8; }
+    if(mode==='smart'||mode==='both'){
+      const t=snapTargets(drag.i);
+      const rx=snapAxis(nx, w.w, t.xs, 6); nx=rx.pos; gx=rx.line;
+      const ry=snapAxis(ny, w.h, t.ys, 6); ny=ry.pos; gy=ry.line;
+    }
+    nx=Math.max(0, Math.min(W_()-w.w, Math.round(nx)));
+    ny=Math.max(0, Math.min(H_()-w.h, Math.round(ny)));
+    w.x=nx-drag.pa.x; w.y=ny-drag.pa.y;
+  }else{
+    const d=drag.dir;
+    let ax=drag.oa.x, ay=drag.oa.y, aw=drag.ow, ah=drag.oh;
+    if(d.includes('e')) aw=drag.ow+dx;
+    if(d.includes('s')) ah=drag.oh+dy;
+    if(d.includes('w')){ const left=drag.oa.x+dx; aw=drag.ow+(drag.oa.x-left); ax=left; }
+    if(d.includes('n')){ const top=drag.oa.y+dy; ah=drag.oh+(drag.oa.y-top); ay=top; }
+    if(mode==='grid'||mode==='both'){ ax=Math.round(ax/8)*8; ay=Math.round(ay/8)*8; aw=Math.round(aw/8)*8; ah=Math.round(ah/8)*8; }
+    if(mode==='smart'||mode==='both'){
+      const t=snapTargets(drag.i);
+      const rx=snapAxis(ax, aw, t.xs, 6); if(rx.line!=null){ const delta=rx.pos-ax; ax=rx.pos; aw-=delta; gx=rx.line; }
+      const ry=snapAxis(ay, ah, t.ys, 6); if(ry.line!=null){ const delta=ry.pos-ay; ay=ry.pos; ah-=delta; gy=ry.line; }
+    }
+    w.w=Math.max(8, Math.round(aw)); w.h=Math.max(8, Math.round(ah));
+    w.x=Math.round(ax)-drag.pa.x; w.y=Math.round(ay)-drag.pa.y;
+  }
+
+  $('#stPos').textContent='x '+Math.round(w.x)+'  y '+Math.round(w.y)+'  w '+Math.round(w.w)+'  h '+Math.round(w.h);
+  renderCanvas();
+  drawGuides(gx, gy);
+  renderInspector();
+});
+window.addEventListener('pointerup',e=>{
+  if(!drag)return;
+  drag=null;
+  snapshot();
+  renderAll();
+});
+$('#canvas').addEventListener('pointermove',e=>{
+  const c=$('#canvas').getBoundingClientRect();
+  $('#stPos').textContent='x '+Math.round((e.clientX-c.left)/S.zoom)+'  y '+Math.round((e.clientY-c.top)/S.zoom);
+});
+
+/* ---------- 键盘 ---------- */
+window.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if(e.key==='Escape'){ const m=$('#codeMask'); if(m.classList.contains('on')){ m.classList.remove('on'); return; } }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){e.preventDefault();if(S.sel>=0){snapshot();const c=JSON.parse(JSON.stringify(wid(S.sel)));c.name=c.type+(S.seq++);c.x+=12;c.y+=12;scr().widgets.push(c);S.sel=scr().widgets.length-1;renderAll();}return;}
+  if(S.sel<0)return;
+  const w=wid(S.sel); if(!w)return;
+  const step=e.shiftKey?10:1;
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();snapshot();scr().widgets.splice(S.sel,1);S.sel=-1;renderAll();return;}
+  let hit=false;
+  if(e.key==='ArrowLeft'){w.x=Math.max(0,w.x-step);hit=true;}
+  if(e.key==='ArrowRight'){w.x=Math.min(W_()-w.w,w.x+step);hit=true;}
+  if(e.key==='ArrowUp'){w.y=Math.max(0,w.y-step);hit=true;}
+  if(e.key==='ArrowDown'){w.y=Math.min(H_()-w.h,w.y+step);hit=true;}
+  if(hit){e.preventDefault();renderCanvas();renderInspector();}
+});
+
+/* ---------- 工具栏 ---------- */
+$('#btnNew').onclick=()=>{ if(!confirm('清空当前工程？'))return; history=[];future=[];
+  S={name:'app_ui',landscape:S.landscape,screens:[{name:'Screen1',widgets:[]}],cur:0,sel:-1,seq:1,grid:S.grid,snap:S.snap,zoom:S.zoom};
+  $('#projName').value=S.name; renderAll(); };
+
+/* 一键清空：默认清当前页，Shift+点击清所有页；都能 Ctrl+Z 撤销 */
+$('#btnClear').onclick=(e)=>{
+  if(!scr().widgets.length && !(e.shiftKey && S.screens.some(s=>s.widgets.length))){
+    S.sel=-1; renderAll();
+    $('#stSel').textContent='本页已经是空的';
+    return;
+  }
+
+  snapshot();
+
+  let msg;
+  if(e.shiftKey){
+    S.screens.forEach(s=>{ s.widgets=[]; });
+    msg='已清空所有页（Ctrl+Z 可撤销）';
+  }else{
+    scr().widgets=[];
+    msg='已清空本页（Ctrl+Z 可撤销）';
+  }
+
+  S.sel=-1;
+  renderAll();
+  $('#stSel').textContent=msg;
+};
+
+$('#btnDemo').onclick=()=>{
+  history=[];future=[];
+  S.screens=[{name:'Screen1',widgets:[]}]; S.cur=0; S.seq=1;
+  const A=(o)=>scr().widgets.push(Object.assign({parent:-1},o));
+  A({type:'card',name:'title',x:12,y:10,w:296,h:46,radius:22});
+  A({type:'label',name:'t1',x:28,y:23,w:80,h:20,text:'TASKS',color:'TEXT'});
+  A({type:'label',name:'t2',x:212,y:23,w:80,h:20,text:'2 TASKS',color:'DIM'});
+  A({type:'btn',name:'b1',x:16,y:66,w:140,h:70,text:'DEMO',code:1});
+  A({type:'btn',name:'b2',x:168,y:66,w:140,h:70,text:'LIGHT',code:2});
+  A({type:'card',name:'box',x:16,y:150,w:288,h:120,radius:22});
+  A({type:'label',name:'l1',x:32,y:166,w:60,h:20,text:'COUNT',color:'DIM'});
+  A({type:'label',name:'l2',x:230,y:162,w:60,h:24,text:'0',color:'VALUE'});
+  A({type:'bar',name:'bar1',x:32,y:230,w:256,h:10,min:0,max:100,val:40});
+  A({type:'card',name:'hint',x:24,y:434,w:272,h:36,radius:18});
+  A({type:'label',name:'h1',x:64,y:443,w:200,h:20,text:'TAP OR K3 TO ENTER',color:'DIM'});
+  S.sel=-1; renderAll();
+};
+
+$('#btnPortrait').onclick=()=>{S.landscape=false;S.grid=S.grid;$('#btnPortrait').classList.add('on');$('#btnLandscape').classList.remove('on');renderAll();};
+$('#btnLandscape').onclick=()=>{S.landscape=true;$('#btnLandscape').classList.add('on');$('#btnPortrait').classList.remove('on');renderAll();};
+$('#btnGrid').onclick=e=>{S.grid=!S.grid;e.target.classList.toggle('on',S.grid);renderCanvas();};
+$('#snapMode').onchange=e=>{S.snapMode=e.target.value;};
+$('#zoom').onchange=e=>{S.zoom=+e.target.value;renderCanvas();};
+$('#btnUndo').onclick=undo;
+$('#btnRedo').onclick=redo;
+$('#lyUp').onclick=()=>{if(S.sel<0)return;const a=scr().widgets;if(S.sel>=a.length-1)return;snapshot();[a[S.sel],a[S.sel+1]]=[a[S.sel+1],a[S.sel]];S.sel++;renderAll();};
+$('#lyDown').onclick=()=>{if(S.sel<=0)return;const a=scr().widgets;snapshot();[a[S.sel],a[S.sel-1]]=[a[S.sel-1],a[S.sel]];S.sel--;renderAll();};
+$('#lyDel').onclick=()=>{if(S.sel<0)return;snapshot();scr().widgets.splice(S.sel,1);S.sel=-1;renderAll();};
+document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
+  if(S.sel<0)return; const w=wid(S.sel); snapshot();
+  const a=b.dataset.al;
+  if(a==='l')w.x=8; if(a==='c')w.x=Math.round((W_()-w.w)/2); if(a==='r')w.x=W_()-w.w-8;
+  if(a==='t')w.y=8; if(a==='m')w.y=Math.round((H_()-w.h)/2); if(a==='b')w.y=H_()-w.h-8;
+  renderAll();
+});
+
+/* ---------- 工程读写 ---------- */
+$('#btnSave').onclick=()=>{
+  S.name=$('#projName').value||'app_ui';
+  const data={version:1,name:S.name,landscape:S.landscape,screens:S.screens};
+  download(S.name+'.json',JSON.stringify(data,null,2),'application/json');
+};
+$('#btnOpen').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{const d=JSON.parse(r.result); S.name=d.name||'app_ui'; S.landscape=!!d.landscape; S.screens=d.screens||[{name:'Screen1',widgets:[]}]; S.cur=0;S.sel=-1;
+      $('#projName').value=S.name;
+      (S.landscape?$('#btnLandscape'):$('#btnPortrait')).click();
+      renderAll();}catch(err){alert('文件解析失败：'+err.message);} };
+  r.readAsText(f);
+  e.target.value='';
+};
+
+/* ---------- GBK 编码（生成的 .c/.h 直接进 MRS 不乱码） ---------- */
+const GBK_TBL = {'·':'A1A4','×':'A1C1','—':'A1AA','…':'A1AD','←':'A1FB','、':'A1A2','。':'A1A3','一':'D2BB','三':'C8FD','上':'C9CF','下':'CFC2','不':'B2BB','与':'D3EB','个':'B8F6','中':'D6D0','串':'B4AE','举':'BED9','之':'D6AE','事':'CAC2','于':'D3DA','互':'BBA5','些':'D0A9','交':'BDBB','代':'B4FA','仪':'D2C7','件':'BCFE','任':'C8CE','会':'BBE1','例':'C0FD','侧':'B2E0','保':'B1A3','修':'D0DE','值':'D6B5','偏':'C6AB','做':'D7F6','像':'CFF1','先':'CFC8','免':'C3E2','入':'C8EB','全':'C8AB','关':'B9D8','具':'BEDF','写':'D0B4','冲':'B3E5','几':'BCB8','函':'BAAF','分':'B7D6','切':'C7D0','列':'C1D0','初':'B3F5','删':'C9BE','别':'B1F0','到':'B5BD','制':'D6C6','前':'C7B0','加':'BCD3','务':'CEF1','动':'B6AF','包':'B0FC','化':'BBAF','单':'B5A5','卡':'BFA8','即':'BCB4','历':'C0FA','去':'C8A5','变':'B1E4','叠':'B5FE','口':'BFDA','句':'BEE4','只':'D6BB','可':'BFC9','右':'D3D2','号':'BAC5','各':'B8F7','同':'CDAC','名':'C3FB','后':'BAF3','向':'CFF2','含':'BAAC','启':'C6F4','吸':'CEFC','周':'D6DC','器':'C6F7','回':'BBD8','图':'CDBC','圆':'D4B2','圈':'C8A6','在':'D4DA','基':'BBF9','堆':'B6D1','声':'C9F9','处':'B4A6','复':'B8B4','外':'CDE2','大':'B4F3','失':'CAA7','如':'C8E7','始':'CABC','字':'D7D6','存':'B4E6','宏':'BAEA','定':'B6A8','宽':'BFED','对':'B6D4','射':'C9E4','小':'D0A1','就':'BECD','层':'B2E3','屏':'C6C1','属':'CAF4','工':'B9A4','左':'D7F3','已':'D2D1','布':'B2BC','带':'B4F8','幕':'C4BB','应':'D3A6','度':'B6C8','建':'BDA8','开':'BFAA','式':'CABD','张':'D5C5','弧':'BBA1','当':'B5B1','微':'CEA2','态':'CCAC','性':'D0D4','总':'D7DC','成':'B3C9','所':'CBF9','手':'CAD6','打':'B4F2','把':'B0D1','折':'D5DB','护':'BBA4','拉':'C0AD','拖':'CDCF','择':'D4F1','持':'B3D6','挂':'B9D2','指':'D6B8','按':'B0B4','换':'BBBB','据':'BEDD','接':'BDD3','控':'BFD8','撤':'B3B7','支':'D6A7','改':'B8C4','放':'B7C5','数':'CAFD','整':'D5FB','文':'CEC4','新':'D0C2','方':'B7BD','日':'C8D5','时':'CAB1','明':'C3F7','映':'D3B3','是':'CAC7','显':'CFD4','更':'B8FC','最':'D7EE','有':'D3D0','期':'C6DA','未':'CEB4','本':'B1BE','条':'CCF5','来':'C0B4','板':'B0E5','析':'CEF6','枚':'C3B6','果':'B9FB','架':'BCDC','柄':'B1FA','某':'C4B3','染':'C8BE','标':'B1EA','栏':'C0B8','样':'D1F9','格':'B8F1','框':'BFF2','横':'BAE1','次':'B4CE','毁':'BBD9','每':'C3BF','没':'C3BB','活':'BBEE','清':'C7E5','渲':'E4D6','源':'D4B4','滑':'BBAC','滚':'B9F6','灯':'B5C6','点':'B5E3','父':'B8B8','片':'C6AC','版':'B0E6','状':'D7B4','理':'C0ED','生':'C9FA','用':'D3C3','由':'D3C9','画':'BBAD','界':'BDE7','的':'B5C4','盘':'C5CC','直':'D6B1','矩':'BED8','码':'C2EB','础':'B4A1','示':'CABE','称':'B3C6','移':'D2C6','程':'B3CC','空':'BFD5','竖':'CAFA','符':'B7FB','第':'B5DA','签':'C7A9','算':'CBE3','素':'CBD8','级':'BCB6','线':'CFDF','绑':'B0F3','给':'B8F8','缀':'D7BA','缓':'BBBA','编':'B1E0','缩':'CBF5','网':'CDF8','联':'C1AA','自':'D7D4','色':'C9AB','落':'C2E4','行':'D0D0','表':'B1ED','要':'D2AA','观':'B9DB','视':'CAD3','角':'BDC7','解':'BDE2','计':'BCC6','认':'C8CF','设':'C9E8','语':'D3EF','说':'CBB5','读':'B6C1','调':'B5F7','象':'CFF3','败':'B0DC','资':'D7CA','起':'C6F0','身':'C9ED','转':'D7AA','轮':'C2D6','输':'CAE4','还':'BBB9','这':'D5E2','进':'BDF8','选':'D1A1','避':'B1DC','部':'B2BF','采':'B2C9','里':'C0EF','重':'D6D8','量':'C1BF','钮':'C5A5','销':'CFFA','键':'BCFC','阵':'D5F3','附':'B8BD','除':'B3FD','隔':'B8F4','集':'BCAF','需':'D0E8','面':'C3E6','页':'D2B3','顶':'B6A5','项':'CFEE','颜':'D1D5','额':'B6EE','首':'CAD7','骨':'B9C7','高':'B8DF','默':'C4AC','齐':'C6EB','（':'A3A8','）':'A3A9','，':'A3AC','：':'A3BA','；':'A3BB','？':'A3BF'};
+function encGBK(s){
+  const out=[];
+  for(const ch of s){
+    const c=ch.codePointAt(0);
+    if(c<0x80){ out.push(c); continue; }
+    const hex=GBK_TBL[ch];
+    if(hex){ out.push(parseInt(hex.slice(0,2),16)); out.push(parseInt(hex.slice(2),16)); }
+    else { out.push(0x3F); }              /* 表里没有的字符 -> '?' */
+  }
+  return new Uint8Array(out);
+}
+
+function download(name,text,mime){
+  const isC = /\.(c|h)$/i.test(name);
+  const payload = isC ? encGBK(text) : new TextEncoder().encode(text);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([payload],{type:mime||'text/plain'}));
+  a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+
+/* ============================================================================
+ *  代码生成
+ * ========================================================================== */
+function sid(w){ return 'w_'+String(w.name||'x').replace(/[^A-Za-z0-9_]/g,'_'); }
+function cstr(s){ return '"'+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n')+'"'; }
+
+/* 生成单个控件的 C 语句 */
+function genWidget(w,idx,varMap,parentVar){
+  const v='w'+idx;
+  const p=parentVar;
+  const L=[];
+  const px = w.x===0?0:w.x, py = w.y===0?0:w.y, pw=w.w, ph=w.h;
+  const guardStart = W[w.type].need ? ('#if '+W[w.type].need) : null;
+  const guardEnd   = W[w.type].need ? '#endif' : null;
+
+  switch(w.type){
+    case 'card':
+      L.push(v+' = ui_card_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.radius||22)+');');
+      break;
+    case 'label':
+      L.push(v+' = ui_label_at('+p+', '+(COLORS[w.color]||'UI_C_TEXT')+', '+cstr(w.text)+', '+px+', '+py+');');
+      if((w.longMode||'none')==='wrap')
+        L.push('lv_label_set_long_mode('+v+', LV_LABEL_LONG_WRAP);  lv_obj_set_width('+v+', '+pw+');');
+      else if(w.longMode==='dot')
+        L.push('lv_label_set_long_mode('+v+', LV_LABEL_LONG_DOT);   lv_obj_set_width('+v+', '+pw+');');
+      else if(w.longMode==='scroll')
+        L.push('lv_label_set_long_mode('+v+', LV_LABEL_LONG_SCROLL_CIRCULAR); lv_obj_set_width('+v+', '+pw+');');
+      break;
+    case 'btn':
+      L.push(v+' = ui_btn_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cstr(w.text)+', '+(w.code|0)+');');
+      if(w.btnStyle==='primary'){
+        L.push('lv_obj_set_style_bg_color('+v+', UI_C_ACCENT, 0);');
+        L.push('if(lv_obj_get_child('+v+', 0) != NULL) { lv_obj_set_style_text_color(lv_obj_get_child('+v+', 0), lv_color_white(), 0); }');
+      }else if(w.btnStyle==='warn'){
+        L.push('lv_obj_set_style_bg_color('+v+', UI_C_VALUE, 0);');
+        L.push('if(lv_obj_get_child('+v+', 0) != NULL) { lv_obj_set_style_text_color(lv_obj_get_child('+v+', 0), lv_color_white(), 0); }');
+      }else if(w.btnStyle==='ghost'){
+        L.push('lv_obj_set_style_bg_opa('+v+', LV_OPA_TRANSP, 0);');
+        L.push('lv_obj_set_style_border_color('+v+', UI_C_ACCENT, 0);');
+      }
+      break;
+    case 'bar':
+      if((w.barDir||'h')==='v'){
+        /* 8.2 的 lv_bar 只能横着，竖向用"轨道 + 填充"两层 obj 拼 */
+        const fillW = Math.max(4, pw - 4);
+        L.push('/* 竖向进度条：轨道 + 填充（8.2 的 lv_bar 不支持竖向） */');
+        L.push(v+' = ui_card_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+Math.round(pw/2)+');');
+        L.push('lv_obj_set_style_bg_color('+v+', UI_C_BORDER, 0);');
+        L.push(v+'_fill = lv_obj_create('+v+');');
+        L.push('lv_obj_set_size('+v+'_fill, '+fillW+', 0);');
+        L.push('lv_obj_set_style_radius('+v+'_fill, '+Math.round(fillW/2)+', 0);');
+        L.push('lv_obj_set_style_bg_color('+v+'_fill, UI_C_ACCENT, 0);');
+        L.push('lv_obj_set_style_bg_opa('+v+'_fill, LV_OPA_COVER, 0);');
+        L.push('lv_obj_set_style_border_width('+v+'_fill, 0, 0);');
+        L.push('lv_obj_set_style_pad_all('+v+'_fill, 0, 0);');
+        L.push('lv_obj_clear_flag('+v+'_fill, LV_OBJ_FLAG_SCROLLABLE);');
+        L.push('lv_obj_align('+v+'_fill, LV_ALIGN_BOTTOM_MID, 0, -2);');
+        GEN_AUX.decl.push('static lv_obj_t *'+v+'_fill = NULL;   /* '+w.name+' 的填充块 */');
+        GEN_AUX.vbar.push({v:v, name:w.name, max:(w.max|0||100), h:ph, w:fillW});
+      }else{
+        L.push(v+' = ui_bar_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.min|0)+', '+(w.max|0)+');');
+        L.push('ui_bar_set('+v+', '+(w.val|0)+');');
+      }
+      break;
+    case 'slider':
+      L.push(v+' = ui_slider_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.min|0)+', '+(w.max|0)+', '+(w.val|0)+', '+(w.code|0)+');');
+      break;
+    case 'chart':
+      L.push(v+' = ui_chart_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.max|0)+');');
+      L.push('lv_chart_set_point_count('+v+', '+(w.points|0||64)+');');
+      L.push('lv_chart_set_div_line_count('+v+', '+(w.divH|0||4)+', '+(w.divV|0||6)+');');
+      if(w.chartType==='bar') L.push('lv_chart_set_type('+v+', LV_CHART_TYPE_BAR);');
+      break;
+    case 'switch':
+      L.push(v+' = ui_switch_new('+p+', '+px+', '+py+', '+(w.code|0)+');');
+      if(String(w.initOn)==='1') L.push('lv_obj_add_state('+v+', LV_STATE_CHECKED);');
+      break;
+    case 'checkbox':
+      L.push(v+' = ui_checkbox_new('+p+', '+px+', '+py+', '+cstr(w.text)+', '+(w.code|0)+');');
+      if(String(w.initOn)==='1') L.push('lv_obj_add_state('+v+', LV_STATE_CHECKED);');
+      break;
+    case 'arc':
+      L.push(v+' = ui_arc_new('+p+', '+px+', '+py+', '+pw+', '+(w.min|0)+', '+(w.max|0)+', '+(w.val|0)+', '+(w.code|0)+');');
+      if(w.angStart!==undefined || w.angEnd!==undefined)
+        L.push('lv_arc_set_bg_angles('+v+', '+(w.angStart|0||135)+', '+(w.angEnd|0||45)+');');
+      break;
+    case 'dropdown':
+      L.push(v+' = ui_dropdown_new('+p+', '+px+', '+py+', '+pw+', '+cstr(w.options)+', '+(w.code|0)+');');
+      if((w.selected|0) > 0) L.push('lv_dropdown_set_selected('+v+', '+(w.selected|0)+');');
+      break;
+    case 'roller':
+      L.push(v+' = ui_roller_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cstr(w.options)+', '+(w.code|0)+');');
+      if((w.visible|0) > 0) L.push('lv_roller_set_visible_row_count('+v+', '+(w.visible|0)+');');
+      if((w.selected|0) > 0) L.push('lv_roller_set_selected('+v+', '+(w.selected|0)+', LV_ANIM_OFF);');
+      break;
+    case 'textarea':
+      L.push(v+' = ui_textarea_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cstr(w.text)+', '+(w.code|0)+');');
+      if(String(w.oneLine)!=='0') L.push('lv_textarea_set_one_line('+v+', true);');
+      if((w.maxLen|0) > 0)       L.push('lv_textarea_set_max_length('+v+', '+(w.maxLen|0)+');');
+      if(String(w.password)==='1') L.push('lv_textarea_set_password_mode('+v+', true);');
+      break;
+    case 'keyboard':
+      L.push(v+' = ui_keyboard_new('+p+', '+pw+', '+(w.code|0)+');');
+      break;
+    case 'calendar':
+      L.push(v+' = ui_calendar_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.code|0)+');');
+      break;
+    case 'led':
+      L.push(v+' = ui_led_new('+p+', '+px+', '+py+', '+pw+', '+(COLORS[w.color]||'UI_C_ACCENT')+');');
+      if(String(w.initOn)==='0') L.push('lv_led_off('+v+');');
+      break;
+    case 'spinner':
+      L.push(v+' = ui_spinner_new('+p+', '+px+', '+py+', '+pw+', '+(w.ms|0||1000)+');');
+      break;
+    case 'table':
+      L.push(v+' = ui_table_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.rows|0||3)+', '+(w.cols|0||3)+');');
+      if((w.headers||'').trim()){
+        const cols=Math.max(1, Math.min(8, w.cols|0||3));
+        const hs=(w.headers||'').split(',').slice(0, cols);
+        L.push('lv_table_set_col_width('+v+', 0, '+Math.round(pw/cols)+');   /* 其余列同宽 */');
+        for(let c=0;c<cols;c++) L.push('lv_table_set_cell_value('+v+', 0, '+c+', '+cstr((hs[c]||'').trim())+');');
+      }
+      break;
+    case 'meter':
+      L.push(v+' = ui_meter_new('+p+', '+px+', '+py+', '+pw+', '+(w.min|0)+', '+(w.max|0)+', '+(w.val|0)+');');
+      break;
+    case 'line':
+      L.push('/* TODO 折线需要点集：static const lv_point_t pts[] = {{0,0},{100,50}}; */');
+      L.push(v+' = NULL;  /* ui_line_new('+p+', pts, 2, UI_C_ACCENT) */');
+      break;
+    case 'img':
+      L.push('/* 需要图片资源：在资源文件里 LV_IMG_DECLARE('+(w.imgName||'my_img')+'); */');
+      L.push(v+' = ui_img_new('+p+', '+px+', '+py+', &'+(w.imgName||'my_img')+');');
+      break;
+    case 'canvas':
+      GEN_AUX.decl.push('#if LV_USE_CANVAS');
+      GEN_AUX.decl.push('static lv_color_t '+v+'_buf['+(pw*ph)+'];   /* '+w.name+' 画布缓冲：'+(pw*ph*2)+' 字节 RAM */');
+      GEN_AUX.decl.push('#endif');
+      L.push(v+' = ui_canvas_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+v+'_buf);');
+      break;
+    case 'btnmatrix':
+      L.push('/* TODO 按钮矩阵需要字符串表：static const char *map[] = {"1","2","",""}; */');
+      L.push(v+' = NULL;  /* ui_btnmatrix_new('+p+', '+px+', '+py+', '+pw+', '+ph+', map, '+(w.code|0)+') */');
+      break;
+    default:
+      L.push('/* 未支持的控件: '+w.type+' */');
+  }
+  return {lines:L, guardStart, guardEnd, var:v};
+}
+
+function genCode(){
+  GEN_AUX = { decl: [], vbar: [] };
+  const prefix=(S.name||'app_ui').replace(/[^A-Za-z0-9_]/g,'_');
+  const U=prefix.toUpperCase();
+  const cnt=S.screens.length;
+  const need=[...new Set(S.screens.flatMap(s=>s.widgets.map(w=>W[w.type].need)).filter(Boolean))];
+
+  /* 收集所有"绑定形参"：同名只保留一个，顺序按出现先后 */
+  const binds=[];
+  S.screens.forEach(s=>s.widgets.forEach(w=>{
+    const nm=(w.bind||'').trim();
+    if(!nm) return;
+    if(binds.some(b=>b.name===nm)) return;
+    binds.push({name:nm, type:w.bindType||'int32_t'});
+  }));
+  const sigExtra = binds.map(b=>', '+b.type+' '+b.name).join('');
+
+  /* ---------- .h ---------- */
+  const H=[];
+  H.push('/* ============================================================');
+  H.push(' * 文件名   : '+prefix+'.h');
+  H.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/common.h）');
+  H.push(' * 屏幕     : '+(S.landscape?'横屏 480×320':'竖屏 320×480'));
+  H.push(' * 修改方式 : 重新在设计器里改，别手改这个文件');
+  H.push(' * ============================================================ */');
+  H.push('');
+  H.push('#ifndef __'+U+'_H');
+  H.push('#define __'+U+'_H');
+  H.push('');
+  H.push('#include <stdint.h>');
+  H.push('');
+  if(need.length){
+    H.push('/* 这个界面用到的控件宏（lv_conf.h 里要打开） */');
+    need.forEach(m=>H.push('/*   '+m+' = 1 */'));
+    H.push('');
+  }
+  /* 事件编号 */
+  const ids=[];
+  S.screens.forEach((s,si)=>s.widgets.forEach(w=>{ if(w.code!=null) ids.push({w,si}); }));
+  if(ids.length){
+    H.push('/* 交互控件的 TOUCH 事件编号（msg.code） */');
+    ids.forEach(({w})=>{
+      const nm=U+'_ID_'+String(w.name||'X').toUpperCase().replace(/[^A-Z0-9_]/g,'_');
+      H.push('#define '+nm+'  '+(w.code|0));
+    });
+    H.push('');
+  }
+  GEN_AUX.vbar.forEach(b=>{
+    const fname=prefix+'_'+String(b.name).replace(/[^A-Za-z0-9_]/g,'_');
+    H.push('/* 竖向进度条 '+b.name+'：设值 0~'+b.max+'，例如 '+fname+'_set(level); */');
+    H.push('void '+fname+'_set(int32_t v);');
+    H.push('');
+  });
+
+  H.push('#ifndef '+U+'_SCREEN_CNT');
+  H.push('#define '+U+'_SCREEN_CNT  '+cnt);
+  H.push('#endif');
+  H.push('');
+  H.push('/**');
+  H.push(' * @brief  渲染指定屏幕（首次调用会建页，之后只 load + 更新数据）');
+  H.push(' * @param  screen  屏幕下标 0..'+(cnt-1)+'（对应：'+S.screens.map(s=>s.name).join(' / ')+'）');
+  binds.forEach(b=>H.push(' * @param  '+b.name+'  绑定给控件的实时数据（'+b.type+'）'));
+  H.push(' */');
+  H.push('void '+prefix+'_render(uint8_t screen'+sigExtra+');');
+  H.push('');
+  H.push('/**');
+  H.push(' * @brief  销毁所有页面，把对象还给 LVGL 堆（关页时调用）');
+  H.push(' */');
+  H.push('void '+prefix+'_destroy(void);');
+  H.push('');
+  /* 图表数据入口原型 */
+  S.screens.forEach((s,si)=>s.widgets.forEach(w=>{
+    if(w.type!=='chart') return;
+    const fname=prefix+'_'+String(w.name).replace(/[^A-Za-z0-9_]/g,'_');
+    H.push('/* ---- 图表 '+w.name+'（0~'+((w.max|0)||1000)+'）的数据入口 ---- */');
+    H.push('/* 推一个点：任务里每拍调一次，例如 '+fname+'_push(lux); */');
+    H.push('void '+fname+'_push(int32_t v);');
+    H.push('/* 整帧替换：把一个 int32_t 数组塞进去，例如 '+fname+'_set(buf, 64); */');
+    H.push('void '+fname+'_set(const int32_t *buf, uint16_t cnt);');
+    if((w.chartMode||'push')==='scope'){
+      H.push('/* 示波器模式：整帧 ADC 采样缓冲（0~4095），例如 '+fname+'_frame(samples, 256); */');
+      H.push('void '+fname+'_frame(const uint16_t *buf, uint16_t cnt);');
+    }
+    if((w.chartMode||'push')==='spectrum'){
+      H.push('/* 频谱模式：一组 0~100 的幅度，例如 '+fname+'_bins(spec, 64); */');
+      H.push('void '+fname+'_bins(const uint8_t *spec, uint8_t n);');
+    }
+    H.push('');
+  }));
+  H.push('#endif');
+
+  /* ---------- .c ---------- */
+  const C=[];
+  C.push('/* ============================================================');
+  C.push(' * 文件名   : '+prefix+'.c');
+  C.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/common.h）');
+  C.push(' * 版式     : '+(S.landscape?'横屏 480×320':'竖屏 320×480'));
+  C.push(' * ============================================================ */');
+  C.push('');
+  C.push('/* 单独用头文件时打开下一行：#include "'+prefix+'.h" */');
+  C.push('#include "theme.h"');
+  C.push('#include "common.h"');
+  C.push('#include "lvgl/lvgl.h"');
+  C.push('');
+  C.push('#define '+U+'_SCREEN_CNT  '+cnt+'          /* 屏幕数：单文件编译时不用头文件 */');
+  C.push('#include <stdio.h>                      /* 绑定形参转文字用 snprintf */');
+  C.push('');
+  C.push('/* ---------------- 控件句柄（render 里更新这些） ---------------- */');
+  C.push('static lv_obj_t *s_page['+U+'_SCREEN_CNT] = {0};');
+
+  const handleDecl=[];
+  const buildFns=[];
+  const allVars=[];
+  const series=[];        /* {v,name,si,max} */
+
+  S.screens.forEach((s,si)=>{
+    C.push('');
+    C.push('/* ====================== '+s.name+' ====================== */');
+    const varMap={};
+    const body=[];
+    body.push('    s_page['+si+'] = ui_page_new();                 /* 建整屏 */');
+    let idx=0;
+    s.widgets.forEach((w,i)=>{
+      idx++;
+      const parentVar = (w.parent!=null && w.parent>=0 && s.widgets[w.parent]) ? varMap[w.parent] : ('s_page['+si+']');
+      const g=genWidget(w,idx,varMap,parentVar);
+      varMap[i]=g.var;
+      allVars.push({v:g.var,type:w.type,name:w.name,si});
+      if(w.type==='chart'){
+        series.push({v:g.var, name:w.name, si:si, max:(w.max|0)||1000,
+                     mode:(w.chartMode||'push'), ctype:(w.chartType||'line')});
+        body.push('    s_ser_'+g.var+' = lv_chart_get_series_next('+g.var+', NULL);');
+      }
+      if(g.guardStart) body.push('    '+g.guardStart);
+      g.lines.forEach(l=>body.push('    '+l));
+      if(g.guardEnd) body.push('    '+g.guardEnd);
+    });
+
+    /* 每个控件一个句柄（不用的加 (void) 即可，别删声明） */
+    s.widgets.forEach((w,i)=>{
+      const v=varMap[i];
+      const upd = ['label','bar','chart','led','slider','arc','meter'].includes(w.type);
+      handleDecl.push('static lv_obj_t *'+v+' = NULL;   /* '+w.name+' ('+W[w.type].n+')'+(upd?'  ← render 里更新':'')+' */');
+      if(w.type==='chart') handleDecl.push('static lv_chart_series_t *s_ser_'+v+' = NULL;');
+    });
+
+    buildFns.push(
+      'static void build_'+si+'(void)\n{\n'+
+      (body.length?body.join('\n')+'\n':'    /* 这一页还是空的 */\n')+
+      '}\n'
+    );
+  });
+
+  handleDecl.forEach(l=>C.push(l));
+  if(GEN_AUX.decl.length){ C.push(''); GEN_AUX.decl.forEach(l=>C.push(l)); }
+  C.push('');
+  C.push('/* ---------------- 建页 ---------------- */');
+  buildFns.forEach(f=>C.push(f));
+
+  /* ---- 竖向进度条的设值函数 ---- */
+  GEN_AUX.vbar.forEach(b=>{
+    const fname=prefix+'_'+String(b.name).replace(/[^A-Za-z0-9_]/g,'_');
+    C.push('/**');
+    C.push(' * @brief  设置 '+b.name+' 的值（0~'+b.max+'）—— 竖向进度条，改的是填充块高度');
+    C.push(' * @note   例如：'+fname+'_set(level);');
+    C.push(' */');
+    C.push('void '+fname+'_set(int32_t v)');
+    C.push('{');
+    C.push('    if(('+b.v+' == NULL) || ('+b.v+'_fill == NULL))');
+    C.push('    {');
+    C.push('        return;');
+    C.push('    }');
+    C.push('');
+    C.push('    if(v < 0)          v = 0;');
+    C.push('    if(v > '+b.max+')  v = '+b.max+';');
+    C.push('');
+    C.push('    lv_obj_set_height('+b.v+'_fill, (lv_coord_t)(('+(b.h-4)+' * v) / '+b.max+'));');
+    C.push('    lv_obj_align('+b.v+'_fill, LV_ALIGN_BOTTOM_MID, 0, -2);');
+    C.push('}');
+    C.push('');
+  });
+
+  /* ---- 图表数据入口：给任务用的两个函数 ---- */
+  if(series.length){
+    C.push('/* ================= 图表数据入口（任务里只调这两个） ================= */');
+    series.forEach(s=>{
+      const fname=prefix+'_'+String(s.name).replace(/[^A-Za-z0-9_]/g,'_');
+      C.push('/**');
+      C.push(' * @brief  往 '+s.name+' 推一个点（0~'+s.max+'）');
+      C.push(' * @note   任务里每拍调一次，例如：'+fname+'_push(value);');
+      C.push(' */');
+      C.push('void '+fname+'_push(int32_t v)');
+      C.push('{');
+      C.push('    if('+s.v+' == NULL)');
+      C.push('    {');
+      C.push('        return;');
+      C.push('    }');
+      C.push('');
+      C.push('    lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)v);');
+      C.push('}');
+      C.push('');
+      C.push('/**');
+      C.push(' * @brief  整帧替换：把一个数组一次塞进 '+s.name+'');
+      C.push(' * @note   例如：'+fname+'_set(buf, 64);   buf 是 int32_t 数组');
+      C.push(' */');
+      C.push('void '+fname+'_set(const int32_t *buf, uint16_t cnt)');
+      C.push('{');
+      C.push('    uint16_t i;');
+      C.push('');
+      C.push('    if(('+s.v+' == NULL) || (buf == NULL))');
+      C.push('    {');
+      C.push('        return;');
+      C.push('    }');
+      C.push('');
+      C.push('    for(i = 0; i < cnt; i++)');
+      C.push('    {');
+      C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)buf[i]);');
+      C.push('    }');
+      C.push('}');
+      C.push('');
+
+      if(s.mode==='scope'){
+        C.push('/**');
+        C.push(' * @brief  整帧塞进 '+s.name+'：直接喂 ADC 采样缓冲（12 位码值 0~4095）');
+        C.push(' * @note   例如：'+fname+'_frame(samples, 256);');
+        C.push(' */');
+        C.push('void '+fname+'_frame(const uint16_t *buf, uint16_t cnt)');
+        C.push('{');
+        C.push('    uint16_t i;');
+        C.push('');
+        C.push('    if(('+s.v+' == NULL) || (buf == NULL))');
+        C.push('    {');
+        C.push('        return;');
+        C.push('    }');
+        C.push('');
+        C.push('    for(i = 0; i < cnt; i++)');
+        C.push('    {');
+        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)buf[i]);');
+        C.push('    }');
+        C.push('}');
+        C.push('');
+      }
+
+      if(s.mode==='spectrum'){
+        C.push('/**');
+        C.push(' * @brief  塞一组频谱幅度（0~100）：每个点一根柱子');
+        C.push(' * @note   例如：'+fname+'_bins(spec, 64);');
+        C.push(' */');
+        C.push('void '+fname+'_bins(const uint8_t *spec, uint8_t n)');
+        C.push('{');
+        C.push('    uint8_t i;');
+        C.push('');
+        C.push('    if(('+s.v+' == NULL) || (spec == NULL))');
+        C.push('    {');
+        C.push('        return;');
+        C.push('    }');
+        C.push('');
+        C.push('    for(i = 0; i < n; i++)');
+        C.push('    {');
+        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)spec[i]);');
+        C.push('    }');
+        C.push('}');
+        C.push('');
+      }
+    });
+
+    /* 演示正弦：选了"内置演示"才有 */
+    const demos=series.filter(s=>{
+      const w=S.screens[s.si].widgets.find(x=>('w'+(s.si===S.cur?0:0))!=null && x.name===s.name);
+      return w && (w.dataSrc||'demo')==='demo';
+    });
+    if(demos.length){
+      C.push('/* ---------------- 演示数据（接真实数据后删掉 render 里那几行） ---------------- */');
+      demos.forEach(s=>{
+        const fname=prefix+'_'+String(s.name).replace(/[^A-Za-z0-9_]/g,'_');
+        C.push('static void chart_demo_'+s.v+'(void)');
+        C.push('{');
+        C.push('    static uint16_t t = 0;');
+        C.push('    static const int16_t wave[12] = {0, 50, 87, 100, 87, 50, 0, -50, -87, -100, -87, -50};');
+        C.push('    '+fname+'_push((int32_t)('+(s.max/2)+' + wave[t % 12] * '+(Math.max(1,Math.round(s.max/200)))+'));');
+        C.push('    t++;');
+        C.push('}');
+        C.push('');
+      });
+    }
+  }
+
+  C.push('void '+prefix+'_render(uint8_t screen'+sigExtra+')');
+  C.push('{');
+  C.push('    if(screen >= '+U+'_SCREEN_CNT)');
+  C.push('    {');
+  C.push('        return;');
+  C.push('    }');
+  C.push('');
+  C.push('    if(s_page[screen] == NULL)              /* 首次进来：建页 */');
+  C.push('    {');
+  C.push('        switch(screen)');
+  C.push('        {');
+  S.screens.forEach((s,si)=>C.push('            case '+si+': build_'+si+'(); break;   /* '+s.name+' */'));
+  C.push('            default: break;');
+  C.push('        }');
+  C.push('    }');
+  C.push('');
+  C.push('    if(lv_scr_act() != s_page[screen])      /* 切回本页：load 上去 */');
+  C.push('    {');
+  C.push('        lv_scr_load(s_page[screen]);');
+  C.push('    }');
+  C.push('');
+  const demoSeries=[];
+  S.screens.forEach((s,si)=>s.widgets.forEach(w=>{
+    if(w.type==='chart' && (w.dataSrc||'demo')==='demo'){
+      demoSeries.push({si:si, fn:'chart_demo_'+'w'+(s.widgets.indexOf(w)+1)});
+    }
+  }));
+  if(demoSeries.length){
+    C.push('    /* 演示波形：接真实数据时删掉这几行，改成 xxx_push() / xxx_set() */');
+    demoSeries.forEach(d=>{
+      C.push('    if(screen == '+d.si+')');
+      C.push('    {');
+      C.push('        '+d.fn+'();');
+      C.push('    }');
+    });
+    C.push('');
+  }
+  /* ---- 绑定形参 -> 控件 ---- */
+  S.screens.forEach((s,si)=>{
+    const lines=[];
+    s.widgets.forEach((w,i)=>{
+      const nm=(w.bind||'').trim();
+      if(!nm) return;
+      const v='w'+(i+1);
+      const isStr=(w.bindType==='const char *');
+      if(w.type==='label'){
+        if(isStr){
+          lines.push('        ui_label_set('+v+', '+nm+');');
+        }else{
+          const fmt=(w.bindFmt||'').trim() || (w.bindType==='float' ? '%.2f'
+                    : (w.bindType&&w.bindType.indexOf('uint')===0 ? '%u' : '%d'));
+          const cast=(w.bindType==='float') ? '(double)' : (w.bindType&&w.bindType.indexOf('uint')===0 ? '(unsigned)' : '(int)');
+          lines.push('        snprintf(buf, sizeof(buf), "'+fmt+'", '+cast+'('+nm+'));');
+          lines.push('        ui_label_set('+v+', buf);');
+        }
+      }else if(w.type==='bar'){
+        lines.push('        if('+v+' != NULL) { ui_bar_set('+v+', (int32_t)('+nm+')); }');
+      }else if(w.type==='chart'){
+        lines.push('        '+prefix+'_'+String(w.name).replace(/[^A-Za-z0-9_]/g,'_')+'_push((int32_t)('+nm+'));');
+      }else if(w.type==='led'){
+        lines.push('        if('+v+' != NULL) { ui_led_set('+v+', (('+nm+') != 0) ? 1 : 0); }');
+      }else if(w.type==='slider'){
+        lines.push('        if('+v+' != NULL) { lv_slider_set_value('+v+', (int32_t)('+nm+'), LV_ANIM_OFF); }');
+      }else if(w.type==='arc'){
+        lines.push('        if('+v+' != NULL) { lv_arc_set_value('+v+', (int32_t)('+nm+')); }');
+      }
+    });
+    if(lines.length){
+      C.push('    if(screen == '+si+')                     /* 本屏绑定的形参 -> 控件 */');
+      C.push('    {');
+      if(lines.some(l=>l.indexOf('snprintf')>=0)){
+        C.push('        char buf[24];');
+        C.push('');
+      }
+      lines.forEach(l=>C.push(l));
+      C.push('    }');
+      C.push('');
+    }
+  });
+
+  C.push('    /* TODO: 在这里用上面的句柄更新数据，例如');
+  const sample=allVars.find(a=>a.type==='label');
+  if(sample) C.push('     *       ui_label_set('+sample.v+', buf);');
+  const sample2=allVars.find(a=>a.type==='bar');
+  if(sample2) C.push('     *       ui_bar_set('+sample2.v+', value);');
+  C.push('     */');
+  C.push('}');
+  C.push('');
+  C.push('void '+prefix+'_destroy(void)');
+  C.push('{');
+  C.push('    uint8_t i;');
+  C.push('');
+  C.push('    for(i = 0; i < '+U+'_SCREEN_CNT; i++)');
+  C.push('    {');
+  C.push('        if(s_page[i] != NULL)');
+  C.push('        {');
+  C.push('            lv_obj_del(s_page[i]);');
+  C.push('            s_page[i] = NULL;');
+  C.push('        }');
+  C.push('    }');
+  C.push('');
+  allVars.forEach(a=>{ C.push('    '+a.v+' = NULL;'); });
+  GEN_AUX.vbar.forEach(b=>C.push('    '+b.v+'_fill = NULL;'));
+  C.push('}');
+
+  /* ---------- task 骨架 ---------- */
+  const T=[];
+  if($('#genTask').checked){
+    const tn=prefix.toUpperCase().slice(0,6);
+    T.push('/******************************************************************************');
+    T.push(' * 文件名   : task_'+prefix+'.c');
+    T.push(' * 说明     : '+tn+' —— 由 LVGL 可视化设计器生成的任务骨架');
+    T.push(' * 界面     : '+prefix+'_ui.c（'+cnt+' 页）');
+    T.push(' ******************************************************************************/');
+    T.push('');
+    T.push('#include "router.h"');
+    T.push('#include "key.h"');
+    T.push('#include "ui/'+prefix+'.h"');
+    T.push('#include "rtthread.h"');
+    T.push('');
+    T.push('static volatile uint8_t s_screen = 0;      /* 当前显示第几页 */');
+    binds.forEach(b=>{
+      const isStr = (b.type==='const char *');
+      const init  = isStr ? '""' : ((b.type==='float') ? '0.0f' : '0');
+      const decl  = isStr ? ('static const char *s_'+b.name)
+                          : ('static volatile '+b.type.padEnd(12)+'s_'+b.name);
+      T.push(decl+' = '+init+';   /* 界面绑定：在 tick 里更新 */');
+    });
+    T.push('');
+    T.push('static rt_sem_t s_exit = RT_NULL;');
+    T.push('static rt_mq_t  s_q    = RT_NULL;');
+    T.push('static void '+prefix+'_thread(void *arg);');
+    T.push('');
+    T.push('static void '+prefix+'_tick(void)');
+    T.push('{');
+    T.push('    /* TODO: 周期活（采样、计算） */');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_key(key_id_t key)');
+    T.push('{');
+    T.push('    switch(key)');
+    T.push('    {');
+    T.push('        case KEY_ID_1: break;');
+    T.push('        default: return;');
+    T.push('    }');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_set(uint8_t id, int32_t value)');
+    T.push('{');
+    T.push('    (void)value;');
+    T.push('');
+    T.push('    switch(id)');
+    T.push('    {');
+    T.push('        /* TODO: 按 '+prefix+'.h 里的 ID 宏处理 */');
+    T.push('        default: return;');
+    T.push('    }');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_thread(void *arg)');
+    T.push('{');
+    T.push('    message msg;');
+    T.push('');
+    T.push('    (void)arg;');
+    T.push('');
+    T.push('    for(;;)');
+    T.push('    {');
+    T.push('        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)');
+    T.push('        {');
+    T.push('            if(msg.type == QUIT)');
+    T.push('            {');
+    T.push('                break;');
+    T.push('            }');
+    T.push('');
+    T.push('            if(msg.type == KEY)');
+    T.push('            {');
+    T.push('                '+prefix+'_key((key_id_t)msg.code);');
+    T.push('            }');
+    T.push('            else if(msg.type == TOUCH)');
+    T.push('            {');
+    T.push('                '+prefix+'_set(msg.code, msg.value);');
+    T.push('            }');
+    T.push('        }');
+    T.push('');
+    T.push('        '+prefix+'_tick();');
+    T.push('    }');
+    T.push('');
+    T.push('    rt_sem_release(s_exit);');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_open(void)');
+    T.push('{');
+    T.push('    rt_thread_t tid;');
+    T.push('');
+    T.push('    if(s_q != RT_NULL)');
+    T.push('    {');
+    T.push('        return;');
+    T.push('    }');
+    T.push('');
+    T.push('    s_screen = 0;');
+    T.push('');
+    T.push('    s_exit = rt_sem_create("'+prefix.slice(0,5)+'ex", 0, RT_IPC_FLAG_FIFO);');
+    T.push('    s_q    = rt_mq_create("'+tn+'", sizeof(message), 4, RT_IPC_FLAG_FIFO);');
+    T.push('    tid    = rt_thread_create("'+tn+'", '+prefix+'_thread, RT_NULL, 1024, 12, 10);');
+    T.push('');
+    T.push('    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))');
+    T.push('    {');
+    T.push('        rt_kprintf("'+prefix.slice(0,5)+': open failed\\r\\n");');
+    T.push('');
+    T.push('        if(tid    != RT_NULL) { rt_thread_delete(tid); }');
+    T.push('        if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }');
+    T.push('        if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }');
+    T.push('        return;');
+    T.push('    }');
+    T.push('');
+    T.push('    rt_thread_startup(tid);');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_close(void)');
+    T.push('{');
+    T.push('    message bye = {QUIT, 0, 0};');
+    T.push('    message drop;');
+    T.push('    uint8_t retry;');
+    T.push('');
+    T.push('    if(s_q == RT_NULL)');
+    T.push('    {');
+    T.push('        return;');
+    T.push('    }');
+    T.push('');
+    T.push('    for(retry = 0; retry < 20; retry++)');
+    T.push('    {');
+    T.push('        if(rt_mq_send(s_q, &bye, sizeof(bye)) == RT_EOK)');
+    T.push('        {');
+    T.push('            break;');
+    T.push('        }');
+    T.push('        (void)rt_mq_recv(s_q, &drop, sizeof(drop), 0);');
+    T.push('    }');
+    T.push('');
+    T.push('    if(retry >= 20)');
+    T.push('    {');
+    T.push('        rt_kprintf("'+prefix.slice(0,5)+': quit msg failed\\r\\n");');
+    T.push('        return;');
+    T.push('    }');
+    T.push('');
+    T.push('    if(rt_sem_take(s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)');
+    T.push('    {');
+    T.push('        rt_kprintf("'+prefix.slice(0,5)+': exit timeout\\r\\n");');
+    T.push('        return;');
+    T.push('    }');
+    T.push('');
+    T.push('    rt_mq_delete(s_q);      s_q    = RT_NULL;');
+    T.push('    rt_sem_delete(s_exit);  s_exit = RT_NULL;');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_post(const message *msg)');
+    T.push('{');
+    T.push('    if(s_q != RT_NULL)');
+    T.push('    {');
+    T.push('        (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));');
+    T.push('    }');
+    T.push('}');
+    T.push('');
+    T.push('static void '+prefix+'_redraw(void)');
+    T.push('{');
+    T.push('    '+prefix+'_render(s_screen'+binds.map(b=>
+      ', ' + ((b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name))).join('')+');');
+    T.push('}');
+    T.push('');
+    T.push('const task_t task_'+prefix+' =');
+    T.push('{');
+    T.push('    .name       = "'+tn+'",');
+    T.push('    .keep       = 0,');
+    T.push('');
+    T.push('    .open       = '+prefix+'_open,');
+    T.push('    .close      = '+prefix+'_close,');
+    T.push('    .post       = '+prefix+'_post,');
+    T.push('    .render     = '+prefix+'_redraw,');
+    T.push('    .ui_destroy = '+prefix+'_destroy,');
+    T.push('};');
+  }
+
+  /* ---- 拼成一份可直接复制的内容：.c 在前，.h / task 用 #if 0 包起来 ----
+   * 选 #if 0 而不是注释块，这样 .h / task 里自身的注释不会被破坏，
+   * 复制出去时只要删掉首尾的 #if 0 / #endif 两行即可。 */
+  const parts = [];
+  parts.push('/* ==================== ' + prefix + '.c ==================== */');
+  parts.push(C.join('\n'));
+  parts.push('');
+  parts.push('/* ============ ' + prefix + '.h（要单独头文件：把下面整段复制出去，');
+  parts.push(' *              删掉首尾的 #if 0 / #endif 两行即可） ============ */');
+  parts.push('#if 0');
+  parts.push(H.join('\n'));
+  parts.push('#endif  /* ' + prefix + '.h end */');
+  if(T.length){
+    parts.push('');
+    parts.push('/* ============ task_' + prefix + '.c（同样用 #if 0 包着，可选） ============ */');
+    parts.push('#if 0');
+    parts.push(T.join('\n'));
+    parts.push('#endif  /* task_' + prefix + '.c end */');
+  }
+  const combined = parts.join('\n') + '\n';
+
+  return {header:H.join('\n')+'\n', source:C.join('\n')+'\n', task:T.join('\n')+'\n',
+          prefix:prefix, combined:combined};
+}
+
+/* ---------- 查看 / 复制代码 ---------- */
+function openCode(){
+  const g = genCode();
+  $('#codeName').textContent = g.prefix + '.c';
+  $('#codeOut').value = g.combined;
+  $('#codeMask').classList.add('on');
+  $('#codeOut').focus();
+  $('#codeOut').setSelectionRange(0, 0);
+  $('#codeOut').scrollTop = 0;            /* 放在 focus 之后，否则会跳到末尾 */
+  setTimeout(() => { $('#codeOut').scrollTop = 0; }, 0);
+}
+$('#btnCode').onclick = openCode;
+$('#btnCloseCode').onclick = () => $('#codeMask').classList.remove('on');
+$('#codeMask').onclick = e => { if(e.target.id === 'codeMask') $('#codeMask').classList.remove('on'); };
+$('#btnCopyCode').onclick = async () => {
+  const txt = $('#codeOut').value;
+  try { await navigator.clipboard.writeText(txt); }
+  catch(e){ $('#codeOut').select(); document.execCommand('copy'); }
+  $('#btnCopyCode').textContent = '已复制';
+  setTimeout(() => { $('#btnCopyCode').textContent = '复制全部'; }, 1500);
+};
+
+/* ---------- 渲染总入口 ---------- */
+function renderAll(){ renderCanvas(); renderTabs(); renderLayers(); renderInspector();
+  $('#stSel').textContent = S.sel<0?'未选中':('已选：'+wid(S.sel).name+' ('+W[wid(S.sel).type].n+')');
+}
+
+/* ---------- 初始化 ---------- */
+buildPalette();
+$('#projName').value=S.name;
+$('#btnDemo').click();
+renderAll();
+</script>
+</body>
+</html>

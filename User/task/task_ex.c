@@ -27,6 +27,7 @@ static void demo_key(key_id_t key)
     switch(key)
     {
         case KEY_ID_1:                          /* K1 ÔÝÍ£ / ¼ÌÐø */
+    
             break;
 
         case KEY_ID_2:                          /* K2 +10 */

@@ -80,6 +80,19 @@ lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text);
  */
 void      ui_label_set(lv_obj_t *lbl, const char *text);
 
+/**
+ * @brief  造一段文字并直接放到指定位置（= ui_label_text + lv_obj_set_pos）
+ * @param  parent  父对象
+ * @param  color   文字颜色，取 theme.h 里的 UI_C_* 宏
+ * @param  text    文字（ASCII），NULL 当空串
+ * @param  x       左边缘 X 坐标（父对象内部坐标）
+ * @param  y       上边缘 Y 坐标
+ * @return 标签对象
+ * @note   专门给"可视化设计器生成的代码"用，省掉一行 lv_obj_set_pos
+ */
+lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
+                      lv_coord_t x, lv_coord_t y);
+
 /* ============================ 交互类（点了自动发 TOUCH 事件） ============================ */
 
 #if LV_USE_BTN

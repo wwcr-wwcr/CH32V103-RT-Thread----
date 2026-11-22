@@ -175,6 +175,16 @@ void ui_label_set(lv_obj_t *lbl, const char *text)
     }
 }
 
+lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
+                      lv_coord_t x, lv_coord_t y)
+{
+    lv_obj_t *lbl = ui_label_text(parent, color, text);
+
+    lv_obj_set_pos(lbl, x, y);
+
+    return lbl;
+}
+
 /**************************************************************************************************
  *                                        Ωªª•¿‡
  **************************************************************************************************/

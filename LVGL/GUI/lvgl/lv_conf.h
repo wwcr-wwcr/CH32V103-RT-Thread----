@@ -61,7 +61,7 @@ extern void rt_kprintf(const char *fmt, ...);
 #define LV_USE_BTNMATRIX        0   // 按钮矩阵控件
 #define LV_USE_CALENDAR         0   // 日历控件
 #define LV_USE_CANVAS           0   // 画布控件（可绘图）
-#define LV_USE_CHART            0   // 图表控件
+#define LV_USE_CHART            1   // 图表控件
 #define LV_USE_CHECKBOX         0   // 复选框控件
 #define LV_USE_COLORWHEEL       0   // 色轮控件
 #define LV_USE_DROPDOWN         0   // 下拉列表控件
