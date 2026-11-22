@@ -6,7 +6,7 @@
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void demo_thread(void *arg);
-
+rt_tick_t s_last = RT_NULL;
 
 
 //********************在这里写常用变量********************//
@@ -19,7 +19,7 @@ static volatile uint16_t s_events = 0;      /* 按了多少下（按键 + 触摸） */
 static void demo_open(void)
 {
     rt_thread_t tid;
-
+    
     if(s_q != RT_NULL)
     {
         return;                                 /* 已经在跑 */
@@ -43,7 +43,7 @@ static void demo_open(void)
         return;
     }
 //********************在这里写进入逻辑********************//
-
+    s_last = rt_tick_get();
 
 
 
@@ -55,6 +55,24 @@ static void demo_open(void)
 static void demo_tick(void)
 {
 //********************在这里写循环逻辑********************//
+    if((rt_tick_get() - s_last) >= rt_tick_from_millisecond(1000))
+    {
+        s_last += rt_tick_from_millisecond(1000);   /* 推进一个周期 */
+
+
+        // s_last += rt_tick_from_millisecond(1000);          /* 按理论时刻推进，不漂 */
+
+
+
+        // s_last += rt_tick_from_millisecond(1000);          /* 按理论时刻推进，不漂 */
+        // if((now - s_last) >= rt_tick_from_millisecond(1000))
+        // {
+        //     s_last = now;                                   /* 落后超过一圈：直接对齐，别连发 */
+        // }
+
+
+    }
+
     if(s_run != 0)
     {
         s_count++;
@@ -77,6 +95,10 @@ static void demo_key(key_id_t key)
             break;
 
         case KEY_ID_3:                          /* K3 清零 */
+            s_count = 0;
+            break;
+
+        case KEY_ID_4:                          /* K4 清零 */
             s_count = 0;
             break;
 
@@ -178,7 +200,7 @@ static void demo_thread(void *arg)
 
     for(;;)
     {
-        /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
+        /* 10ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
         if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(10)) == RT_EOK)
         {
             if(msg.type == QUIT)               /* 管理端让退出 */
