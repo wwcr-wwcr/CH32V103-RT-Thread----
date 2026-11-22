@@ -279,7 +279,8 @@
 							"${project}/Task/L_GUI",
 							"${project}/Task/Lvgl_Task",
 							"${project}/Task/Thread_Task",
-							"${project}/BSP"
+							"${project}/BSP",
+							"${project}/APP"
 						],
 						"include_system_paths": [],
 						"include_files": []
