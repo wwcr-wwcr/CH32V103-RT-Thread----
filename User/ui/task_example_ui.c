@@ -2,9 +2,15 @@
  * 文件名   : task_example_ui.c
  * 说明     : EXAMPLE 页面 —— 计数演示（直接用 LVGL 画，不依赖封装层）
  *
+ * 用到的 LVGL 控件（lv_conf.h 里要打开对应宏）：
+ *     页面 / 卡片 / 数值框    lv_obj_create
+ *     文字                    lv_label_create + montserrat_14
+ *     按钮                    lv_btn_create（LV_USE_BTN）
+ *     进度条                  lv_bar_create（LV_USE_BAR），显示 count % 100
+ *
  * 版式（320×480 竖屏）：
  *     标题栏      DEMO / 100ms
- *     数值卡      COUNT 大字
+ *     数值卡      COUNT 大字 + 进度条
  *     STATE       行
  *     EVENTS      行
  *     三个按钮    +10 / CLR / QUIT
@@ -16,6 +22,7 @@
 #include "task_example_ui.h"
 #include "theme.h"
 #include "kernel.h"
+#include "event.h"
 #include "lvgl/lvgl.h"
 #include <stdio.h>
 
@@ -26,6 +33,7 @@ static lv_obj_t *s_page   = NULL;       /* NULL = 页面还没搭 */
 static lv_obj_t *s_value  = NULL;       /* COUNT 的数值 */
 static lv_obj_t *s_state  = NULL;       /* RUN / PAUSE */
 static lv_obj_t *s_events = NULL;       /* 操作次数 */
+static lv_obj_t *s_bar    = NULL;       /* count % 100 的进度条 */
 
 /**************************************************************************************************
  *                                        内部函数
@@ -37,7 +45,7 @@ static void on_btn(lv_event_t *e)
 {
     uint8_t id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
 
-    kernel_post(1, id, 0);                  /* 1 = 控件事件 */
+    kernel_post(TOUCH, id, 0);
 }
 
 /**
@@ -59,7 +67,7 @@ static lv_obj_t *page_new(void)
 }
 
 /**
- * @brief  造一张圆角卡片（标题栏 / 提示条 / 数值卡 / 按钮都用它）
+ * @brief  造一张圆角卡片（标题栏 / 提示条 / 数值卡 / 按钮底座都用它）
  */
 static lv_obj_t *card_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                           lv_coord_t w, lv_coord_t h, lv_coord_t radius)
@@ -95,15 +103,25 @@ static lv_obj_t *label_new(lv_obj_t *parent, lv_color_t color)
 }
 
 /**
- * @brief  造一个按钮：点一下发 type=1 事件
+ * @brief  造一个按钮：lv_btn + 覆盖样式，点一下发 type=1 事件
  */
 static void btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                     const char *text, uint8_t id)
 {
-    lv_obj_t *btn = card_new(parent, x, y, 88, 52, 18);
+    lv_obj_t *btn = lv_btn_create(parent);
     lv_obj_t *lbl;
 
-    lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_pos(btn, x, y);
+    lv_obj_set_size(btn, 88, 52);
+    lv_obj_set_style_radius(btn, 18, 0);
+    lv_obj_set_style_bg_color(btn, UI_C_CARD, 0);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(btn, 1, 0);
+    lv_obj_set_style_border_color(btn, UI_C_BORDER, 0);
+    lv_obj_set_style_pad_all(btn, 0, 0);
+    lv_obj_set_style_shadow_width(btn, 0, 0);       /* 主题给按钮加了阴影，去掉 */
+    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+
     lv_obj_add_event_cb(btn, on_btn, LV_EVENT_CLICKED, (void *)(uintptr_t)id);
 
     lbl = label_new(btn, UI_C_VALUE);
@@ -153,7 +171,7 @@ static void page_build(void)
     lv_label_set_text(lbl, "100ms");
     lv_obj_align(lbl, LV_ALIGN_RIGHT_MID, -UI_PAD, 0);
 
-    /* 2. 数值卡：标题 + 大字 */
+    /* 2. 数值卡：标题 + 大字 + 进度条 */
     box = card_new(s_page, 20, 64, 280, 132, UI_RADIUS);
 
     lbl = label_new(box, UI_C_TEXT_DIM);
@@ -162,7 +180,21 @@ static void page_build(void)
 
     s_value = label_new(box, UI_C_VALUE);
     lv_label_set_text(s_value, "0");
-    lv_obj_align(s_value, LV_ALIGN_BOTTOM_LEFT, 16, -14);
+    lv_obj_align(s_value, LV_ALIGN_TOP_RIGHT, -16, 10);
+
+    /* 2.1 进度条：0~100，每帧按 count % 100 走 */
+    s_bar = lv_bar_create(box);
+    lv_obj_set_pos(s_bar, 16, 96);
+    lv_obj_set_size(s_bar, 248, 10);
+    lv_bar_set_range(s_bar, 0, 100);
+    lv_bar_set_value(s_bar, 0, LV_ANIM_OFF);
+
+    lv_obj_set_style_bg_color(s_bar, UI_C_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_bar, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_bar, UI_C_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s_bar, 5, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_bar, 5, LV_PART_INDICATOR);
+    lv_obj_clear_flag(s_bar, LV_OBJ_FLAG_CLICKABLE);
 
     /* 3. 两行状态 */
     s_state  = row_new(s_page, 214, "STATE");
@@ -204,6 +236,8 @@ void demo_ui_render(uint32_t count, uint8_t run, uint16_t events)
     snprintf(buf, sizeof(buf), "%lu", (unsigned long)count);
     lv_label_set_text(s_value, buf);
 
+    lv_bar_set_value(s_bar, (int32_t)(count % 100U), LV_ANIM_OFF);
+
     lv_label_set_text(s_state, (run != 0) ? "RUN" : "PAUSE");
 
     snprintf(buf, sizeof(buf), "%u", (unsigned)events);
@@ -223,4 +257,5 @@ void demo_ui_destroy(void)
     s_value  = NULL;
     s_state  = NULL;
     s_events = NULL;
+    s_bar    = NULL;
 }

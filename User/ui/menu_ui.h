@@ -15,6 +15,9 @@
 
 #include <stdint.h>
 
+/* 控件事件编号：按钮 1..N（下标+1），滑条固定 200，避开按钮 */
+#define MENU_ID_BRIGHT  200
+
 /**
  * @brief  画出（或更新）选择页
  * @param  names  任务名表，按显示顺序排

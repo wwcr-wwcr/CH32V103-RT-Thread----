@@ -15,7 +15,7 @@ extern const task_t task_example;               /* 新任务在这里 extern 一行 */
 static const task_t *const g_app_list[] =
 {
     &task_example,
-//  &task_x;                                                             <----------在这添加
+//  &task_x,                                                             <----------在这添加
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
 static const char *s_names[8];                 
@@ -23,6 +23,7 @@ static const char *s_names[8];
 
 //********************在这里写内置变量********************//
 static uint8_t s_cursor = 0;        //当前task
+static volatile uint8_t s_bright = 50;   //滑条亮度（松手才更新）
 
 
 static void menu_enter(uint8_t index)
@@ -62,7 +63,11 @@ static void menu_key(key_id_t key)
 static void menu_set(uint8_t id, int32_t value)
 {
 //********************在这里写触摸控件逻辑********************//
-    (void)value;
+    if(id == MENU_ID_BRIGHT)                    /* 滑条：松手才来一条，见 menu_ui.c */
+    {
+        s_bright = (uint8_t)value;              /* TODO: 接到背光/亮度输出 */
+        return;
+    }
 
     if(id > 0)                                  /* 编号 = 按钮下标 + 1 */
     {
