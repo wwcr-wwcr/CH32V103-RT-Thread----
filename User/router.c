@@ -70,7 +70,7 @@ void router_dispatch(const message *msg)
         return;
     }
 
-    /* K4 短按 = 全局退出键：任何页面都能回首页，永远不下发给任务 */
+    /* K4 长按 = 全局退出键：任何页面都能回首页，永远不下发给任务 */
     if((msg->type == KEY) && (msg->code == KEY_ID_LONG_4))
     {
         if(s_cur != s_home)
