@@ -1,26 +1,22 @@
 /******************************************************************************
  * 文件名   : menu_ui.c
- * 说明     : 选择页界面 —— 一屏摆完所有任务，每个任务一个按钮 + 底部亮度滑条
+ * 说明     : 选择页 —— 一屏任务按钮，每屏最多 8 个（2 列 x 4 行）
  *
- * 控件全部来自 APP/common.h（ui_xxx_new），本文件只负责版式和文字：
+ * 控件全部来自 APP/common.h 的 ui_xxx_new()，本文件只负责版式和文字：
  *     页面     ui_page_new()
- *     卡片     ui_card_new()      标题栏 / 提示条 / 滑条底座
- *     文字     ui_label_new()     标题 / 计数 / 提示
- *     按钮     ui_btn_new()       编号 1..N，点了自动投一条 TOUCH 事件
- *     滑条     ui_slider_new()    编号 200，松手才投一条
+ *     卡片     ui_card_new()      标题栏 / 底部提示
+ *     文字     ui_label_text()    标题 / 计数 / 提示
+ *     按钮     ui_btn_new()       编号 1..N，点击自动投一次 TOUCH 事件
  *
- * 版式（320×480 竖屏）：
- *     标题栏        TASKS / 共几个
- *     按钮墙        2 列 × 4 行，每个 140×70
- *     亮度滑条      BRIGHT 0~100
+ * 版式（320x480 竖屏）：
+ *     标题栏        TASKS / 任务数
+ *     按钮墙        2 列 x N 行，每格 140x70，从 y=66 起、行距 76
  *     底部提示      TAP OR K3 TO ENTER
  *
- * 滑条为什么只刷数字、不投递：
- *     LV_EVENT_VALUE_CHANGED 拖动时手指每动一点就触发一次，一秒钟几十条，
- *     每次都 kernel_post 会把 kernel 的队列（深度 8）灌满，按键事件被挤掉。
- *     所以：拖动中只改本页数字（本文件的 on_slide_move），
- *           松手由 ui_slider_new 内部统一投一条最终值。
- ******************************************************************************/
+ * 刷新策略：
+ *     只有"选中项变了"才重画边框和底色，不动控件树；
+ *     拖动/点击的实时反馈由控件自己处理。
+******************************************************************************/
 
 #include "menu_ui.h"
 #include "theme.h"
@@ -38,53 +34,6 @@ static lv_obj_t *s_btn[8];
 static lv_obj_t *s_page    = NULL;      /* NULL = 页面还没搭 */
 static uint8_t   s_cnt     = 0;         /* 实际搭了几个按钮 */
 static uint8_t   s_sel     = 0xFF;      /* 上次高亮的是哪个，0xFF = 还没画过 */
-
-static lv_obj_t *s_slider  = NULL;      /* 亮度滑条 */
-static lv_obj_t *s_bright  = NULL;      /* 滑条右边的数值 */
-static uint8_t   s_percent = 50;        /* 亮度值，跨页面保留 */
-
-/**************************************************************************************************
- *                                        内部函数
- **************************************************************************************************/
-/**
- * @brief  滑条拖动中：只更新数字，一条消息都不发
- * @note   松手发消息由 ui_slider_new 内部负责，这里只叠一个"实时数字"回调
- */
-static void on_slide_move(lv_event_t *e)
-{
-    char buf[8];
-
-    s_percent = (uint8_t)lv_slider_get_value(lv_event_get_target(e));
-
-    snprintf(buf, sizeof(buf), "%u", (unsigned)s_percent);
-    ui_label_set(s_bright, buf);
-}
-
-/**
- * @brief  搭底部的亮度滑条（卡片 + 文字 + 滑条）
- */
-static void bright_build(void)
-{
-    lv_obj_t *box;
-    lv_obj_t *lbl;
-    char      buf[8];
-
-    box = ui_card_new(s_page, 16, (lv_coord_t)(UI_H - 106), (lv_coord_t)(UI_W - 32), 52, 14);
-
-    lbl = ui_label_text(box, UI_C_TEXT_DIM, "BRIGHT");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 12, 6);
-
-    s_bright = ui_label_new(box, UI_C_VALUE);
-    snprintf(buf, sizeof(buf), "%u", (unsigned)s_percent);
-    ui_label_set(s_bright, buf);
-    lv_obj_align(s_bright, LV_ALIGN_TOP_RIGHT, -12, 6);
-
-    s_slider = ui_slider_new(box, 12, 28, (lv_coord_t)(UI_W - 56), 8,
-                             0, 100, s_percent, MENU_ID_BRIGHT);
-
-    /* 再叠一个"拖动时刷新数字"的回调（不发消息） */
-    lv_obj_add_event_cb(s_slider, on_slide_move, LV_EVENT_VALUE_CHANGED, NULL);
-}
 
 /**************************************************************************************************
  *                                        对外函数
@@ -136,10 +85,7 @@ void menu_ui_render(const char **names, uint8_t count, uint8_t sel)
         s_cnt = count;
         s_sel = 0xFF;
 
-        /* 1.3 亮度滑条 */
-        bright_build();
-
-        /* 1.4 底部提示 */
+        /* 1.3 底部提示 */
         bar = ui_card_new(s_page, 24, (lv_coord_t)(UI_H - 46), (lv_coord_t)(UI_W - 48), 36, 18);
         lv_obj_set_style_bg_opa(bar, 215, 0);
 
@@ -190,8 +136,6 @@ void menu_ui_destroy(void)
         s_btn[i] = NULL;
     }
 
-    s_slider = NULL;
-    s_bright = NULL;
     s_cnt    = 0;
     s_sel    = 0xFF;        /* 下次进来当"第一次"处理，重新搭一遍 */
 }

@@ -3,28 +3,25 @@
 #include "ui/menu_ui.h"
 #include "rtthread.h"
 
-
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void menu_thread(void *arg);
 
-
 //********************在这里写任务表********************//
 extern const task_t task_example;               /* 新任务在这里 extern 一行 */
+extern const task_t task_led;
 //extern const task_t task_x;                                           <----------在这添加
 static const task_t *const g_app_list[] =
 {
     &task_example,
+    &task_led,
 //  &task_x,                                                             <----------在这添加
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
 static const char *s_names[8];                 
 
-
 //********************在这里写内置变量********************//
 static uint8_t s_cursor = 0;        //当前task
-static volatile uint8_t s_bright = 50;   //滑条亮度（松手才更新）
-
 
 static void menu_enter(uint8_t index)
 {
@@ -32,7 +29,6 @@ static void menu_enter(uint8_t index)
     s_cursor = index;
     router_go(g_app_list[index]);
 }
-
 
 static void menu_key(key_id_t key)
 {
@@ -59,22 +55,14 @@ static void menu_key(key_id_t key)
     }
 }
 
-
 static void menu_set(uint8_t id, int32_t value)
 {
 //********************在这里写触摸控件逻辑********************//
-    if(id == MENU_ID_BRIGHT)                    /* 滑条：松手才来一条，见 menu_ui.c */
-    {
-        s_bright = (uint8_t)value;              /* TODO: 接到背光/亮度输出 */
-        return;
-    }
-
     if(id > 0)                                  /* 编号 = 按钮下标 + 1 */
     {
         menu_enter((uint8_t)(id - 1));
     }
 }
-
 
 static void menu_open(void)
 {
@@ -100,12 +88,8 @@ static void menu_open(void)
     }
 //********************在这里写进入逻辑********************//
 
-
-
-
     rt_thread_startup(tid);
 }
-
 
 static void menu_close(void)
 {
@@ -118,9 +102,6 @@ static void menu_close(void)
         return;                                 /* 没开，什么都不用做 */
     }
 //********************在这里写关闭逻辑(menu的关闭逻辑几乎不会运行)********************//
-
-
-
 
     /* 队列可能刚好满：腾一个位置再投，最多试 20 次 */
     for(retry = 0; retry < 20; retry++)
@@ -149,7 +130,6 @@ static void menu_close(void)
     rt_sem_delete(s_exit);  s_exit = RT_NULL;
 }
 
-
 static void menu_render(void)
 {
     uint8_t i;
@@ -165,7 +145,6 @@ static void menu_render(void)
 
     menu_ui_render(s_names, g_app_num, s_cursor);
 }
-
 
 static void menu_thread(void *arg)
 {
@@ -198,7 +177,6 @@ static void menu_thread(void *arg)
 
     rt_sem_release(s_exit);                     /* 我走了，close 那边可以往下走 */
 }
-
 
 static void menu_post(const message *msg)
 {

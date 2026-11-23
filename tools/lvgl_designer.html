@@ -67,6 +67,8 @@ label.mini{color:var(--dim);font-size:12px}
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px #0004}
 .cbHead{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
 .cbHead .hint{color:var(--dim);font-size:12px;flex:1;text-align:right}
+.tabBtn{padding:3px 10px;font-size:12px;border-radius:999px}
+.tabBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 #codeOut{flex:1;border:0;resize:none;padding:12px 14px;width:100%;
   font:12px/1.55 Consolas,"Cascadia Mono",monospace;white-space:pre;overflow:auto;color:#3a2e39;outline:none}
 
@@ -136,6 +138,7 @@ label.mini{color:var(--dim);font-size:12px}
     <button id="btnClear" title="一键清空当前页的控件（Ctrl+Z 可撤销）；Shift+点击 = 清空所有页">清空</button>
     <button id="btnDemo">示例</button>
     <button id="btnOpen">打开…</button>
+    <button id="btnPickC" title="选你的 task_xxx.c，工具会读出里面定义的变量，供控件绑形参时选择">导入 C 文件</button>
     <button id="btnSave">保存工程</button>
   </div>
   <div class="grp">
@@ -210,9 +213,11 @@ label.mini{color:var(--dim);font-size:12px}
 <div id="codeMask">
   <div id="codeBox">
     <div class="cbHead">
+      <button id="tabUI" class="tabBtn on">界面 .c</button>
+      <button id="tabTask" class="tabBtn" disabled>task .c（已同步）</button>
       <b id="codeName">app_ui.c</b>
-      <span class="hint">.c 在前面；.h 和 task 以注释形式附在后面，整段复制即可</span>
-      <button id="btnCopyCode" class="pri">复制全部</button>
+      <span class="hint" id="codeHint">整段复制，粘到一个 .c 里就能编</span>
+      <button id="btnCopyCode" class="pri">复制当前页</button>
       <button id="btnCloseCode">关闭</button>
     </div>
     <textarea id="codeOut" spellcheck="false"></textarea>
@@ -220,6 +225,8 @@ label.mini{color:var(--dim);font-size:12px}
 </div>
 
 <input type="file" id="fileIn" accept=".json" style="display:none">
+<input type="file" id="fileC" accept=".c,.h,.txt" style="display:none">
+<datalist id="varpool"></datalist>
 
 <script>
 /* ============================================================================
@@ -521,7 +528,7 @@ function renderInspector(){
   if(['label','bar','chart','led','slider','arc'].includes(w.type)){
     const d0=el('div','row');
     d0.innerHTML='<div class="fld"><label>绑定形参名（留空=不绑定）</label>'+
-      '<input id="f_bind" placeholder="例如 count" value="'+esc(w.bind||'')+'"></div>';
+      '<input id="f_bind" list="varpool" placeholder="打字或从下拉里选" value="'+esc(w.bind||'')+'"></div>';
     box.appendChild(d0);
 
     const d0b=el('div','row');
@@ -587,6 +594,11 @@ function renderInspector(){
       snapshot();
       if(k==='parent'){ w.parent=+inp.value; }
       else if(k==='name'){ w.name=inp.value||('w'+S.seq++); }
+      else if(k==='bind'){
+        w.bind = inp.value.trim();
+        const vp = VARPOOL.find(v=>v.name===w.bind);   /* 从导入的 task 里认出来的变量 */
+        if(vp) w.bindType = vp.type;
+      }
       else if(inp.type==='checkbox'){ w[k]=inp.checked?1:0; }
       else if(inp.type==='number'){ w[k]=inp.value===''?0:+inp.value; }
       else { w[k]=inp.value; }
@@ -783,6 +795,51 @@ document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
   renderAll();
 });
 
+/* ---------- 查看 / 复制代码（两个页签） ---------- */
+let TAB = 'ui';          /* 'ui' | 'task' */
+
+function fillCode(kind){
+  TAB = kind;
+  const g = genCode();
+
+  if(kind === 'task' && TASKSRC){
+    $('#codeOut').value        = patchTask();
+    $('#codeName').textContent = TASKNAME || (g.prefix + '_task.c');
+    $('#codeHint').textContent = patchTaskSummary();
+  }else{
+    $('#codeOut').value        = g.combined;
+    $('#codeName').textContent = g.prefix + '.c';
+    $('#codeHint').textContent = '整段复制，粘到一个 .c 里就能编；末尾 #if 0 里是头文件和 task 骨架';
+  }
+
+  $('#tabUI').classList.toggle('on',   kind === 'ui');
+  $('#tabTask').classList.toggle('on', kind === 'task');
+  $('#codeOut').scrollTop = 0;
+}
+
+function openCode(){
+  fillCode((TAB === 'task' && TASKSRC) ? 'task' : 'ui');
+  $('#codeMask').classList.add('on');
+  $('#codeOut').focus();
+  $('#codeOut').setSelectionRange(0,0);
+  $('#codeOut').scrollTop = 0;
+  setTimeout(()=>{ $('#codeOut').scrollTop = 0; }, 0);
+}
+
+$('#tabUI').onclick   = () => fillCode('ui');
+$('#tabTask').onclick = () => { if(TASKSRC) fillCode('task'); };
+$('#btnCode').onclick = openCode;
+$('#btnCloseCode').onclick = () => $('#codeMask').classList.remove('on');
+$('#codeMask').onclick = e => { if(e.target.id === 'codeMask') $('#codeMask').classList.remove('on'); };
+$('#btnCopyCode').onclick = async () => {
+  const txt = $('#codeOut').value;
+  try { await navigator.clipboard.writeText(txt); }
+  catch(e){ $('#codeOut').select(); document.execCommand('copy'); }
+  $('#btnCopyCode').textContent = '已复制';
+  setTimeout(() => { $('#btnCopyCode').textContent = '复制当前页'; }, 1500);
+};
+$('#projName').addEventListener('input', ()=>{ if($('#codeMask').classList.contains('on')) fillCode(TAB); });
+
 /* ---------- 工程读写 ---------- */
 $('#btnSave').onclick=()=>{
   S.name=$('#projName').value||'app_ui';
@@ -975,9 +1032,13 @@ function genWidget(w,idx,varMap,parentVar){
 
 function genCode(){
   GEN_AUX = { decl: [], vbar: [] };
+
+  /* 每次生成都从输入框读前缀，改完名字立刻生效 */
+  S.name = ($('#projName').value || S.name || 'app_ui').trim();
   const prefix=(S.name||'app_ui').replace(/[^A-Za-z0-9_]/g,'_');
   const U=prefix.toUpperCase();
   const cnt=S.screens.length;
+  const multi = (cnt > 1);          /* 单屏：render 不带 screen 参数，直接吃数据 */
   const need=[...new Set(S.screens.flatMap(s=>s.widgets.map(w=>W[w.type].need)).filter(Boolean))];
 
   /* 收集所有"绑定形参"：同名只保留一个，顺序按出现先后 */
@@ -988,7 +1049,12 @@ function genCode(){
     if(binds.some(b=>b.name===nm)) return;
     binds.push({name:nm, type:w.bindType||'int32_t'});
   }));
-  const sigExtra = binds.map(b=>', '+b.type+' '+b.name).join('');
+  /* 单屏：render(c, ...)；多屏：render(uint8_t screen, c, ...) */
+  const renderParams = [(multi ? 'uint8_t screen' : ''), binds.map(b=>b.type+' '+b.name).join(', ')]
+                       .filter(Boolean).join(', ');
+  const renderParamDecl = (renderParams === '') ? 'void' : renderParams;
+  const renderCall = [(multi ? 'screen' : ''), binds.map(b=>b.name).join(', ')]
+                     .filter(Boolean).join(', ');
 
   /* ---------- .h ---------- */
   const H=[];
@@ -1027,16 +1093,18 @@ function genCode(){
     H.push('');
   });
 
-  H.push('#ifndef '+U+'_SCREEN_CNT');
-  H.push('#define '+U+'_SCREEN_CNT  '+cnt);
-  H.push('#endif');
-  H.push('');
+  if(multi){
+    H.push('#ifndef '+U+'_SCREEN_CNT');
+    H.push('#define '+U+'_SCREEN_CNT  '+cnt);
+    H.push('#endif');
+    H.push('');
+  }
   H.push('/**');
-  H.push(' * @brief  渲染指定屏幕（首次调用会建页，之后只 load + 更新数据）');
-  H.push(' * @param  screen  屏幕下标 0..'+(cnt-1)+'（对应：'+S.screens.map(s=>s.name).join(' / ')+'）');
+  H.push(' * @brief  渲染页面（首次调用会建页，之后只 load + 更新数据）');
+  if(multi) H.push(' * @param  screen  屏幕下标 0..'+(cnt-1)+'（对应：'+S.screens.map(s=>s.name).join(' / ')+'）');
   binds.forEach(b=>H.push(' * @param  '+b.name+'  绑定给控件的实时数据（'+b.type+'）'));
   H.push(' */');
-  H.push('void '+prefix+'_render(uint8_t screen'+sigExtra+');');
+  H.push('void '+prefix+'_render('+renderParamDecl+');');
   H.push('');
   H.push('/**');
   H.push(' * @brief  销毁所有页面，把对象还给 LVGL 堆（关页时调用）');
@@ -1077,11 +1145,12 @@ function genCode(){
   C.push('#include "common.h"');
   C.push('#include "lvgl/lvgl.h"');
   C.push('');
-  C.push('#define '+U+'_SCREEN_CNT  '+cnt+'          /* 屏幕数：单文件编译时不用头文件 */');
+  if(multi) C.push('#define '+U+'_SCREEN_CNT  '+cnt+'          /* 屏幕数：单文件编译时不用头文件 */');
   C.push('#include <stdio.h>                      /* 绑定形参转文字用 snprintf */');
   C.push('');
   C.push('/* ---------------- 控件句柄（render 里更新这些） ---------------- */');
-  C.push('static lv_obj_t *s_page['+U+'_SCREEN_CNT] = {0};');
+  if(multi) C.push('static lv_obj_t *s_page['+U+'_SCREEN_CNT] = {0};');
+  else      C.push('static lv_obj_t *s_page = NULL;');
 
   const handleDecl=[];
   const buildFns=[];
@@ -1093,11 +1162,13 @@ function genCode(){
     C.push('/* ====================== '+s.name+' ====================== */');
     const varMap={};
     const body=[];
-    body.push('    s_page['+si+'] = ui_page_new();                 /* 建整屏 */');
+    body.push(multi ? ('    s_page['+si+'] = ui_page_new();                 /* 建整屏 */')
+                    : '    s_page = ui_page_new();                        /* 建整屏 */');
     let idx=0;
     s.widgets.forEach((w,i)=>{
       idx++;
-      const parentVar = (w.parent!=null && w.parent>=0 && s.widgets[w.parent]) ? varMap[w.parent] : ('s_page['+si+']');
+      const pageVar = multi ? ('s_page['+si+']') : 's_page';
+      const parentVar = (w.parent!=null && w.parent>=0 && s.widgets[w.parent]) ? varMap[w.parent] : pageVar;
       const g=genWidget(w,idx,varMap,parentVar);
       varMap[i]=g.var;
       allVars.push({v:g.var,type:w.type,name:w.name,si});
@@ -1260,26 +1331,38 @@ function genCode(){
     }
   }
 
-  C.push('void '+prefix+'_render(uint8_t screen'+sigExtra+')');
+  C.push('void '+prefix+'_render('+renderParamDecl+')');
   C.push('{');
-  C.push('    if(screen >= '+U+'_SCREEN_CNT)');
-  C.push('    {');
-  C.push('        return;');
-  C.push('    }');
-  C.push('');
-  C.push('    if(s_page[screen] == NULL)              /* 首次进来：建页 */');
-  C.push('    {');
-  C.push('        switch(screen)');
-  C.push('        {');
-  S.screens.forEach((s,si)=>C.push('            case '+si+': build_'+si+'(); break;   /* '+s.name+' */'));
-  C.push('            default: break;');
-  C.push('        }');
-  C.push('    }');
-  C.push('');
-  C.push('    if(lv_scr_act() != s_page[screen])      /* 切回本页：load 上去 */');
-  C.push('    {');
-  C.push('        lv_scr_load(s_page[screen]);');
-  C.push('    }');
+  if(multi){
+    C.push('    if(screen >= '+U+'_SCREEN_CNT)');
+    C.push('    {');
+    C.push('        return;');
+    C.push('    }');
+    C.push('');
+    C.push('    if(s_page[screen] == NULL)              /* 首次进来：建页 */');
+    C.push('    {');
+    C.push('        switch(screen)');
+    C.push('        {');
+    S.screens.forEach((s,si)=>C.push('            case '+si+': build_'+si+'(); break;   /* '+s.name+' */'));
+    C.push('            default: break;');
+    C.push('        }');
+    C.push('    }');
+    C.push('');
+    C.push('    if(lv_scr_act() != s_page[screen])      /* 切回本页：load 上去 */');
+    C.push('    {');
+    C.push('        lv_scr_load(s_page[screen]);');
+    C.push('    }');
+  }else{
+    C.push('    if(s_page == NULL)                      /* 首次进来：建页 */');
+    C.push('    {');
+    C.push('        build_0();');
+    C.push('    }');
+    C.push('');
+    C.push('    if(lv_scr_act() != s_page)              /* 切回本页：load 上去 */');
+    C.push('    {');
+    C.push('        lv_scr_load(s_page);');
+    C.push('    }');
+  }
   C.push('');
   const demoSeries=[];
   S.screens.forEach((s,si)=>s.widgets.forEach(w=>{
@@ -1290,10 +1373,14 @@ function genCode(){
   if(demoSeries.length){
     C.push('    /* 演示波形：接真实数据时删掉这几行，改成 xxx_push() / xxx_set() */');
     demoSeries.forEach(d=>{
-      C.push('    if(screen == '+d.si+')');
-      C.push('    {');
-      C.push('        '+d.fn+'();');
-      C.push('    }');
+      if(multi){
+        C.push('    if(screen == '+d.si+')');
+        C.push('    {');
+        C.push('        '+d.fn+'();');
+        C.push('    }');
+      }else{
+        C.push('    '+d.fn+'();');
+      }
     });
     C.push('');
   }
@@ -1328,14 +1415,22 @@ function genCode(){
       }
     });
     if(lines.length){
-      C.push('    if(screen == '+si+')                     /* 本屏绑定的形参 -> 控件 */');
-      C.push('    {');
-      if(lines.some(l=>l.indexOf('snprintf')>=0)){
-        C.push('        char buf[24];');
-        C.push('');
+      if(multi){
+        C.push('    if(screen == '+si+')                     /* 本屏绑定的形参 -> 控件 */');
+        C.push('    {');
+        if(lines.some(l=>l.indexOf('snprintf')>=0)){
+          C.push('        char buf[24];');
+          C.push('');
+        }
+        lines.forEach(l=>C.push(l));
+        C.push('    }');
+      }else{
+        if(lines.some(l=>l.indexOf('snprintf')>=0)){
+          C.push('    char buf[24];');
+          C.push('');
+        }
+        lines.forEach(l=>C.push(l.replace(/^        /,'    ')));
       }
-      lines.forEach(l=>C.push(l));
-      C.push('    }');
       C.push('');
     }
   });
@@ -1350,16 +1445,24 @@ function genCode(){
   C.push('');
   C.push('void '+prefix+'_destroy(void)');
   C.push('{');
-  C.push('    uint8_t i;');
-  C.push('');
-  C.push('    for(i = 0; i < '+U+'_SCREEN_CNT; i++)');
-  C.push('    {');
-  C.push('        if(s_page[i] != NULL)');
-  C.push('        {');
-  C.push('            lv_obj_del(s_page[i]);');
-  C.push('            s_page[i] = NULL;');
-  C.push('        }');
-  C.push('    }');
+  if(multi){
+    C.push('    uint8_t i;');
+    C.push('');
+    C.push('    for(i = 0; i < '+U+'_SCREEN_CNT; i++)');
+    C.push('    {');
+    C.push('        if(s_page[i] != NULL)');
+    C.push('        {');
+    C.push('            lv_obj_del(s_page[i]);');
+    C.push('            s_page[i] = NULL;');
+    C.push('        }');
+    C.push('    }');
+  }else{
+    C.push('    if(s_page != NULL)');
+    C.push('    {');
+    C.push('        lv_obj_del(s_page);');
+    C.push('        s_page = NULL;');
+    C.push('    }');
+  }
   C.push('');
   allVars.forEach(a=>{ C.push('    '+a.v+' = NULL;'); });
   GEN_AUX.vbar.forEach(b=>C.push('    '+b.v+'_fill = NULL;'));
@@ -1380,7 +1483,7 @@ function genCode(){
     T.push('#include "ui/'+prefix+'.h"');
     T.push('#include "rtthread.h"');
     T.push('');
-    T.push('static volatile uint8_t s_screen = 0;      /* 当前显示第几页 */');
+    if(multi) T.push('static volatile uint8_t s_screen = 0;      /* 当前显示第几页 */');
     binds.forEach(b=>{
       const isStr = (b.type==='const char *');
       const init  = isStr ? '""' : ((b.type==='float') ? '0.0f' : '0');
@@ -1523,8 +1626,8 @@ function genCode(){
     T.push('');
     T.push('static void '+prefix+'_redraw(void)');
     T.push('{');
-    T.push('    '+prefix+'_render(s_screen'+binds.map(b=>
-      ', ' + ((b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name))).join('')+');');
+    T.push('    '+prefix+'_render('+(multi?'s_screen':'')+binds.map(b=>
+      (multi?', ':((multi?'':''))) + ((b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name))).join('')+');');
     T.push('}');
     T.push('');
     T.push('const task_t task_'+prefix+' =');
@@ -1544,7 +1647,6 @@ function genCode(){
    * 选 #if 0 而不是注释块，这样 .h / task 里自身的注释不会被破坏，
    * 复制出去时只要删掉首尾的 #if 0 / #endif 两行即可。 */
   const parts = [];
-  parts.push('/* ==================== ' + prefix + '.c ==================== */');
   parts.push(C.join('\n'));
   parts.push('');
   parts.push('/* ============ ' + prefix + '.h（要单独头文件：把下面整段复制出去，');
@@ -1562,29 +1664,83 @@ function genCode(){
   const combined = parts.join('\n') + '\n';
 
   return {header:H.join('\n')+'\n', source:C.join('\n')+'\n', task:T.join('\n')+'\n',
-          prefix:prefix, combined:combined};
+          prefix:prefix, combined:combined, renderCall:renderCall};
 }
 
-/* ---------- 查看 / 复制代码 ---------- */
-function openCode(){
-  const g = genCode();
-  $('#codeName').textContent = g.prefix + '.c';
-  $('#codeOut').value = g.combined;
-  $('#codeMask').classList.add('on');
-  $('#codeOut').focus();
-  $('#codeOut').setSelectionRange(0, 0);
-  $('#codeOut').scrollTop = 0;            /* 放在 focus 之后，否则会跳到末尾 */
-  setTimeout(() => { $('#codeOut').scrollTop = 0; }, 0);
+/* ---------- 导入 task .c：识别变量 + 同步出可直接复制的文本 ---------- */
+let TASKSRC  = null;    /* 原始 task .c 的文本（自动判 utf-8 / gbk） */
+let TASKNAME = '';
+let VARPOOL  = [];      /* [{name,type}] 从 task 里认出来的变量 */
+
+/* 文件字节 -> 文本：先严格按 UTF-8 解，失败就当 GBK（工程里大多是 GBK） */
+function decodeText(buf){
+  try { return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){
+    try { return new TextDecoder('gbk').decode(buf); }
+    catch(e2){
+      let s=''; const CH=0x8000;
+      for(let i=0;i<buf.length;i+=CH) s += String.fromCharCode.apply(null, buf.subarray(i,i+CH));
+      return s;
+    }
+  }
 }
-$('#btnCode').onclick = openCode;
-$('#btnCloseCode').onclick = () => $('#codeMask').classList.remove('on');
-$('#codeMask').onclick = e => { if(e.target.id === 'codeMask') $('#codeMask').classList.remove('on'); };
-$('#btnCopyCode').onclick = async () => {
-  const txt = $('#codeOut').value;
-  try { await navigator.clipboard.writeText(txt); }
-  catch(e){ $('#codeOut').select(); document.execCommand('copy'); }
-  $('#btnCopyCode').textContent = '已复制';
-  setTimeout(() => { $('#btnCopyCode').textContent = '复制全部'; }, 1500);
+
+/* 只认"行首"的声明，函数参数（在括号里）不会被当成变量 */
+function parseVars(text){
+  const re = /^[ \t]*(?:static\s+|extern\s+)?(?:const\s+)?(?:volatile\s+)?(uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t|float|double|char)\s*(\*?)\s*([A-Za-z_]\w*)\s*(?==|;|\[|,)/gm;
+  const out = [];
+  let m;
+  while((m = re.exec(text)) !== null){
+    const ty = (m[1]==='char' && m[2]==='*') ? 'const char *' : m[1];
+    if(out.some(o=>o.name === m[3])) continue;
+    out.push({name:m[3], type:ty});
+  }
+  return out;
+}
+
+function refreshVarPool(){
+  $('#varpool').innerHTML = VARPOOL.map(v=>'<option value="'+v.name+'">'+v.type+'</option>').join('');
+}
+
+/* 把 task 源码里三处引用改成新名字，返回改好的整份文本 */
+function patchTask(){
+  if(!TASKSRC) return '';
+  const g = genCode();
+  let s = TASKSRC;
+
+  /* 1) xxx_ui_render(...) 调用 -> <前缀>_render(<新实参>)；前面是 void 的是函数定义，跳过 */
+  s = s.replace(/(?<!void\s)([A-Za-z_]\w*_ui_render)\s*\([^;]*?\)\s*;/g,
+                g.prefix + '_render(' + g.renderCall + ');');
+  /* 2) .ui_destroy = xxx */
+  s = s.replace(/(\.ui_destroy\s*=\s*)[A-Za-z_]\w*/g, '$1' + g.prefix + '_destroy');
+  /* 3) #include "ui/xxx.h" */
+  s = s.replace(/(#include\s+"ui\/)[^"]+(")/g, '$1' + g.prefix + '.h$2');
+
+  return s;
+}
+
+function patchTaskSummary(){
+  const g = genCode();
+  return '已同步 ' + (TASKNAME || 'task') + '：render 调用 / .ui_destroy / #include 三处';
+}
+
+$('#btnPickC').onclick = () => $('#fileC').click();
+$('#fileC').onchange = e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const buf = new Uint8Array(r.result);
+    TASKSRC  = decodeText(buf);
+    TASKNAME = f.name;
+    VARPOOL  = parseVars(TASKSRC);
+    refreshVarPool();
+    $('#tabTask').disabled = false;
+    renderAll();
+    $('#stSel').textContent = '已导入 ' + TASKNAME + '：认出 ' + VARPOOL.length + ' 个变量（打开代码面板切到 task 页签复制）';
+  };
+  r.readAsArrayBuffer(f);
+  e.target.value = '';
 };
 
 /* ---------- 渲染总入口 ---------- */
