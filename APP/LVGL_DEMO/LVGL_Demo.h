@@ -367,6 +367,16 @@ lv_obj_t *ui_table_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                        lv_coord_t w, lv_coord_t h, uint16_t rows, uint16_t cols);
 #endif
 
+/**
+ * @brief  给已有控件“事后”改外观：圆角 / 边框 / 颜色
+ * @param  obj           任何 lv_obj_t
+ * @param  radius        圆角，0 = 直角
+ * @param  border_w      边框宽度，0 = 无边框
+ * @param  border_color  边框颜色
+ * @note   工厂里写死的样式想单独微调时用这个，不用改 common.c
+ */
+void ui_frame(lv_obj_t *obj, lv_coord_t radius, lv_coord_t border_w, lv_color_t border_color);
+
 #if LV_USE_CHART
 /**
  * @brief  造一张折线图（0~max 的纵轴，点数 = 宽度像素）
@@ -381,6 +391,17 @@ lv_obj_t *ui_table_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
  */
 lv_obj_t *ui_chart_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                        lv_coord_t w, lv_coord_t h, int32_t max);
+
+/**
+ * @brief  把图表的数据源换成“外部数组”（零拷贝，省掉逐点 API 调用）
+ * @param  chart  图表对象
+ * @param  buf    调用者的 int16_t 数组，必须常驻（页面活着就有效）
+ * @param  n      数组长度 = 图表点数
+ * @param  shift  1 = 新数据从右边挤进来、旧数据左移（示波器/频谱用）
+ *                0 = 直接原地刷新（整体替换时用）
+ * @note   绑完之后你只改 buf[]，不用再调 lv_chart_set_next_value
+ */
+void ui_chart_bind(lv_obj_t *chart, int16_t *buf, uint16_t n, uint8_t shift);
 #endif
 
 #if LV_USE_METER

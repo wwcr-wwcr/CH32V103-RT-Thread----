@@ -21,7 +21,7 @@
 #include "menu_ui.h"
 #include "theme.h"
 #include "kernel.h"
-#include "common.h"
+#include "LVGL_DEMO/LVGL_Demo.h"
 #include "lvgl/lvgl.h"
 #include <stdio.h>
 

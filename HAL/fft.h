@@ -28,7 +28,8 @@ extern "C" {
 #endif
 
 #define FFT_COUNT_MIN   16U      /* 少于这个点数没有意义 */
-#define FFT_COUNT_MAX   512U     /* 再大就慢得明显了（Goertzel 是 O(n?)） */
+#define FFT_COUNT_MAX   1024U    /* 上限 1024；N=1024 约 25 ms（O(n^2)），
+                                  * 只看某频段的话改 wave_ana.h 里的 WAVE_ANA_BAND_LO/HI */
 
 /**
  * @brief  算一遍幅值谱

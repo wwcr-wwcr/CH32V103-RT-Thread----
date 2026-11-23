@@ -60,15 +60,15 @@ extern void rt_kprintf(const char *fmt, ...);
 #define LV_USE_ANIMIMG          0   // 动画图像控件
 #define LV_USE_BTNMATRIX        0   // 按钮矩阵控件
 #define LV_USE_CALENDAR         0   // 日历控件
-#define LV_USE_CANVAS           0   // 画布控件（可绘图）
+#define LV_USE_CANVAS           1   // 画布控件（可绘图）
 #define LV_USE_CHART            1   // 图表控件
 #define LV_USE_CHECKBOX         0   // 复选框控件
 #define LV_USE_COLORWHEEL       0   // 色轮控件
 #define LV_USE_DROPDOWN         0   // 下拉列表控件
-#define LV_USE_IMG              0   // 图像控件
+#define LV_USE_IMG              1   // 图像控件
 #define LV_USE_BTN              1   // 按钮控件（卡片都用 lv_obj_create 做，不需要）
 #define LV_USE_BAR              1   // 进度条控件（没用）
-#define LV_USE_LINE             0   // 线条控件（没用）
+#define LV_USE_LINE             1   // 线条控件（没用）
 #define LV_USE_SLIDER           1   // 滑条控件（没用）
 #define LV_USE_IMGBTN           0   // 图形按钮控件（LV_USE_IMG 已关，没意义）
 #define LV_USE_KEYBOARD         0   // 屏幕键盘控件

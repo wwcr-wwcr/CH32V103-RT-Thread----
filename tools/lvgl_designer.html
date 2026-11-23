@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>LVGL 可视化设计器 — 基于 common.h</title>
+<title>LVGL 可视化设计器 — 基于 LVGL_Demo.h</title>
 <style>
 :root{
   --bg:#f7f4f7; --panel:#ffffff; --line:#e8dde6; --text:#3a2e39; --dim:#9a8c98;
@@ -181,7 +181,7 @@ label.mini{color:var(--dim);font-size:12px}
       <h4>工程</h4>
       <div class="row"><div class="fld"><label>文件名前缀</label><input id="projName" value="app_ui"></div></div>
       <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 同时生成 task_xxx.c</label></div></div>
-      <div class="hint">生成的文件可直接放进 <b>User/ui/</b>，包含 theme.h 与 common.h。</div>
+      <div class="hint">生成的文件可直接放进 <b>User/ui/</b>，包含 ui/theme.h 与 LVGL_DEMO/LVGL_Demo.h。</div>
     </div>
     <div class="sec">
       <h4>属性</h4>
@@ -230,7 +230,7 @@ label.mini{color:var(--dim);font-size:12px}
 
 <script>
 /* ============================================================================
- *  LVGL 可视化设计器 —— 生成调用 APP/common.h 的 C 代码
+ *  LVGL 可视化设计器 —— 生成调用 APP/LVGL_DEMO/LVGL_Demo.h 的 C 代码
  * ========================================================================== */
 
 /* ---------- 控件表：type -> 生成函数 / 默认属性 / 需要的 lv_conf 宏 ---------- */
@@ -271,6 +271,8 @@ const EXTRA = {
     {k:'chartType', label:'图形样式', type:'select', def:'line', opts:[['line','折线'],['bar','柱状']]},
     {k:'divH', label:'横向网格线', def:'4'},
     {k:'divV', label:'纵向网格线', def:'6'},
+    {k:'yTicks', label:'Y 轴刻度数（0 = 不画）', def:'4'},
+    {k:'yUnit', label:'Y 轴单位（如 mV，留空不画）', def:''},
   ],
   bar: [
     {k:'barDir', label:'方向', type:'select', def:'h', opts:[['h','横向（lv_bar）'],['v','竖向（两层 obj 拼）']]},
@@ -549,7 +551,8 @@ function renderInspector(){
   if(w.type==='chart'){
     const d1=el('div','row');
     d1.innerHTML='<div class="fld"><label>数据来源（生成对应的函数）</label><select id="f_dataSrc">'+
-      [['push','单点推进：xxx_push(值)'],['array','整帧数组：xxx_set(数组,个数)'],['demo','内置演示正弦（先看效果）']]
+      [['push','单点推进：xxx_push(值)'],['array','整帧数组：xxx_set(数组,个数)'],
+       ['ext','外部数组绑定：xxx_data() 直接写（零拷贝）'],['demo','内置演示正弦（先看效果）']]
       .map(o=>'<option value="'+o[0]+'"'+((w.dataSrc||'demo')===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
       '</select></div>';
     box.appendChild(d1);
@@ -952,6 +955,29 @@ function genWidget(w,idx,varMap,parentVar){
       L.push('lv_chart_set_point_count('+v+', '+(w.points|0||64)+');');
       L.push('lv_chart_set_div_line_count('+v+', '+(w.divH|0||4)+', '+(w.divV|0||6)+');');
       if(w.chartType==='bar') L.push('lv_chart_set_type('+v+', LV_CHART_TYPE_BAR);');
+
+      /* Y 轴刻度：让 LVGL 自己在左侧标数字（label_en = true） */
+      if((w.yTicks|0) > 0){
+        L.push('lv_chart_set_axis_tick('+v+', LV_CHART_AXIS_PRIMARY_Y, 4, 2, '+(w.yTicks|0)+', 1, true, 40);');
+        L.push('lv_obj_set_style_text_color('+v+', UI_C_TEXT_DIM, LV_PART_TICKS);');
+      }
+
+      /* Y 轴单位：图表左上角一个小字，不占句柄 */
+      if((w.yUnit||'').trim()){
+        L.push('{   /* Y 轴单位 */');
+        L.push('    lv_obj_t *u = ui_label_text('+p+', UI_C_TEXT_DIM, '+cstr(w.yUnit.trim())+');');
+        L.push('    lv_obj_align_to(u, '+v+', LV_ALIGN_OUT_TOP_LEFT, 0, -14);');
+        L.push('}');
+      }
+
+      /* 外部数组模式：数组 + 绑定（任务里直接写数组，零拷贝） */
+      if(w.dataSrc==='ext'){
+        const n=(w.points|0||64);
+        GEN_AUX.decl.push('#if '+W.chart.need);
+        GEN_AUX.decl.push('static int16_t s_'+v+'_dat['+n+'];   /* '+w.name+' 的外部数据数组 */');
+        GEN_AUX.decl.push('#endif');
+        L.push('ui_chart_bind('+v+', s_'+v+'_dat, '+n+', 1);   /* 之后写数组即可 */');
+      }
       break;
     case 'switch':
       L.push(v+' = ui_switch_new('+p+', '+px+', '+py+', '+(w.code|0)+');');
@@ -1060,7 +1086,7 @@ function genCode(){
   const H=[];
   H.push('/* ============================================================');
   H.push(' * 文件名   : '+prefix+'.h');
-  H.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/common.h）');
+  H.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/LVGL_DEMO/LVGL_Demo.h）');
   H.push(' * 屏幕     : '+(S.landscape?'横屏 480×320':'竖屏 320×480'));
   H.push(' * 修改方式 : 重新在设计器里改，别手改这个文件');
   H.push(' * ============================================================ */');
@@ -1116,6 +1142,16 @@ function genCode(){
     if(w.type!=='chart') return;
     const fname=prefix+'_'+String(w.name).replace(/[^A-Za-z0-9_]/g,'_');
     H.push('/* ---- 图表 '+w.name+'（0~'+((w.max|0)||1000)+'）的数据入口 ---- */');
+
+    /* 外部数组模式：只暴露 data()/flush() */
+    if((w.dataSrc||'demo')==='ext'){
+      H.push('/* 拿到数据数组（长度 '+((w.points|0)||64)+'），直接写元素，写完调 flush */');
+      H.push('int16_t *'+fname+'_data(void);');
+      H.push('void     '+fname+'_flush(void);');
+      H.push('');
+      return;
+    }
+
     H.push('/* 推一个点：任务里每拍调一次，例如 '+fname+'_push(lux); */');
     H.push('void '+fname+'_push(int32_t v);');
     H.push('/* 整帧替换：把一个 int32_t 数组塞进去，例如 '+fname+'_set(buf, 64); */');
@@ -1136,13 +1172,13 @@ function genCode(){
   const C=[];
   C.push('/* ============================================================');
   C.push(' * 文件名   : '+prefix+'.c');
-  C.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/common.h）');
+  C.push(' * 说明     : 由 LVGL 可视化设计器生成（基于 APP/LVGL_DEMO/LVGL_Demo.h）');
   C.push(' * 版式     : '+(S.landscape?'横屏 480×320':'竖屏 320×480'));
   C.push(' * ============================================================ */');
   C.push('');
   C.push('/* 单独用头文件时打开下一行：#include "'+prefix+'.h" */');
   C.push('#include "theme.h"');
-  C.push('#include "common.h"');
+  C.push('#include "LVGL_DEMO/LVGL_Demo.h"');
   C.push('#include "lvgl/lvgl.h"');
   C.push('');
   if(multi) C.push('#define '+U+'_SCREEN_CNT  '+cnt+'          /* 屏幕数：单文件编译时不用头文件 */');
@@ -1174,7 +1210,8 @@ function genCode(){
       allVars.push({v:g.var,type:w.type,name:w.name,si});
       if(w.type==='chart'){
         series.push({v:g.var, name:w.name, si:si, max:(w.max|0)||1000,
-                     mode:(w.chartMode||'push'), ctype:(w.chartType||'line')});
+                     mode:(w.chartMode||'push'), ctype:(w.chartType||'line'),
+                     src:(w.dataSrc||'demo'), pts:(w.points|0||64)});
         body.push('    s_ser_'+g.var+' = lv_chart_get_series_next('+g.var+', NULL);');
       }
       if(g.guardStart) body.push('    '+g.guardStart);
@@ -1231,6 +1268,35 @@ function genCode(){
     C.push('/* ================= 图表数据入口（任务里只调这两个） ================= */');
     series.forEach(s=>{
       const fname=prefix+'_'+String(s.name).replace(/[^A-Za-z0-9_]/g,'_');
+
+      /* 外部数组模式：只给"拿数组"和"刷新"两个入口 */
+      if(s.src==='ext'){
+        C.push('#if LV_USE_CHART');
+        C.push('/**');
+        C.push(' * @brief  拿到 '+s.name+' 的数据数组（长度 '+s.pts+'，int16_t）');
+        C.push(' * @note   直接写数组元素，写完调 '+fname+'_flush() 让它显示');
+        C.push(' */');
+        C.push('int16_t *'+fname+'_data(void)');
+        C.push('{');
+        C.push('    return s_'+s.v+'_dat;');
+        C.push('}');
+        C.push('');
+        C.push('/**');
+        C.push(' * @brief  数据改完后刷新 '+s.name);
+        C.push(' */');
+        C.push('void '+fname+'_flush(void)');
+        C.push('{');
+        C.push('    if('+s.v+' != NULL)');
+        C.push('    {');
+        C.push('        lv_chart_refresh('+s.v+');');
+        C.push('    }');
+        C.push('}');
+        C.push('');
+        C.push('#endif');
+        C.push('');
+        return;
+      }
+
       C.push('/**');
       C.push(' * @brief  往 '+s.name+' 推一个点（0~'+s.max+'）');
       C.push(' * @note   任务里每拍调一次，例如：'+fname+'_push(value);');

@@ -7,7 +7,7 @@
 
 /* 单独用头文件时打开下一行：#include "app_ui.h" */
 #include "theme.h"
-#include "common.h"
+#include "LVGL_DEMO/LVGL_Demo.h"
 #include "lvgl/lvgl.h"
 
 #define APP_UI_SCREEN_CNT  1          /* 屏幕数：单文件编译时不用头文件 */

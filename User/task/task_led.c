@@ -54,7 +54,6 @@ static void demo_open(void)
     CH422_Show("%5.1f",c);
 
 
-
     rt_thread_startup(tid);
 }
 

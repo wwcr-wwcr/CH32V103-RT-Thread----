@@ -8,7 +8,7 @@
  * 界面文件从此只关心版式（谁放哪、什么文字），不再重复这十几行。
  ******************************************************************************/
 
-#include "common.h"
+#include "LVGL_Demo.h"
 #include "ui/theme.h"
 #include "kernel.h"
 #include "event.h"
@@ -551,6 +551,32 @@ lv_obj_t *ui_chart_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
     return chart;
 }
+
+void ui_chart_bind(lv_obj_t *chart, int16_t *buf, uint16_t n, uint8_t shift)
+{
+    lv_chart_series_t *ser;
+
+    if((chart == NULL) || (buf == NULL) || (n == 0))
+    {
+        return;
+    }
+
+    ser = lv_chart_get_series_next(chart, NULL);
+    if(ser == NULL)
+    {
+        return;
+    }
+
+    lv_chart_set_point_count(chart, n);
+    lv_chart_set_ext_y_array(chart, ser, buf);      /* 零拷贝：图表直接用你的数组 */
+
+    if(shift != 0)
+    {
+        lv_chart_set_update_mode(chart, LV_CHART_UPDATE_MODE_SHIFT);
+    }
+
+    lv_chart_refresh(chart);
+}
 #endif
 
 #if LV_USE_METER
@@ -590,3 +616,18 @@ lv_obj_t *ui_canvas_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     return cv;
 }
 #endif
+
+/**************************************************************************************************
+ *                                        样式修饰器
+ **************************************************************************************************/
+void ui_frame(lv_obj_t *obj, lv_coord_t radius, lv_coord_t border_w, lv_color_t border_color)
+{
+    if(obj == NULL)
+    {
+        return;
+    }
+
+    lv_obj_set_style_radius(obj, radius, 0);
+    lv_obj_set_style_border_width(obj, border_w, 0);
+    lv_obj_set_style_border_color(obj, border_color, 0);
+}

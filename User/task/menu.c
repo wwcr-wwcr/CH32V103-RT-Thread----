@@ -11,10 +11,12 @@ static void menu_thread(void *arg);
 extern const task_t task_example;               /* 新任务在这里 extern 一行 */
 extern const task_t task_led;
 //extern const task_t task_x;                                           <----------在这添加
+extern const task_t task_demo;          /* LVGL 演示页 */
 static const task_t *const g_app_list[] =
 {
     &task_example,
     &task_led,
+    &task_demo,
 //  &task_x,                                                             <----------在这添加
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
