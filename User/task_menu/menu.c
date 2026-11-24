@@ -1,6 +1,6 @@
 #include "router.h"
 #include "key.h"
-#include "ui/menu_ui.h"
+#include "menu_ui.h"
 #include "rtthread.h"
 
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
@@ -10,6 +10,7 @@ static void menu_thread(void *arg);
 //********************在这里写任务表********************//
 extern const task_t task_example;               /* 新任务在这里 extern 一行 */
 extern const task_t task_led;
+extern const task_t task_mic;
 //extern const task_t task_x;                                           <----------在这添加
 extern const task_t task_demo;          /* LVGL 演示页 */
 static const task_t *const g_app_list[] =
@@ -18,6 +19,7 @@ static const task_t *const g_app_list[] =
     &task_led,
     &task_demo,
 //  &task_x,                                                             <----------在这添加
+    &task_mic,
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
 static const char *s_names[8];                 

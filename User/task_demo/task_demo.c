@@ -10,7 +10,7 @@
 
 #include "router.h"
 #include "key.h"
-#include "ui/theme.h"
+#include "theme.h"
 #include "LVGL_DEMO/LVGL_Demo.h"
 #include "LVGL_DEMO/demo_chart.h"
 #include "rtthread.h"

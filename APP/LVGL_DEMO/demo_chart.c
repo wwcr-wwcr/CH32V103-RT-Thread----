@@ -11,7 +11,7 @@
  ******************************************************************************/
 
 #include "demo_chart.h"
-#include "ui/theme.h"
+#include "theme.h"
 #include "LVGL_DEMO/LVGL_Demo.h"
 #include <string.h>
 

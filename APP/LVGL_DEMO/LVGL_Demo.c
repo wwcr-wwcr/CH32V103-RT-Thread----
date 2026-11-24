@@ -9,7 +9,7 @@
  ******************************************************************************/
 
 #include "LVGL_Demo.h"
-#include "ui/theme.h"
+#include "theme.h"
 #include "kernel.h"
 #include "event.h"
 

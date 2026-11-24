@@ -181,7 +181,7 @@ label.mini{color:var(--dim);font-size:12px}
       <h4>工程</h4>
       <div class="row"><div class="fld"><label>文件名前缀</label><input id="projName" value="app_ui"></div></div>
       <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 同时生成 task_xxx.c</label></div></div>
-      <div class="hint">生成的文件可直接放进 <b>User/ui/</b>，包含 ui/theme.h 与 LVGL_DEMO/LVGL_Demo.h。</div>
+      <div class="hint">生成的文件放进 <b>User/&lt;task名&gt;/</b> 里（和它的 .c 放一起），包含 theme.h 与 LVGL_DEMO/LVGL_Demo.h。</div>
     </div>
     <div class="sec">
       <h4>属性</h4>
@@ -1546,7 +1546,7 @@ function genCode(){
     T.push('');
     T.push('#include "router.h"');
     T.push('#include "key.h"');
-    T.push('#include "ui/'+prefix+'.h"');
+    T.push('#include "'+prefix+'.h"');
     T.push('#include "rtthread.h"');
     T.push('');
     if(multi) T.push('static volatile uint8_t s_screen = 0;      /* 当前显示第几页 */');

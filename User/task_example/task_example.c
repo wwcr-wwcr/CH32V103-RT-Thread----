@@ -1,6 +1,6 @@
 #include "router.h"
 #include "key.h"
-#include "ui/task_example_ui.h"
+#include "task_example_ui.h"
 #include "rtthread.h"
 
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */

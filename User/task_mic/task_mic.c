@@ -1,12 +1,20 @@
+/******************************************************************************
+ * 文件名   : task_mic.c
+ * 说明     : 任务骨架 —— 由 tools/new_task.py 生成，把 task_mic 换成真名
+ *
+ * 函数命名约定（都是 static，各文件互不影响）：
+ *     task_open / task_close / task_post / task_render / task_ui_destroy
+ *     task_thread / task_tick / task_key / task_set
+ ******************************************************************************/
+
 #include "router.h"
 #include "key.h"
-#include "ui/task_example_ui.h"
+#include "task_mic_ui.h"
 #include "rtthread.h"
 
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
-static void demo_thread(void *arg);
-
+static void task_thread(void *arg);
 
 
 //********************在这里写常用变量********************//
@@ -14,7 +22,7 @@ static void demo_thread(void *arg);
 
 
 
-static void demo_open(void)
+static void task_open(void)
 {
     rt_thread_t tid;
 
@@ -23,13 +31,13 @@ static void demo_open(void)
         return;                                 /* 已经在跑 */
     }
 
-    s_exit = rt_sem_create("dexit", 0, RT_IPC_FLAG_FIFO);
-    s_q    = rt_mq_create("DEMO", sizeof(message), 4, RT_IPC_FLAG_FIFO);
-    tid    = rt_thread_create("DEMO", demo_thread, RT_NULL, 1024, 12, 10);
+    s_exit = rt_sem_create("sem", 0, RT_IPC_FLAG_FIFO);
+    s_q    = rt_mq_create("mq", sizeof(message), 4, RT_IPC_FLAG_FIFO);
+    tid    = rt_thread_create("thr", task_thread, RT_NULL, 1024, 12, 10);
 
     if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))
     {
-        rt_kprintf("demo: open failed\r\n");
+        rt_kprintf("task_mic: open failed\r\n");
 
         if(tid    != RT_NULL) { rt_thread_delete(tid); }
         if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }
@@ -41,34 +49,32 @@ static void demo_open(void)
 
 
 
-
     rt_thread_startup(tid);
 }
 
-static void demo_tick(void)
+
+static void task_tick(void)
 {
 //********************在这里写循环逻辑********************//
-
 
 }
 
 
-static void demo_key(key_id_t key)
+static void task_key(key_id_t key)
 {
 //********************在这里写按键逻辑********************//
     switch(key)
     {
-        case KEY_ID_1:                          /* K1 暂停 / 继续 */
-    
+        case KEY_ID_1:
             break;
 
-        case KEY_ID_2:                          /* K2 +10 */
+        case KEY_ID_2:
             break;
 
-        case KEY_ID_3:                          /* K3 清零 */
+        case KEY_ID_3:
             break;
 
-        case KEY_ID_4:  
+        case KEY_ID_4:
             break;
 
         default:                                /* 长按 / 双击暂不处理 */
@@ -77,22 +83,25 @@ static void demo_key(key_id_t key)
 }
 
 
-static void demo_set(uint8_t id, int32_t value)
+static void task_set(uint8_t id, int32_t value)
 {
 //********************在这里写控件逻辑********************//
     (void)value;
 
     switch(id)
     {
-        case 1:                 //id为1的控件按下
+        case 1:                                 /* id = 1 的控件 */
             break;
-    }
 
+        default:
+            return;
+    }
 }
 
-static void demo_close(void)
+
+static void task_close(void)
 {
-    message bye = {2, 0, 0};             /* MSG_QUIT = 该退出了 */
+    message bye = {2, 0, 0};                    /* 2 = QUIT，该退出了 */
     message drop;
     uint8_t retry;
 
@@ -101,8 +110,6 @@ static void demo_close(void)
         return;                                 /* 没开，什么都不用做 */
     }
 //********************在这里写退出逻辑********************//
-
-
 
 
 
@@ -119,13 +126,13 @@ static void demo_close(void)
 
     if(retry >= 20)
     {
-        rt_kprintf("demo: quit msg failed\r\n");
+        rt_kprintf("task_mic: quit msg failed\r\n");
         return;                                 /* 投不进去就别动，线程还在用这个队列 */
     }
 
     if(rt_sem_take(s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)
     {
-        rt_kprintf("demo: exit timeout\r\n");
+        rt_kprintf("task_mic: exit timeout\r\n");
         return;                                 /* 线程还没走，队列不能删 */
     }
 
@@ -135,13 +142,21 @@ static void demo_close(void)
 }
 
 
-static void demo_render(void)
+static void task_render(void)
 {
-//    demo_ui_render(s_example, s_example, s_example);   //把值传给render线程
+    /* 贴完设计器生成的 UI 后，把下面这行的注释去掉，按你的数据传参 */
+    /* task_mic_ui_render(); */
 }
 
 
-static void demo_thread(void *arg)
+static void task_ui_destroy(void)
+{
+    /* 贴完设计器生成的 UI 后，把下面这行的注释去掉 */
+    /* task_mic_ui_destroy(); */
+}
+
+
+static void task_thread(void *arg)
 {
     message msg;
 
@@ -149,49 +164,51 @@ static void demo_thread(void *arg)
 
     for(;;)
     {
-        /* 100ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
+        /* 10ms 一拍：有事件就处理，没事件也照样往下跑周期活 */
         if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(10)) == RT_EOK)
         {
-            if(msg.type == QUIT)               /* 管理端让退出 */
+            if(msg.type == QUIT)                /* 管理端让退出 */
             {
                 break;
             }
 
             if(msg.type == KEY)                 /* 实体按键 */
             {
-                demo_key(msg.code);
+                task_key(msg.code);
             }
             else                                /* 触摸控件 */
             {
-                demo_set(msg.code, msg.value);
+                task_set(msg.code, msg.value);
             }
         }
 
-        demo_tick();
+        task_tick();
     }
 
     rt_sem_release(s_exit);                     /* 我走了，close 那边可以往下走 */
 }
 
 
-static void demo_post(const message *msg)
+static void task_post(const message *msg)
 {
     if(s_q != RT_NULL)
     {
         (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* 队列只读，转掉 const */
     }
 }
+
+
 /**************************************************************************************************
  *                                        任务描述
  **************************************************************************************************/
-const task_t task_x =
+const task_t task_mic =
 {
-    .name       = "DEMO",           /* 线程名*/
-    .keep       = 0,                /* 1 = 前台 */
+    .name       = "MIC",           /* 线程名，<= 7 字符 */
+    .keep       = 0,                /* 1 = 前台常驻 */
 
-    .open       = demo_open,        /* 进入task */
-    .close      = demo_close,       /* 退出task */
-    .post       = demo_post,        /* 事件收取 */
-    .render     = demo_render,      /* 接管屏幕刷新 */
-    .ui_destroy = demo_ui_destroy,  /* lvgl卸载 */
+    .open       = task_open,        /* 进入 task */
+    .close      = task_close,       /* 退出 task */
+    .post       = task_post,        /* 事件收取 */
+    .render     = task_render,      /* 接管屏幕刷新 */
+    .ui_destroy = task_ui_destroy,  /* lvgl 卸载 */
 };

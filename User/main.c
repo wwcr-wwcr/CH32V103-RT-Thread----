@@ -6,7 +6,7 @@
 #include "router.h"
 #include "lv_port_disp_template.h"
 #include "lv_port_indev_template.h"
-#include "task/tasks.h"
+#include "tasks.h"
 
 /**
  * @brief  按键线程的回调：转成一个 type=0 的按键事件
