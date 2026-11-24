@@ -181,7 +181,7 @@ label.mini{color:var(--dim);font-size:12px}
       <h4>工程</h4>
       <div class="row"><div class="fld"><label>文件名前缀</label><input id="projName" value="app_ui"></div></div>
       <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 同时生成 task_xxx.c</label></div></div>
-      <div class="hint">生成的文件放进 <b>User/&lt;task名&gt;/</b> 里（和它的 .c 放一起），包含 theme.h 与 LVGL_DEMO/LVGL_Demo.h。</div>
+      <div class="hint">前缀填 <b>task_veml7700</b> 即可（自动补 _ui）：界面叫 task_veml7700_ui.c/.h，任务叫 task_veml7700.c。</div>
     </div>
     <div class="sec">
       <h4>属性</h4>
@@ -542,7 +542,7 @@ function renderInspector(){
 
     if(w.type==='label'){
       const d0c=el('div','row');
-      d0c.innerHTML='<div class="fld"><label>数字格式（%d / %.2f，留空自动）</label>'+
+      d0c.innerHTML='<div class="fld"><label>数字格式（%d，留空自动；小数自动用整数拼，不用 %f）</label>'+
         '<input id="f_bindFmt" value="'+esc(w.bindFmt||'')+'"></div>';
       box.appendChild(d0c);
     }
@@ -1057,11 +1057,16 @@ function genWidget(w,idx,varMap,parentVar){
 }
 
 function genCode(){
-  GEN_AUX = { decl: [], vbar: [] };
+  GEN_AUX = { decl: [], vbar: [], needF2: 0 };
 
   /* 每次生成都从输入框读前缀，改完名字立刻生效 */
   S.name = ($('#projName').value || S.name || 'app_ui').trim();
-  const prefix=(S.name||'app_ui').replace(/[^A-Za-z0-9_]/g,'_');
+  /* 前缀填 task_veml7700 或 task_veml7700_ui 都行：
+   *   base   = task_veml7700        -> 任务文件 / task_t 符号
+   *   prefix = task_veml7700_ui     -> 界面文件与函数（自动补 _ui） */
+  const raw=(S.name||'app_ui').replace(/[^A-Za-z0-9_]/g,'_');
+  const base=raw.replace(/_ui$/i,'') || 'app_ui';
+  const prefix=base+'_ui';
   const U=prefix.toUpperCase();
   const cnt=S.screens.length;
   const multi = (cnt > 1);          /* 单屏：render 不带 screen 参数，直接吃数据 */
@@ -1076,6 +1081,11 @@ function genCode(){
     binds.push({name:nm, type:w.bindType||'int32_t'});
   }));
   /* 单屏：render(c, ...)；多屏：render(uint8_t screen, c, ...) */
+  /* 有没有小数显示（决定要不要带 fmt_f2 辅助函数） */
+  const needF2 = S.screens.some(sc => sc.widgets.some(w =>
+      (w.type === 'label') && (w.bind || '').trim() !== '' &&
+      (w.bindType === 'float') && ((w.bindFmt || '').trim() === '')));
+
   const renderParams = [(multi ? 'uint8_t screen' : ''), binds.map(b=>b.type+' '+b.name).join(', ')]
                        .filter(Boolean).join(', ');
   const renderParamDecl = (renderParams === '') ? 'void' : renderParams;
@@ -1235,6 +1245,7 @@ function genCode(){
   });
 
   handleDecl.forEach(l=>C.push(l));
+
   if(GEN_AUX.decl.length){ C.push(''); GEN_AUX.decl.forEach(l=>C.push(l)); }
   C.push('');
   C.push('/* ---------------- 建页 ---------------- */');
@@ -1397,6 +1408,30 @@ function genCode(){
     }
   }
 
+  /* 用到小数显示就带一个整数格式化的小函数（避开 newlib-nano 的 %f） */
+  if(needF2){
+    C.push('');
+    C.push('/* 小数转字符串。别用 %f：newlib-nano 不链 -u _printf_float 时 %f 输出为空，');
+    C.push(' * 标签会直接变成空字符串（这就是"文字不显示"最常见的坑）。这里用整数拼。 */');
+    C.push('static void fmt_f2(float v, char *buf, uint16_t n)');
+    C.push('{');
+    C.push('    int32_t q  = (int32_t)(v * 100.0f);      /* 放大 100 倍取整，保留 2 位小数 */');
+    C.push('    int32_t ip = q / 100;');
+    C.push('    int32_t fp = q - ip * 100;');
+    C.push('');
+    C.push('    if(fp < 0) fp = -fp;');
+    C.push('');
+    C.push('    if((q < 0) && (ip == 0))');
+    C.push('    {');
+    C.push('        snprintf(buf, n, "-0.%02d", (int)fp);   /* -0.05 这种 */');
+    C.push('    }');
+    C.push('    else');
+    C.push('    {');
+    C.push('        snprintf(buf, n, "%d.%02d", (int)ip, (int)fp);');
+    C.push('    }');
+    C.push('}');
+  }
+
   C.push('void '+prefix+'_render('+renderParamDecl+')');
   C.push('{');
   if(multi){
@@ -1459,12 +1494,19 @@ function genCode(){
       const v='w'+(i+1);
       const isStr=(w.bindType==='const char *');
       if(w.type==='label'){
+        const customFmt=(w.bindFmt||'').trim();
+
         if(isStr){
           lines.push('        ui_label_set('+v+', '+nm+');');
+        }else if((w.bindType==='float') && (customFmt==='')){
+          /* 别用 %f：newlib-nano 没链 -u _printf_float 时 %f 输出为空，标签直接变空串 */
+          GEN_AUX.needF2 = 1;
+          lines.push('        fmt_f2('+nm+', buf, sizeof(buf));');
+          lines.push('        ui_label_set('+v+', buf);');
         }else{
-          const fmt=(w.bindFmt||'').trim() || (w.bindType==='float' ? '%.2f'
+          const fmt=customFmt || (w.bindType==='float' ? '%d'
                     : (w.bindType&&w.bindType.indexOf('uint')===0 ? '%u' : '%d'));
-          const cast=(w.bindType==='float') ? '(double)' : (w.bindType&&w.bindType.indexOf('uint')===0 ? '(unsigned)' : '(int)');
+          const cast=(w.bindType==='float') ? '(int)' : (w.bindType&&w.bindType.indexOf('uint')===0 ? '(unsigned)' : '(int)');
           lines.push('        snprintf(buf, sizeof(buf), "'+fmt+'", '+cast+'('+nm+'));');
           lines.push('        ui_label_set('+v+', buf);');
         }
@@ -1484,14 +1526,14 @@ function genCode(){
       if(multi){
         C.push('    if(screen == '+si+')                     /* 本屏绑定的形参 -> 控件 */');
         C.push('    {');
-        if(lines.some(l=>l.indexOf('snprintf')>=0)){
+        if(lines.some(l=>(l.indexOf('snprintf')>=0) || (l.indexOf('fmt_f2')>=0))){
           C.push('        char buf[24];');
           C.push('');
         }
         lines.forEach(l=>C.push(l));
         C.push('    }');
       }else{
-        if(lines.some(l=>l.indexOf('snprintf')>=0)){
+        if(lines.some(l=>(l.indexOf('snprintf')>=0) || (l.indexOf('fmt_f2')>=0))){
           C.push('    char buf[24];');
           C.push('');
         }
@@ -1537,11 +1579,16 @@ function genCode(){
   /* ---------- task 骨架 ---------- */
   const T=[];
   if($('#genTask').checked){
-    const tn=prefix.toUpperCase().slice(0,6);
+    const tn=base.toUpperCase().replace(/^TASK_/,'').slice(0,6) || 'TASK';
+    /* 界面要吃的实参：绑定变量加类型强转（和界面 .h 里的原型对齐） */
+    const taskArgs=[(multi?'s_screen':''), binds.map(b=>
+      (b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name)).join(', ')]
+      .filter(Boolean).join(', ');
+
     T.push('/******************************************************************************');
-    T.push(' * 文件名   : task_'+prefix+'.c');
+    T.push(' * 文件名   : '+base+'.c');
     T.push(' * 说明     : '+tn+' —— 由 LVGL 可视化设计器生成的任务骨架');
-    T.push(' * 界面     : '+prefix+'_ui.c（'+cnt+' 页）');
+    T.push(' * 界面     : '+prefix+'.c / '+prefix+'.h（'+cnt+' 页）');
     T.push(' ******************************************************************************/');
     T.push('');
     T.push('#include "router.h"');
@@ -1560,14 +1607,14 @@ function genCode(){
     T.push('');
     T.push('static rt_sem_t s_exit = RT_NULL;');
     T.push('static rt_mq_t  s_q    = RT_NULL;');
-    T.push('static void '+prefix+'_thread(void *arg);');
+    T.push('static void task_thread(void *arg);');
     T.push('');
-    T.push('static void '+prefix+'_tick(void)');
+    T.push('static void task_tick(void)');
     T.push('{');
-    T.push('    /* TODO: 周期活（采样、计算） */');
+    T.push('    /* TODO: 周期活（采样、计算），结果写进 s_xxx */');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_key(key_id_t key)');
+    T.push('static void task_key(key_id_t key)');
     T.push('{');
     T.push('    switch(key)');
     T.push('    {');
@@ -1576,7 +1623,7 @@ function genCode(){
     T.push('    }');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_set(uint8_t id, int32_t value)');
+    T.push('static void task_set(uint8_t id, int32_t value)');
     T.push('{');
     T.push('    (void)value;');
     T.push('');
@@ -1587,7 +1634,7 @@ function genCode(){
     T.push('    }');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_thread(void *arg)');
+    T.push('static void task_thread(void *arg)');
     T.push('{');
     T.push('    message msg;');
     T.push('');
@@ -1595,7 +1642,7 @@ function genCode(){
     T.push('');
     T.push('    for(;;)');
     T.push('    {');
-    T.push('        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(100)) == RT_EOK)');
+    T.push('        if(rt_mq_recv(s_q, &msg, sizeof(msg), rt_tick_from_millisecond(10)) == RT_EOK)');
     T.push('        {');
     T.push('            if(msg.type == QUIT)');
     T.push('            {');
@@ -1604,38 +1651,38 @@ function genCode(){
     T.push('');
     T.push('            if(msg.type == KEY)');
     T.push('            {');
-    T.push('                '+prefix+'_key((key_id_t)msg.code);');
+    T.push('                task_key((key_id_t)msg.code);');
     T.push('            }');
     T.push('            else if(msg.type == TOUCH)');
     T.push('            {');
-    T.push('                '+prefix+'_set(msg.code, msg.value);');
+    T.push('                task_set(msg.code, msg.value);');
     T.push('            }');
     T.push('        }');
     T.push('');
-    T.push('        '+prefix+'_tick();');
+    T.push('        task_tick();');
     T.push('    }');
     T.push('');
     T.push('    rt_sem_release(s_exit);');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_open(void)');
+    T.push('static void task_open(void)');
     T.push('{');
     T.push('    rt_thread_t tid;');
     T.push('');
     T.push('    if(s_q != RT_NULL)');
     T.push('    {');
-    T.push('        return;');
+    T.push('        return;                                 /* 已经在跑 */');
     T.push('    }');
     T.push('');
-    T.push('    s_screen = 0;');
-    T.push('');
-    T.push('    s_exit = rt_sem_create("'+prefix.slice(0,5)+'ex", 0, RT_IPC_FLAG_FIFO);');
-    T.push('    s_q    = rt_mq_create("'+tn+'", sizeof(message), 4, RT_IPC_FLAG_FIFO);');
-    T.push('    tid    = rt_thread_create("'+tn+'", '+prefix+'_thread, RT_NULL, 1024, 12, 10);');
+    if(multi) T.push('    s_screen = 0;');
+    if(multi) T.push('');
+    T.push('    s_exit = rt_sem_create("sem", 0, RT_IPC_FLAG_FIFO);');
+    T.push('    s_q    = rt_mq_create("mq", sizeof(message), 4, RT_IPC_FLAG_FIFO);');
+    T.push('    tid    = rt_thread_create("'+tn+'", task_thread, RT_NULL, 1024, 12, 10);');
     T.push('');
     T.push('    if((s_exit == RT_NULL) || (s_q == RT_NULL) || (tid == RT_NULL))');
     T.push('    {');
-    T.push('        rt_kprintf("'+prefix.slice(0,5)+': open failed\\r\\n");');
+    T.push('        rt_kprintf("'+base+': open failed\\r\\n");');
     T.push('');
     T.push('        if(tid    != RT_NULL) { rt_thread_delete(tid); }');
     T.push('        if(s_q    != RT_NULL) { rt_mq_delete(s_q);       s_q    = RT_NULL; }');
@@ -1646,7 +1693,7 @@ function genCode(){
     T.push('    rt_thread_startup(tid);');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_close(void)');
+    T.push('static void task_close(void)');
     T.push('{');
     T.push('    message bye = {QUIT, 0, 0};');
     T.push('    message drop;');
@@ -1654,10 +1701,10 @@ function genCode(){
     T.push('');
     T.push('    if(s_q == RT_NULL)');
     T.push('    {');
-    T.push('        return;');
+    T.push('        return;                                 /* 没开，什么都不用做 */');
     T.push('    }');
     T.push('');
-    T.push('    for(retry = 0; retry < 20; retry++)');
+    T.push('    for(retry = 0; retry < 20; retry++)          /* 队列可能满：腾个位置再投 */');
     T.push('    {');
     T.push('        if(rt_mq_send(s_q, &bye, sizeof(bye)) == RT_EOK)');
     T.push('        {');
@@ -1668,13 +1715,13 @@ function genCode(){
     T.push('');
     T.push('    if(retry >= 20)');
     T.push('    {');
-    T.push('        rt_kprintf("'+prefix.slice(0,5)+': quit msg failed\\r\\n");');
+    T.push('        rt_kprintf("'+base+': quit msg failed\\r\\n");');
     T.push('        return;');
     T.push('    }');
     T.push('');
     T.push('    if(rt_sem_take(s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)');
     T.push('    {');
-    T.push('        rt_kprintf("'+prefix.slice(0,5)+': exit timeout\\r\\n");');
+    T.push('        rt_kprintf("'+base+': exit timeout\\r\\n");');
     T.push('        return;');
     T.push('    }');
     T.push('');
@@ -1682,7 +1729,7 @@ function genCode(){
     T.push('    rt_sem_delete(s_exit);  s_exit = RT_NULL;');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_post(const message *msg)');
+    T.push('static void task_post(const message *msg)');
     T.push('{');
     T.push('    if(s_q != RT_NULL)');
     T.push('    {');
@@ -1690,22 +1737,28 @@ function genCode(){
     T.push('    }');
     T.push('}');
     T.push('');
-    T.push('static void '+prefix+'_redraw(void)');
+    T.push('/* 每帧把界面数据推给 UI —— 页面就是在这一步被建出来的 */');
+    T.push('static void task_render(void)');
     T.push('{');
-    T.push('    '+prefix+'_render('+(multi?'s_screen':'')+binds.map(b=>
-      (multi?', ':((multi?'':''))) + ((b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name))).join('')+');');
+    T.push('    '+prefix+'_render('+taskArgs+');');
     T.push('}');
     T.push('');
-    T.push('const task_t task_'+prefix+' =');
+    T.push('/* 关页：把 LVGL 对象还给堆 */');
+    T.push('static void task_ui_destroy(void)');
     T.push('{');
-    T.push('    .name       = "'+tn+'",');
-    T.push('    .keep       = 0,');
+    T.push('    '+prefix+'_destroy();');
+    T.push('}');
     T.push('');
-    T.push('    .open       = '+prefix+'_open,');
-    T.push('    .close      = '+prefix+'_close,');
-    T.push('    .post       = '+prefix+'_post,');
-    T.push('    .render     = '+prefix+'_redraw,');
-    T.push('    .ui_destroy = '+prefix+'_destroy,');
+    T.push('const task_t '+base+' =');
+    T.push('{');
+    T.push('    .name       = "'+tn+'",   /* 线程名，<= 7 字符 */');
+    T.push('    .keep       = 0,            /* 1 = 前台常驻 */');
+    T.push('');
+    T.push('    .open       = task_open,');
+    T.push('    .close      = task_close,');
+    T.push('    .post       = task_post,');
+    T.push('    .render     = task_render,');
+    T.push('    .ui_destroy = task_ui_destroy,');
     T.push('};');
   }
 
@@ -1722,10 +1775,10 @@ function genCode(){
   parts.push('#endif  /* ' + prefix + '.h end */');
   if(T.length){
     parts.push('');
-    parts.push('/* ============ task_' + prefix + '.c（同样用 #if 0 包着，可选） ============ */');
+    parts.push('/* ============ ' + base + '.c（同样用 #if 0 包着，可选） ============ */');
     parts.push('#if 0');
     parts.push(T.join('\n'));
-    parts.push('#endif  /* task_' + prefix + '.c end */');
+    parts.push('#endif  /* ' + base + '.c end */');
   }
   const combined = parts.join('\n') + '\n';
 
@@ -1778,16 +1831,17 @@ function patchTask(){
   s = s.replace(/(?<!void\s)([A-Za-z_]\w*_ui_render)\s*\([^;]*?\)\s*;/g,
                 g.prefix + '_render(' + g.renderCall + ');');
   /* 2) .ui_destroy = xxx */
-  s = s.replace(/(\.ui_destroy\s*=\s*)[A-Za-z_]\w*/g, '$1' + g.prefix + '_destroy');
-  /* 3) #include "ui/xxx.h" */
-  s = s.replace(/(#include\s+"ui\/)[^"]+(")/g, '$1' + g.prefix + '.h$2');
+  /* 2) .ui_destroy 统一指向任务里的 static 包装函数 */
+  s = s.replace(/(\.ui_destroy\s*=\s*)[A-Za-z_]\w*/g, '$1task_ui_destroy');
+  /* 3) 界面头文件：#include "xxx_ui.h" */
+  s = s.replace(/(#include\s+")([^"]*_ui\.h)(")/g, '$1' + g.prefix + '.h$3');
 
   return s;
 }
 
 function patchTaskSummary(){
   const g = genCode();
-  return '已同步 ' + (TASKNAME || 'task') + '：render 调用 / .ui_destroy / #include 三处';
+  return '已同步 ' + (TASKNAME || 'task') + '：' + g.prefix + '_render(...) / .ui_destroy = task_ui_destroy / #include';
 }
 
 $('#btnPickC').onclick = () => $('#fileC').click();
