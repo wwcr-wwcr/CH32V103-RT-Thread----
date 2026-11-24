@@ -2,9 +2,9 @@
 #include "rtthread.h"
 #include "lvgl/lvgl.h"
 
-static rt_mq_t message_q = RT_NULL;        //keyÏß³ÌÊÂ¼ş¶ÓÁĞ
-static evt_handler_t event    = RT_NULL;   //ÊÂ¼ş´¦Àí
-static render_cb_t   render = RT_NULL;     //ÊÂ¼şË¢ĞÂ
+static rt_mq_t message_q = RT_NULL;        //keyçº¿ç¨‹äº‹ä»¶é˜Ÿåˆ—
+static evt_handler_t event    = RT_NULL;   //äº‹ä»¶å¤„ç†
+static render_cb_t   render = RT_NULL;     //äº‹ä»¶åˆ·æ–°
 
 static void kernel_loop(void *parameter)
 {
@@ -17,9 +17,9 @@ static void kernel_loop(void *parameter)
         if(rt_mq_recv(message_q, &ev, sizeof(ev),
                       rt_tick_from_millisecond(10)) == RT_EOK)
         {
-            if(event != RT_NULL)         //ÓĞÃ»ÓĞÊÂ¼ş´«Èë
+            if(event != RT_NULL)         //æœ‰æ²¡æœ‰äº‹ä»¶ä¼ å…¥
             {
-                event(&ev);              /* ½»¸ø°ó½øÀ´µÄ´¦Àíº¯Êı */
+                event(&ev);              /* äº¤ç»™ç»‘è¿›æ¥çš„å¤„ç†å‡½æ•° */
             }
         }
         if(render != RT_NULL)
@@ -31,11 +31,11 @@ static void kernel_loop(void *parameter)
 }
 
 
-void kernel_post(uint8_t type, uint8_t code, int32_t value)     //ÊÂ¼ş¶ÓÁĞÍ¶µİ
+void kernel_post(uint8_t type, uint8_t code, int32_t value)     //äº‹ä»¶é˜Ÿåˆ—æŠ•é€’
 {
     message ev = {type, code, value};
 
-    if(message_q == RT_NULL)                    //¶ÓÁĞ»¹Ã»½¨£¬Ö±½Ó¶ª
+    if(message_q == RT_NULL)                    //é˜Ÿåˆ—è¿˜æ²¡å»ºï¼Œç›´æ¥ä¸¢
     {
         return;
     }
@@ -44,13 +44,13 @@ void kernel_post(uint8_t type, uint8_t code, int32_t value)     //ÊÂ¼ş¶ÓÁĞÍ¶µİ
 }
 
 
-static struct rt_thread s_tid;                  //kernelÏß³Ì
-static rt_uint8_t s_stack[6144];                //kernelÏß³ÌÕ»
+static struct rt_thread s_tid;                  //kernelçº¿ç¨‹
+static rt_uint8_t s_stack[6144];                //kernelçº¿ç¨‹æ ˆ
 void kernel_run(evt_handler_t on_evt, render_cb_t on_render)
 {
-    event    = on_evt;                       //ÊÂ¼şÈë¿Ú
-    render = on_render;                    //ÊÂ¼şµ÷ÓÃ
-    message_q = rt_mq_create("evt", sizeof(message), 8, RT_IPC_FLAG_FIFO);      //´´½¨ĞÅÏ¢¶ÓÁĞ
+    event    = on_evt;                       //äº‹ä»¶å…¥å£
+    render = on_render;                    //äº‹ä»¶è°ƒç”¨
+    message_q = rt_mq_create("evt", sizeof(message), 8, RT_IPC_FLAG_FIFO);      //åˆ›å»ºä¿¡æ¯é˜Ÿåˆ—
     rt_thread_init(&s_tid, 
                     "kernel", 
                     kernel_loop, 
@@ -58,12 +58,12 @@ void kernel_run(evt_handler_t on_evt, render_cb_t on_render)
                     s_stack, 
                     sizeof(s_stack), 
                     9, 
-                    10);                            //ºËĞÄÏß³Ì
+                    10);                            //æ ¸å¿ƒçº¿ç¨‹
     rt_thread_startup(&s_tid);
 }
 
 /**************************************************************************************************
- *                                        MSH µ÷ÊÔ
+ *                                        MSH è°ƒè¯•
  **************************************************************************************************/
 static void kernel_cmd(void)
 {

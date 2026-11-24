@@ -1,29 +1,29 @@
 /******************************************************************************
- * ÎÄ¼şÃû   : common.h
- * ËµÃ÷     : LVGL ¿Ø¼ş·â×° ¡ª¡ª Ò»Ì×Í³Ò»·ç¸ñµÄ"Ôì¿Ø¼ş"º¯Êı£¬½çÃæÎÄ¼şÖ»ÓÃÕâ¸ö
+ * æ–‡ä»¶å   : common.h
+ * è¯´æ˜     : LVGL æ§ä»¶å°è£… â€”â€” ä¸€å¥—ç»Ÿä¸€é£æ ¼çš„"é€ æ§ä»¶"å‡½æ•°ï¼Œç•Œé¢æ–‡ä»¶åªç”¨è¿™ä¸ª
  *
- * ÎªÊ²Ã´ÒªÓĞËü£º
- *     Ã¿¸ö½çÃæ¶¼ÔÚÖØ¸´Ğ´"Ô²½Ç + ÅäÉ« + ±ß¿ò + ÄÚ±ß¾à + µãÒ»ÏÂ·¢ÊÂ¼ş"ÕâÊ®¼¸ĞĞ£¬
- *     ¸Ä³Éµ÷Ò»¸öº¯Êı£¬½çÃæÎÄ¼ş¾ÍÖ»Ê£°æÊ½£¨Ë­·ÅÄÄ¡¢Ê²Ã´ÎÄ×Ö£©¡£
+ * ä¸ºä»€ä¹ˆè¦æœ‰å®ƒï¼š
+ *     æ¯ä¸ªç•Œé¢éƒ½åœ¨é‡å¤å†™"åœ†è§’ + é…è‰² + è¾¹æ¡† + å†…è¾¹è· + ç‚¹ä¸€ä¸‹å‘äº‹ä»¶"è¿™åå‡ è¡Œï¼Œ
+ *     æ”¹æˆè°ƒä¸€ä¸ªå‡½æ•°ï¼Œç•Œé¢æ–‡ä»¶å°±åªå‰©ç‰ˆå¼ï¼ˆè°æ”¾å“ªã€ä»€ä¹ˆæ–‡å­—ï¼‰ã€‚
  *
- * Ô¼¶¨£º
- *     1. ËùÓĞº¯ÊıÃû ui_xxx_new()£¬²ÎÊıË³ĞòÍ³Ò»Îª (parent, x, y, w/h..., ÎÄ×Ö, id)¡£
- *     2. ½»»¥Àà¿Ø¼ş×îºóÄÇ¸ö id ÊÇ"¿Ø¼ş±àºÅ"£¬µãÁË»á kernel_post(TOUCH, id, Öµ)£º
- *          °´Å¥ / ¸´Ñ¡¿ò / °´Å¥¾ØÕó   ¡ú value = 0
- *          ¿ª¹Ø                      ¡ú value = 1 / 0
- *          »¬Ìõ / Ô²»¡ / ÏÂÀ­¿ò / ¹öÂÖ ¡ú value = µ±Ç°Öµ£¨»¬ÌõºÍÔ²»¡Ö»ÔÚËÉÊÖÊ±·¢£©
- *     3. Ö»»­²»½»»¥µÄ¿Ø¼şÃ»ÓĞ id ²ÎÊı£¬·µ»Ø¾ä±ú¸ø½çÃæ×Ô¼º¸üĞÂ¡£
- *     4. Î´ÆôÓÃµÄ¿Ø¼ş£¨lv_conf.h Àï LV_USE_XXX = 0£©Õû¶Î±» #if °üµô£¬
- *        µÈÄã´ò¿ª¶ÔÓ¦ºê£¬º¯Êı×Ô¶¯¾ÍÓĞ£¬²»ÓÃ¸ÄÕâÀï¡£
- *     5. ×ø±ê¶¼ÊÇ"¸¸¶ÔÏóÄÚ²¿×ø±ê"£¬×óÉÏ½ÇÎªÔ­µã£¬µ¥Î»ÏñËØ£¨ÆÁÄ» 320¡Á480£©¡£
+ * çº¦å®šï¼š
+ *     1. æ‰€æœ‰å‡½æ•°å ui_xxx_new()ï¼Œå‚æ•°é¡ºåºç»Ÿä¸€ä¸º (parent, x, y, w/h..., æ–‡å­—, id)ã€‚
+ *     2. äº¤äº’ç±»æ§ä»¶æœ€åé‚£ä¸ª id æ˜¯"æ§ä»¶ç¼–å·"ï¼Œç‚¹äº†ä¼š kernel_post(TOUCH, id, å€¼)ï¼š
+ *          æŒ‰é’® / å¤é€‰æ¡† / æŒ‰é’®çŸ©é˜µ   â†’ value = 0
+ *          å¼€å…³                      â†’ value = 1 / 0
+ *          æ»‘æ¡ / åœ†å¼§ / ä¸‹æ‹‰æ¡† / æ»šè½® â†’ value = å½“å‰å€¼ï¼ˆæ»‘æ¡å’Œåœ†å¼§åªåœ¨æ¾æ‰‹æ—¶å‘ï¼‰
+ *     3. åªç”»ä¸äº¤äº’çš„æ§ä»¶æ²¡æœ‰ id å‚æ•°ï¼Œè¿”å›å¥æŸ„ç»™ç•Œé¢è‡ªå·±æ›´æ–°ã€‚
+ *     4. æœªå¯ç”¨çš„æ§ä»¶ï¼ˆlv_conf.h é‡Œ LV_USE_XXX = 0ï¼‰æ•´æ®µè¢« #if åŒ…æ‰ï¼Œ
+ *        ç­‰ä½ æ‰“å¼€å¯¹åº”å®ï¼Œå‡½æ•°è‡ªåŠ¨å°±æœ‰ï¼Œä¸ç”¨æ”¹è¿™é‡Œã€‚
+ *     5. åæ ‡éƒ½æ˜¯"çˆ¶å¯¹è±¡å†…éƒ¨åæ ‡"ï¼Œå·¦ä¸Šè§’ä¸ºåŸç‚¹ï¼Œå•ä½åƒç´ ï¼ˆå±å¹• 320Ã—480ï¼‰ã€‚
  *
- * Ã»ÓĞ·â×°µÄ¿Ø¼ş¼°Ô­Òò£¨ÕæÒªÓÃÊ±ÕÕÑùÊ½²¹Ò»¸ö£©£º
+ * æ²¡æœ‰å°è£…çš„æ§ä»¶åŠåŸå› ï¼ˆçœŸè¦ç”¨æ—¶ç…§æ ·å¼è¡¥ä¸€ä¸ªï¼‰ï¼š
  *     msgbox / list / menu / tabview / tileview / win
- *         ¶¼ÊÇ"×éºÏ¿Ø¼ş"£¬ÓÉ obj + label + btn Æ´³öÀ´£¬·â×°·´¶øÏŞÖÆ°æÊ½
+ *         éƒ½æ˜¯"ç»„åˆæ§ä»¶"ï¼Œç”± obj + label + btn æ‹¼å‡ºæ¥ï¼Œå°è£…åè€Œé™åˆ¶ç‰ˆå¼
  *     span / spinbox
- *         ÒÀÀµ textarea£¬µÈÕæÓÃµ½ÔÙ°ü
+ *         ä¾èµ– textareaï¼Œç­‰çœŸç”¨åˆ°å†åŒ…
  *     animimg / imgbtn / colorwheel
- *         ĞèÒªÍ¼Æ¬»ò¶¯»­Ö¡Êı¾İ£¬Ã»·¨¸ø³öÍ¨ÓÃÄ¬ÈÏÑùÊ½
+ *         éœ€è¦å›¾ç‰‡æˆ–åŠ¨ç”»å¸§æ•°æ®ï¼Œæ²¡æ³•ç»™å‡ºé€šç”¨é»˜è®¤æ ·å¼
  ******************************************************************************/
 
 #ifndef __COMMON_H
@@ -35,77 +35,77 @@
 extern "C" {
 #endif
 
-/* ============================ »ù´¡£ºÒ³Ãæ / ¿¨Æ¬ / ÎÄ×Ö ============================ */
+/* ============================ åŸºç¡€ï¼šé¡µé¢ / å¡ç‰‡ / æ–‡å­— ============================ */
 
 /**
- * @brief  ÔìÒ»ÆÁ£¨´ø½¥±äµ×É«µÄÕûÆÁ¶ÔÏó£©
- * @return ÆÁÄ»¶ÔÏó£»²»Ê¹ÓÃÊ±²»ÒªÉ¾£¬½»¸øÒ³ÃæÏú»ÙÂß¼­Í³Ò»É¾
+ * @brief  é€ ä¸€å±ï¼ˆå¸¦æ¸å˜åº•è‰²çš„æ•´å±å¯¹è±¡ï¼‰
+ * @return å±å¹•å¯¹è±¡ï¼›ä¸ä½¿ç”¨æ—¶ä¸è¦åˆ ï¼Œäº¤ç»™é¡µé¢é”€æ¯é€»è¾‘ç»Ÿä¸€åˆ 
  */
 lv_obj_t *ui_page_new(void);
 
 /**
- * @brief  ÔìÒ»ÕÅÔ²½Ç¿¨Æ¬£¨ÈİÆ÷ÓÃ£¬²»ÏìÓ¦µã»÷£©
- * @param  parent  ¸¸¶ÔÏó£¬Ò»°ãÊÇ ui_page_new() »òÁíÒ»ÕÅ¿¨Æ¬
- * @param  x       ×ó±ßÔµ X ×ø±ê£¨¸¸¶ÔÏóÄÚ²¿×ø±ê£©
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È
- * @param  h       ¸ß¶È
- * @param  radius  Ô²½Ç°ë¾¶£¬0 = Ö±½Ç£»³£ÓÃ 14~18
- * @return ¿¨Æ¬¶ÔÏó£¨ÍùÀï·Å×Ó¿Ø¼şÊ±°ÑËüµ± parent£©
+ * @brief  é€ ä¸€å¼ åœ†è§’å¡ç‰‡ï¼ˆå®¹å™¨ç”¨ï¼Œä¸å“åº”ç‚¹å‡»ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡ï¼Œä¸€èˆ¬æ˜¯ ui_page_new() æˆ–å¦ä¸€å¼ å¡ç‰‡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡ï¼ˆçˆ¶å¯¹è±¡å†…éƒ¨åæ ‡ï¼‰
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦
+ * @param  h       é«˜åº¦
+ * @param  radius  åœ†è§’åŠå¾„ï¼Œ0 = ç›´è§’ï¼›å¸¸ç”¨ 14~18
+ * @return å¡ç‰‡å¯¹è±¡ï¼ˆå¾€é‡Œæ”¾å­æ§ä»¶æ—¶æŠŠå®ƒå½“ parentï¼‰
  */
 lv_obj_t *ui_card_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                       lv_coord_t w, lv_coord_t h, lv_coord_t radius);
 
 /**
- * @brief  ÔìÒ»¶ÎÎÄ×Ö£¨Í¸Ã÷µ×¡¢ÎŞ±ß¿ò£¬×ÖÌå¹Ì¶¨ montserrat_14£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  color   ÎÄ×ÖÑÕÉ«£¬È¡ theme.h ÀïµÄ UI_C_* ºê
- * @return ±êÇ©¶ÔÏó£¨Ö®ºóÒª¸ÄÎÄ×ÖÓÃ ui_label_set£©
+ * @brief  é€ ä¸€æ®µæ–‡å­—ï¼ˆé€æ˜åº•ã€æ— è¾¹æ¡†ï¼Œå­—ä½“å›ºå®š montserrat_14ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  color   æ–‡å­—é¢œè‰²ï¼Œå– theme.h é‡Œçš„ UI_C_* å®
+ * @return æ ‡ç­¾å¯¹è±¡ï¼ˆä¹‹åè¦æ”¹æ–‡å­—ç”¨ ui_label_setï¼‰
  */
 lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color);
 
 /**
- * @brief  ÔìÒ»¶Î´ø³õÊ¼ÎÄ×ÖµÄÎÄ×Ö
- * @param  parent  ¸¸¶ÔÏó
- * @param  color   ÎÄ×ÖÑÕÉ«
- * @param  text    ³õÊ¼ÎÄ×Ö£¬Ö»Ö§³Ö ASCII£¨Ã»ÓĞÖĞÎÄ×Ö¿â£©£»´« NULL µ±¿Õ´®
- * @return ±êÇ©¶ÔÏó
+ * @brief  é€ ä¸€æ®µå¸¦åˆå§‹æ–‡å­—çš„æ–‡å­—
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  color   æ–‡å­—é¢œè‰²
+ * @param  text    åˆå§‹æ–‡å­—ï¼Œåªæ”¯æŒ ASCIIï¼ˆæ²¡æœ‰ä¸­æ–‡å­—åº“ï¼‰ï¼›ä¼  NULL å½“ç©ºä¸²
+ * @return æ ‡ç­¾å¯¹è±¡
  */
 lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text);
 
 /**
- * @brief  ¸ÄÎÄ×ÖÄÚÈİ
- * @param  lbl   ±êÇ©¶ÔÏó£»´« NULL °²È«·µ»Ø£¨Ê¡µôµ÷ÓÃ·½µÄÅĞ¿Õ£©
- * @param  text  ĞÂÎÄ×Ö£¬´« NULL µ±¿Õ´®
+ * @brief  æ”¹æ–‡å­—å†…å®¹
+ * @param  lbl   æ ‡ç­¾å¯¹è±¡ï¼›ä¼  NULL å®‰å…¨è¿”å›ï¼ˆçœæ‰è°ƒç”¨æ–¹çš„åˆ¤ç©ºï¼‰
+ * @param  text  æ–°æ–‡å­—ï¼Œä¼  NULL å½“ç©ºä¸²
  */
 void      ui_label_set(lv_obj_t *lbl, const char *text);
 
 /**
- * @brief  ÔìÒ»¶ÎÎÄ×Ö²¢Ö±½Ó·Åµ½Ö¸¶¨Î»ÖÃ£¨= ui_label_text + lv_obj_set_pos£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  color   ÎÄ×ÖÑÕÉ«£¬È¡ theme.h ÀïµÄ UI_C_* ºê
- * @param  text    ÎÄ×Ö£¨ASCII£©£¬NULL µ±¿Õ´®
- * @param  x       ×ó±ßÔµ X ×ø±ê£¨¸¸¶ÔÏóÄÚ²¿×ø±ê£©
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @return ±êÇ©¶ÔÏó
- * @note   ×¨ÃÅ¸ø"¿ÉÊÓ»¯Éè¼ÆÆ÷Éú³ÉµÄ´úÂë"ÓÃ£¬Ê¡µôÒ»ĞĞ lv_obj_set_pos
+ * @brief  é€ ä¸€æ®µæ–‡å­—å¹¶ç›´æ¥æ”¾åˆ°æŒ‡å®šä½ç½®ï¼ˆ= ui_label_text + lv_obj_set_posï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  color   æ–‡å­—é¢œè‰²ï¼Œå– theme.h é‡Œçš„ UI_C_* å®
+ * @param  text    æ–‡å­—ï¼ˆASCIIï¼‰ï¼ŒNULL å½“ç©ºä¸²
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡ï¼ˆçˆ¶å¯¹è±¡å†…éƒ¨åæ ‡ï¼‰
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @return æ ‡ç­¾å¯¹è±¡
+ * @note   ä¸“é—¨ç»™"å¯è§†åŒ–è®¾è®¡å™¨ç”Ÿæˆçš„ä»£ç "ç”¨ï¼Œçœæ‰ä¸€è¡Œ lv_obj_set_pos
  */
 lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
                       lv_coord_t x, lv_coord_t y);
 
-/* ============================ ½»»¥Àà£¨µãÁË×Ô¶¯·¢ TOUCH ÊÂ¼ş£© ============================ */
+/* ============================ äº¤äº’ç±»ï¼ˆç‚¹äº†è‡ªåŠ¨å‘ TOUCH äº‹ä»¶ï¼‰ ============================ */
 
 #if LV_USE_BTN
 /**
- * @brief  ÔìÒ»¸ö°´Å¥£¨Ô²½Ç¿¨Æ¬ÑùÊ½ + ¾ÓÖĞÎÄ×Ö£©£¬µãÒ»ÏÂ·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È
- * @param  h       ¸ß¶È
- * @param  text    °´Å¥ÎÄ×Ö£¨ASCII£©£¬NULL µ±¿Õ´®
- * @param  id      ¿Ø¼ş±àºÅ 0~255£¬µãÁË kernel_post(TOUCH, id, 0)
- * @return °´Å¥¶ÔÏó£¨Òªµ¥¶À¸ÄÑùÊ½/½ûÓÃÊ±ÓÃ£©
+ * @brief  é€ ä¸€ä¸ªæŒ‰é’®ï¼ˆåœ†è§’å¡ç‰‡æ ·å¼ + å±…ä¸­æ–‡å­—ï¼‰ï¼Œç‚¹ä¸€ä¸‹å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦
+ * @param  h       é«˜åº¦
+ * @param  text    æŒ‰é’®æ–‡å­—ï¼ˆASCIIï¼‰ï¼ŒNULL å½“ç©ºä¸²
+ * @param  id      æ§ä»¶ç¼–å· 0~255ï¼Œç‚¹äº† kernel_post(TOUCH, id, 0)
+ * @return æŒ‰é’®å¯¹è±¡ï¼ˆè¦å•ç‹¬æ”¹æ ·å¼/ç¦ç”¨æ—¶ç”¨ï¼‰
  */
 lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                      lv_coord_t w, lv_coord_t h, const char *text, uint8_t id);
@@ -113,25 +113,25 @@ lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_SWITCH
 /**
- * @brief  ÔìÒ»¸ö¿ª¹Ø£¬²¦¶¯Ê±·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  id      ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, 1 ¿ª / 0 ¹Ø)
- * @return ¿ª¹Ø¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªå¼€å…³ï¼Œæ‹¨åŠ¨æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, 1 å¼€ / 0 å…³)
+ * @return å¼€å…³å¯¹è±¡
  */
 lv_obj_t *ui_switch_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, uint8_t id);
 #endif
 
 #if LV_USE_CHECKBOX
 /**
- * @brief  ÔìÒ»¸ö¸´Ñ¡¿ò£¨ÎÄ×ÖÔÚÓÒ±ß£©£¬¹´Ñ¡±ä»¯Ê±·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  text    ¸´Ñ¡¿òÎÄ×Ö£¨ASCII£©£¬NULL µ±¿Õ´®
- * @param  id      ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, 1 Ñ¡ÖĞ / 0 È¡Ïû)
- * @return ¸´Ñ¡¿ò¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªå¤é€‰æ¡†ï¼ˆæ–‡å­—åœ¨å³è¾¹ï¼‰ï¼Œå‹¾é€‰å˜åŒ–æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  text    å¤é€‰æ¡†æ–‡å­—ï¼ˆASCIIï¼‰ï¼ŒNULL å½“ç©ºä¸²
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, 1 é€‰ä¸­ / 0 å–æ¶ˆ)
+ * @return å¤é€‰æ¡†å¯¹è±¡
  */
 lv_obj_t *ui_checkbox_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                           const char *text, uint8_t id);
@@ -139,19 +139,19 @@ lv_obj_t *ui_checkbox_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_SLIDER
 /**
- * @brief  ÔìÒ»Ìõ»¬Ìõ£»ÍÏ¶¯¹ı³Ì²»·¢ÏûÏ¢£¬ËÉÊÖ²Å·¢Ò»Ìõ
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È£¨½¨Òé >= 100£¬Ì«¶Ì²»ºÃµã£©
- * @param  h       ¸ß¶È£¨¹ìµÀ´ÖÏ¸£¬³£ÓÃ 8~12£©
- * @param  min     ×îĞ¡Öµ£¨×ó¶Ë£©
- * @param  max     ×î´óÖµ£¨ÓÒ¶Ë£©£¬½¨ÒéÖ±½Ó¶ÔÆëÒµÎñµ¥Î»£¬Ê¡µÃ»»Ëã
- * @param  val     ³õÊ¼Öµ£¬±ØĞëÔÚ min~max Ö®¼ä
- * @param  id      ¿Ø¼ş±àºÅ£¬ËÉÊÖÊ± kernel_post(TOUCH, id, µ±Ç°Öµ)
- * @return »¬Ìõ¶ÔÏó
- * @note   ÍÏ¶¯¹ı³ÌÖĞÏëÒªÊµÊ±·´À¡£¨±ÈÈçÊı×Ö¸ú×Å±ä£©£¬×Ô¼ºÔÙ add Ò»¸ö
- *         LV_EVENT_VALUE_CHANGED »Øµ÷£¬ÀïÃæÖ»¸Ä½çÃæ¡¢²»Òª kernel_post
+ * @brief  é€ ä¸€æ¡æ»‘æ¡ï¼›æ‹–åŠ¨è¿‡ç¨‹ä¸å‘æ¶ˆæ¯ï¼Œæ¾æ‰‹æ‰å‘ä¸€æ¡
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦ï¼ˆå»ºè®® >= 100ï¼Œå¤ªçŸ­ä¸å¥½ç‚¹ï¼‰
+ * @param  h       é«˜åº¦ï¼ˆè½¨é“ç²—ç»†ï¼Œå¸¸ç”¨ 8~12ï¼‰
+ * @param  min     æœ€å°å€¼ï¼ˆå·¦ç«¯ï¼‰
+ * @param  max     æœ€å¤§å€¼ï¼ˆå³ç«¯ï¼‰ï¼Œå»ºè®®ç›´æ¥å¯¹é½ä¸šåŠ¡å•ä½ï¼Œçœå¾—æ¢ç®—
+ * @param  val     åˆå§‹å€¼ï¼Œå¿…é¡»åœ¨ min~max ä¹‹é—´
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œæ¾æ‰‹æ—¶ kernel_post(TOUCH, id, å½“å‰å€¼)
+ * @return æ»‘æ¡å¯¹è±¡
+ * @note   æ‹–åŠ¨è¿‡ç¨‹ä¸­æƒ³è¦å®æ—¶åé¦ˆï¼ˆæ¯”å¦‚æ•°å­—è·Ÿç€å˜ï¼‰ï¼Œè‡ªå·±å† add ä¸€ä¸ª
+ *         LV_EVENT_VALUE_CHANGED å›è°ƒï¼Œé‡Œé¢åªæ”¹ç•Œé¢ã€ä¸è¦ kernel_post
  */
 lv_obj_t *ui_slider_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                         lv_coord_t w, lv_coord_t h,
@@ -160,16 +160,16 @@ lv_obj_t *ui_slider_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_ARC
 /**
- * @brief  ÔìÒ»¸öÔ²»¡£¨×ªÅÌ£©£¬ËÉÊÖÊ±·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  size    Ö±¾¶£¨¿í = ¸ß = size£©
- * @param  min     ×îĞ¡½Ç¶È¶ÔÓ¦µÄÖµ
- * @param  max     ×î´ó½Ç¶È¶ÔÓ¦µÄÖµ
- * @param  val     ³õÊ¼Öµ£¬±ØĞëÔÚ min~max Ö®¼ä
- * @param  id      ¿Ø¼ş±àºÅ£¬ËÉÊÖÊ± kernel_post(TOUCH, id, µ±Ç°Öµ)
- * @return Ô²»¡¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªåœ†å¼§ï¼ˆè½¬ç›˜ï¼‰ï¼Œæ¾æ‰‹æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  size    ç›´å¾„ï¼ˆå®½ = é«˜ = sizeï¼‰
+ * @param  min     æœ€å°è§’åº¦å¯¹åº”çš„å€¼
+ * @param  max     æœ€å¤§è§’åº¦å¯¹åº”çš„å€¼
+ * @param  val     åˆå§‹å€¼ï¼Œå¿…é¡»åœ¨ min~max ä¹‹é—´
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œæ¾æ‰‹æ—¶ kernel_post(TOUCH, id, å½“å‰å€¼)
+ * @return åœ†å¼§å¯¹è±¡
  */
 lv_obj_t *ui_arc_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t size,
                      int32_t min, int32_t max, int32_t val, uint8_t id);
@@ -177,14 +177,14 @@ lv_obj_t *ui_arc_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t si
 
 #if LV_USE_DROPDOWN
 /**
- * @brief  ÔìÒ»¸öÏÂÀ­¿ò£¬Ñ¡Ôñ±ä»¯Ê±·¢ TOUCH ÊÂ¼ş
- * @param  parent   ¸¸¶ÔÏó
- * @param  x        ×ó±ßÔµ X ×ø±ê
- * @param  y        ÉÏ±ßÔµ Y ×ø±ê
- * @param  w        ¿í¶È£¨¸ß¶ÈÓÉÖ÷Ìâ¾ö¶¨£¬Í¨³£ 40 ×óÓÒ£©
- * @param  options  Ñ¡Ïî±í£¬ÓÃ '\n' ·Ö¸ô£¬ÀıÈç "AUTO\nMANUAL\nOFF"
- * @param  id       ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, Ñ¡ÖĞÏîÏÂ±ê 0 ¿ªÊ¼)
- * @return ÏÂÀ­¿ò¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªä¸‹æ‹‰æ¡†ï¼Œé€‰æ‹©å˜åŒ–æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent   çˆ¶å¯¹è±¡
+ * @param  x        å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y        ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w        å®½åº¦ï¼ˆé«˜åº¦ç”±ä¸»é¢˜å†³å®šï¼Œé€šå¸¸ 40 å·¦å³ï¼‰
+ * @param  options  é€‰é¡¹è¡¨ï¼Œç”¨ '\n' åˆ†éš”ï¼Œä¾‹å¦‚ "AUTO\nMANUAL\nOFF"
+ * @param  id       æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, é€‰ä¸­é¡¹ä¸‹æ ‡ 0 å¼€å§‹)
+ * @return ä¸‹æ‹‰æ¡†å¯¹è±¡
  */
 lv_obj_t *ui_dropdown_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                           lv_coord_t w, const char *options, uint8_t id);
@@ -192,15 +192,15 @@ lv_obj_t *ui_dropdown_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_ROLLER
 /**
- * @brief  ÔìÒ»¸ö¹öÂÖÑ¡ÔñÆ÷£¬Ñ¡Ôñ±ä»¯Ê±·¢ TOUCH ÊÂ¼ş
- * @param  parent   ¸¸¶ÔÏó
- * @param  x        ×ó±ßÔµ X ×ø±ê
- * @param  y        ÉÏ±ßÔµ Y ×ø±ê
- * @param  w        ¿í¶È
- * @param  h        ¸ß¶È£¨ÒªÄÜÂ¶³ö 3~5 ĞĞ£¬³£ÓÃ 100~120£©
- * @param  options  Ñ¡Ïî±í£¬ÓÃ '\n' ·Ö¸ô
- * @param  id       ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, Ñ¡ÖĞÏîÏÂ±ê 0 ¿ªÊ¼)
- * @return ¹öÂÖ¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªæ»šè½®é€‰æ‹©å™¨ï¼Œé€‰æ‹©å˜åŒ–æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent   çˆ¶å¯¹è±¡
+ * @param  x        å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y        ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w        å®½åº¦
+ * @param  h        é«˜åº¦ï¼ˆè¦èƒ½éœ²å‡º 3~5 è¡Œï¼Œå¸¸ç”¨ 100~120ï¼‰
+ * @param  options  é€‰é¡¹è¡¨ï¼Œç”¨ '\n' åˆ†éš”
+ * @param  id       æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, é€‰ä¸­é¡¹ä¸‹æ ‡ 0 å¼€å§‹)
+ * @return æ»šè½®å¯¹è±¡
  */
 lv_obj_t *ui_roller_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                         lv_coord_t w, lv_coord_t h, const char *options, uint8_t id);
@@ -208,16 +208,16 @@ lv_obj_t *ui_roller_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_BTNMATRIX
 /**
- * @brief  ÔìÒ»¸ö°´Å¥¾ØÕó£¨Ò»ÅÅ/¶àÅÅĞ¡°´Å¥£©£¬°´ÏÂÊ±·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ×Ü¿í¶È
- * @param  h       ×Ü¸ß¶È
- * @param  map     °´Å¥ÎÄ×Ö±í£¬Ò»ĞĞÒ»¸ö×Ö·û´®£¬×îºó±ØĞëÊÇ "" ½áÎ²
- *                 ÀıÈç {"1","2","3","","4","5","6",""} ±íÊ¾Á½ĞĞ
- * @param  id      ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, °´ÏÂµÚ¼¸¸ö 0 ¿ªÊ¼)
- * @return ¾ØÕó¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªæŒ‰é’®çŸ©é˜µï¼ˆä¸€æ’/å¤šæ’å°æŒ‰é’®ï¼‰ï¼ŒæŒ‰ä¸‹æ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       æ€»å®½åº¦
+ * @param  h       æ€»é«˜åº¦
+ * @param  map     æŒ‰é’®æ–‡å­—è¡¨ï¼Œä¸€è¡Œä¸€ä¸ªå­—ç¬¦ä¸²ï¼Œæœ€åå¿…é¡»æ˜¯ "" ç»“å°¾
+ *                 ä¾‹å¦‚ {"1","2","3","","4","5","6",""} è¡¨ç¤ºä¸¤è¡Œ
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, æŒ‰ä¸‹ç¬¬å‡ ä¸ª 0 å¼€å§‹)
+ * @return çŸ©é˜µå¯¹è±¡
  */
 lv_obj_t *ui_btnmatrix_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                            lv_coord_t w, lv_coord_t h, const char **map, uint8_t id);
@@ -225,15 +225,15 @@ lv_obj_t *ui_btnmatrix_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_TEXTAREA
 /**
- * @brief  ÔìÒ»¸öµ¥ĞĞÊäÈë¿ò£¨Åä ui_keyboard_new ÓÃ£©£¬È·ÈÏ/È¡ÏûÊ±·¢ÊÂ¼ş
- * @param  parent       ¸¸¶ÔÏó
- * @param  x            ×ó±ßÔµ X ×ø±ê
- * @param  y            ÉÏ±ßÔµ Y ×ø±ê
- * @param  w            ¿í¶È
- * @param  h            ¸ß¶È£¨µ¥ĞĞ³£ÓÃ 44£©
- * @param  placeholder  Î´ÊäÈëÊ±ÏÔÊ¾µÄ»ÒÉ«ÌáÊ¾£¬NULL ²»ÏÔÊ¾
- * @param  id           ¿Ø¼ş±àºÅ£ºÈ·ÈÏ kernel_post(TOUCH, id, 1)£¬È¡Ïû·¢ 0
- * @return ÊäÈë¿ò¶ÔÏó£¨È¡ÄÚÈİÓÃ lv_textarea_get_text£©
+ * @brief  é€ ä¸€ä¸ªå•è¡Œè¾“å…¥æ¡†ï¼ˆé… ui_keyboard_new ç”¨ï¼‰ï¼Œç¡®è®¤/å–æ¶ˆæ—¶å‘äº‹ä»¶
+ * @param  parent       çˆ¶å¯¹è±¡
+ * @param  x            å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y            ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w            å®½åº¦
+ * @param  h            é«˜åº¦ï¼ˆå•è¡Œå¸¸ç”¨ 44ï¼‰
+ * @param  placeholder  æœªè¾“å…¥æ—¶æ˜¾ç¤ºçš„ç°è‰²æç¤ºï¼ŒNULL ä¸æ˜¾ç¤º
+ * @param  id           æ§ä»¶ç¼–å·ï¼šç¡®è®¤ kernel_post(TOUCH, id, 1)ï¼Œå–æ¶ˆå‘ 0
+ * @return è¾“å…¥æ¡†å¯¹è±¡ï¼ˆå–å†…å®¹ç”¨ lv_textarea_get_textï¼‰
  */
 lv_obj_t *ui_textarea_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                           lv_coord_t w, lv_coord_t h, const char *placeholder, uint8_t id);
@@ -241,85 +241,85 @@ lv_obj_t *ui_textarea_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_KEYBOARD
 /**
- * @brief  ÔìÒ»¸öÆÁÄ»¼üÅÌ£¨Ò»°ã·ÅÆÁÄ»µ×²¿£©£¬È·ÈÏ/È¡ÏûÊ±·¢ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  w       ¿í¶È£¨Í¨³£¸øÂúÆÁ¿í UI_W£©
- * @param  id      ¿Ø¼ş±àºÅ£ºÈ·ÈÏ kernel_post(TOUCH, id, 1)£¬È¡Ïû·¢ 0
- * @return ¼üÅÌ¶ÔÏó£»Òª°óÊäÈë¿òÓÃ lv_keyboard_set_textarea()
+ * @brief  é€ ä¸€ä¸ªå±å¹•é”®ç›˜ï¼ˆä¸€èˆ¬æ”¾å±å¹•åº•éƒ¨ï¼‰ï¼Œç¡®è®¤/å–æ¶ˆæ—¶å‘äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  w       å®½åº¦ï¼ˆé€šå¸¸ç»™æ»¡å±å®½ UI_Wï¼‰
+ * @param  id      æ§ä»¶ç¼–å·ï¼šç¡®è®¤ kernel_post(TOUCH, id, 1)ï¼Œå–æ¶ˆå‘ 0
+ * @return é”®ç›˜å¯¹è±¡ï¼›è¦ç»‘è¾“å…¥æ¡†ç”¨ lv_keyboard_set_textarea()
  */
 lv_obj_t *ui_keyboard_new(lv_obj_t *parent, lv_coord_t w, uint8_t id);
 #endif
 
 #if LV_USE_CALENDAR
 /**
- * @brief  ÔìÒ»¸öÈÕÀú£¬µãÈÕÆÚÊ±·¢ TOUCH ÊÂ¼ş
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È£¨½¨Òé >= 240£©
- * @param  h       ¸ß¶È£¨½¨Òé >= 220£©
- * @param  id      ¿Ø¼ş±àºÅ£¬kernel_post(TOUCH, id, µãÖĞµÄ"ÈÕ" 1~31)
- * @return ÈÕÀú¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªæ—¥å†ï¼Œç‚¹æ—¥æœŸæ—¶å‘ TOUCH äº‹ä»¶
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦ï¼ˆå»ºè®® >= 240ï¼‰
+ * @param  h       é«˜åº¦ï¼ˆå»ºè®® >= 220ï¼‰
+ * @param  id      æ§ä»¶ç¼–å·ï¼Œkernel_post(TOUCH, id, ç‚¹ä¸­çš„"æ—¥" 1~31)
+ * @return æ—¥å†å¯¹è±¡
  */
 lv_obj_t *ui_calendar_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                           lv_coord_t w, lv_coord_t h, uint8_t id);
 #endif
 
-/* ============================ Ö»ÏÔÊ¾¡¢²»½»»¥ ============================ */
+/* ============================ åªæ˜¾ç¤ºã€ä¸äº¤äº’ ============================ */
 
 #if LV_USE_BAR
 /**
- * @brief  ÔìÒ»Ìõ½ø¶ÈÌõ£¨²»ÏìÓ¦µã»÷£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È
- * @param  h       ¸ß¶È£¨³£ÓÃ 8~12£¬Ô²½Ç×Ô¶¯È¡ h/2£©
- * @param  min     ×îĞ¡Öµ£¨¿ÕÌõ£©
- * @param  max     ×î´óÖµ£¨ÂúÌõ£©
- * @return ½ø¶ÈÌõ¶ÔÏó£»Ö®ºóÓÃ ui_bar_set ¸üĞÂ
+ * @brief  é€ ä¸€æ¡è¿›åº¦æ¡ï¼ˆä¸å“åº”ç‚¹å‡»ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦
+ * @param  h       é«˜åº¦ï¼ˆå¸¸ç”¨ 8~12ï¼Œåœ†è§’è‡ªåŠ¨å– h/2ï¼‰
+ * @param  min     æœ€å°å€¼ï¼ˆç©ºæ¡ï¼‰
+ * @param  max     æœ€å¤§å€¼ï¼ˆæ»¡æ¡ï¼‰
+ * @return è¿›åº¦æ¡å¯¹è±¡ï¼›ä¹‹åç”¨ ui_bar_set æ›´æ–°
  */
 lv_obj_t *ui_bar_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                      lv_coord_t w, lv_coord_t h, int32_t min, int32_t max);
 
 /**
- * @brief  ¸üĞÂ½ø¶ÈÌõµÄÖµ£¨ÎŞ¶¯»­£©
- * @param  bar  ½ø¶ÈÌõ¶ÔÏó£»´« NULL °²È«·µ»Ø
- * @param  val  ĞÂÖµ£¬»á×Ô¶¯¼Ğµ½ min~max
+ * @brief  æ›´æ–°è¿›åº¦æ¡çš„å€¼ï¼ˆæ— åŠ¨ç”»ï¼‰
+ * @param  bar  è¿›åº¦æ¡å¯¹è±¡ï¼›ä¼  NULL å®‰å…¨è¿”å›
+ * @param  val  æ–°å€¼ï¼Œä¼šè‡ªåŠ¨å¤¹åˆ° min~max
  */
 void      ui_bar_set(lv_obj_t *bar, int32_t val);
 #endif
 
 #if LV_USE_LED
 /**
- * @brief  ÔìÒ»¸öÔ²ĞÎÖ¸Ê¾µÆ£¨´´½¨Ê±Ä¬ÈÏµãÁÁ£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  size    Ö±¾¶£¨¿í = ¸ß = size£©
- * @param  color   µÆµÄÑÕÉ«£¬È¡ theme.h ÀïµÄºê
- * @return Ö¸Ê¾µÆ¶ÔÏó£»Ö®ºóÓÃ ui_led_set ¿ª¹Ø
+ * @brief  é€ ä¸€ä¸ªåœ†å½¢æŒ‡ç¤ºç¯ï¼ˆåˆ›å»ºæ—¶é»˜è®¤ç‚¹äº®ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  size    ç›´å¾„ï¼ˆå®½ = é«˜ = sizeï¼‰
+ * @param  color   ç¯çš„é¢œè‰²ï¼Œå– theme.h é‡Œçš„å®
+ * @return æŒ‡ç¤ºç¯å¯¹è±¡ï¼›ä¹‹åç”¨ ui_led_set å¼€å…³
  */
 lv_obj_t *ui_led_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                      lv_coord_t size, lv_color_t color);
 
 /**
- * @brief  µãÁÁ / Ï¨ÃğÖ¸Ê¾µÆ£¨Ï¨ÃğÊ±±ä°µ£¬²»ÊÇÏûÊ§£©
- * @param  led  Ö¸Ê¾µÆ¶ÔÏó£»´« NULL °²È«·µ»Ø
- * @param  on   1 = ×îÁÁ£¬0 = ×î°µ
+ * @brief  ç‚¹äº® / ç†„ç­æŒ‡ç¤ºç¯ï¼ˆç†„ç­æ—¶å˜æš—ï¼Œä¸æ˜¯æ¶ˆå¤±ï¼‰
+ * @param  led  æŒ‡ç¤ºç¯å¯¹è±¡ï¼›ä¼  NULL å®‰å…¨è¿”å›
+ * @param  on   1 = æœ€äº®ï¼Œ0 = æœ€æš—
  */
 void      ui_led_set(lv_obj_t *led, uint8_t on);
 #endif
 
 #if LV_USE_SPINNER
 /**
- * @brief  ÔìÒ»¸ö×ªÈ¦¶¯»­£¨Ã¦µÈÌáÊ¾£©
- * @param  parent   ¸¸¶ÔÏó
- * @param  x        ×ó±ßÔµ X ×ø±ê
- * @param  y        ÉÏ±ßÔµ Y ×ø±ê
- * @param  size     Ö±¾¶
- * @param  time_ms  ×ªÒ»È¦µÄºÁÃëÊı£¬³£ÓÃ 800~1500
- * @return ×ªÈ¦¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªè½¬åœˆåŠ¨ç”»ï¼ˆå¿™ç­‰æç¤ºï¼‰
+ * @param  parent   çˆ¶å¯¹è±¡
+ * @param  x        å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y        ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  size     ç›´å¾„
+ * @param  time_ms  è½¬ä¸€åœˆçš„æ¯«ç§’æ•°ï¼Œå¸¸ç”¨ 800~1500
+ * @return è½¬åœˆå¯¹è±¡
  */
 lv_obj_t *ui_spinner_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                          lv_coord_t size, uint16_t time_ms);
@@ -327,94 +327,94 @@ lv_obj_t *ui_spinner_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
 #if LV_USE_LINE
 /**
- * @brief  ÔìÒ»ÌõÕÛÏß£¨ÓÃµã¼¯»­£¬×ö¼òµ¥ÇúÏß/Ê¾²¨Æ÷ÓÃ£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  points  µãÊı×é£¬×ø±êÊÇ"¸¸¶ÔÏóÄÚ²¿×ø±ê"
- * @param  cnt     µã¸öÊı
- * @param  color   ÏßÑÕÉ«
- * @return ÕÛÏß¶ÔÏó
- * @note   points ±ØĞëÒ»Ö±ÓĞĞ§£¨±ğ´«¾Ö²¿Êı×é£©£¬LVGL Ö»´æÖ¸Õë²»¿½±´
+ * @brief  é€ ä¸€æ¡æŠ˜çº¿ï¼ˆç”¨ç‚¹é›†ç”»ï¼Œåšç®€å•æ›²çº¿/ç¤ºæ³¢å™¨ç”¨ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  points  ç‚¹æ•°ç»„ï¼Œåæ ‡æ˜¯"çˆ¶å¯¹è±¡å†…éƒ¨åæ ‡"
+ * @param  cnt     ç‚¹ä¸ªæ•°
+ * @param  color   çº¿é¢œè‰²
+ * @return æŠ˜çº¿å¯¹è±¡
+ * @note   points å¿…é¡»ä¸€ç›´æœ‰æ•ˆï¼ˆåˆ«ä¼ å±€éƒ¨æ•°ç»„ï¼‰ï¼ŒLVGL åªå­˜æŒ‡é’ˆä¸æ‹·è´
  */
 lv_obj_t *ui_line_new(lv_obj_t *parent, const lv_point_t *points, uint16_t cnt, lv_color_t color);
 #endif
 
 #if LV_USE_IMG
 /**
- * @brief  ÌùÒ»ÕÅÍ¼Æ¬
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  src     Í¼Æ¬À´Ô´£ºLV_IMG_DECLARE ³öÀ´µÄ±äÁ¿Ãû£¨´« &xxx£©»òÎÄ¼şÂ·¾¶×Ö·û´®
- * @return Í¼Æ¬¶ÔÏó
- * @note   ĞèÒª lv_conf.h Àï LV_USE_IMG = 1£¬²¢ÇÒ¹¤³ÌÀïÕæÓĞÍ¼Æ¬×ÊÔ´
+ * @brief  è´´ä¸€å¼ å›¾ç‰‡
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  src     å›¾ç‰‡æ¥æºï¼šLV_IMG_DECLARE å‡ºæ¥çš„å˜é‡åï¼ˆä¼  &xxxï¼‰æˆ–æ–‡ä»¶è·¯å¾„å­—ç¬¦ä¸²
+ * @return å›¾ç‰‡å¯¹è±¡
+ * @note   éœ€è¦ lv_conf.h é‡Œ LV_USE_IMG = 1ï¼Œå¹¶ä¸”å·¥ç¨‹é‡ŒçœŸæœ‰å›¾ç‰‡èµ„æº
  */
 lv_obj_t *ui_img_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, const void *src);
 #endif
 
 #if LV_USE_TABLE
 /**
- * @brief  ÔìÒ»¸ö±í¸ñ£¨Êı¾İ×Ô¼ºÓÃ lv_table_set_cell_value Ìî£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ×Ü¿í
- * @param  h       ×Ü¸ß
- * @param  rows    ĞĞÊı£¨²»º¬±íÍ·£¬±íÍ·×Ô¼ºÕ¼µÚ 0 ĞĞ£©
- * @param  cols    ÁĞÊı
- * @return ±í¸ñ¶ÔÏó
+ * @brief  é€ ä¸€ä¸ªè¡¨æ ¼ï¼ˆæ•°æ®è‡ªå·±ç”¨ lv_table_set_cell_value å¡«ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       æ€»å®½
+ * @param  h       æ€»é«˜
+ * @param  rows    è¡Œæ•°ï¼ˆä¸å«è¡¨å¤´ï¼Œè¡¨å¤´è‡ªå·±å ç¬¬ 0 è¡Œï¼‰
+ * @param  cols    åˆ—æ•°
+ * @return è¡¨æ ¼å¯¹è±¡
  */
 lv_obj_t *ui_table_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                        lv_coord_t w, lv_coord_t h, uint16_t rows, uint16_t cols);
 #endif
 
 /**
- * @brief  ¸øÒÑÓĞ¿Ø¼ş¡°ÊÂºó¡±¸ÄÍâ¹Û£ºÔ²½Ç / ±ß¿ò / ÑÕÉ«
- * @param  obj           ÈÎºÎ lv_obj_t
- * @param  radius        Ô²½Ç£¬0 = Ö±½Ç
- * @param  border_w      ±ß¿ò¿í¶È£¬0 = ÎŞ±ß¿ò
- * @param  border_color  ±ß¿òÑÕÉ«
- * @note   ¹¤³§ÀïĞ´ËÀµÄÑùÊ½Ïëµ¥¶ÀÎ¢µ÷Ê±ÓÃÕâ¸ö£¬²»ÓÃ¸Ä common.c
+ * @brief  ç»™å·²æœ‰æ§ä»¶â€œäº‹åâ€æ”¹å¤–è§‚ï¼šåœ†è§’ / è¾¹æ¡† / é¢œè‰²
+ * @param  obj           ä»»ä½• lv_obj_t
+ * @param  radius        åœ†è§’ï¼Œ0 = ç›´è§’
+ * @param  border_w      è¾¹æ¡†å®½åº¦ï¼Œ0 = æ— è¾¹æ¡†
+ * @param  border_color  è¾¹æ¡†é¢œè‰²
+ * @note   å·¥å‚é‡Œå†™æ­»çš„æ ·å¼æƒ³å•ç‹¬å¾®è°ƒæ—¶ç”¨è¿™ä¸ªï¼Œä¸ç”¨æ”¹ common.c
  */
 void ui_frame(lv_obj_t *obj, lv_coord_t radius, lv_coord_t border_w, lv_color_t border_color);
 
 #if LV_USE_CHART
 /**
- * @brief  ÔìÒ»ÕÅÕÛÏßÍ¼£¨0~max µÄ×İÖá£¬µãÊı = ¿í¶ÈÏñËØ£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í¶È£¨Í¬Ê±¾ö¶¨±£Áô¶àÉÙ¸öµã£¬1 ÁĞ 1 µã£©
- * @param  h       ¸ß¶È
- * @param  max     ×İÖá×î´óÖµ£¬Êı¾İ³¬¹ı»á±»¼Ğµ½¶¥
- * @return Í¼±í¶ÔÏó£»¼ÓÊı¾İÓÃ lv_chart_set_next_value(chart, ÏµÁĞ, Öµ)
- * @note   ÒªÄÃÏµÁĞÖ¸Õë£ºlv_chart_get_series_next(chart, NULL)
+ * @brief  é€ ä¸€å¼ æŠ˜çº¿å›¾ï¼ˆ0~max çš„çºµè½´ï¼Œç‚¹æ•° = å®½åº¦åƒç´ ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½åº¦ï¼ˆåŒæ—¶å†³å®šä¿ç•™å¤šå°‘ä¸ªç‚¹ï¼Œ1 åˆ— 1 ç‚¹ï¼‰
+ * @param  h       é«˜åº¦
+ * @param  max     çºµè½´æœ€å¤§å€¼ï¼Œæ•°æ®è¶…è¿‡ä¼šè¢«å¤¹åˆ°é¡¶
+ * @return å›¾è¡¨å¯¹è±¡ï¼›åŠ æ•°æ®ç”¨ lv_chart_set_next_value(chart, ç³»åˆ—, å€¼)
+ * @note   è¦æ‹¿ç³»åˆ—æŒ‡é’ˆï¼šlv_chart_get_series_next(chart, NULL)
  */
 lv_obj_t *ui_chart_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                        lv_coord_t w, lv_coord_t h, int32_t max);
 
 /**
- * @brief  °ÑÍ¼±íµÄÊı¾İÔ´»»³É¡°Íâ²¿Êı×é¡±£¨Áã¿½±´£¬Ê¡µôÖğµã API µ÷ÓÃ£©
- * @param  chart  Í¼±í¶ÔÏó
- * @param  buf    µ÷ÓÃÕßµÄ int16_t Êı×é£¬±ØĞë³£×¤£¨Ò³Ãæ»î×Å¾ÍÓĞĞ§£©
- * @param  n      Êı×é³¤¶È = Í¼±íµãÊı
- * @param  shift  1 = ĞÂÊı¾İ´ÓÓÒ±ß¼·½øÀ´¡¢¾ÉÊı¾İ×óÒÆ£¨Ê¾²¨Æ÷/ÆµÆ×ÓÃ£©
- *                0 = Ö±½ÓÔ­µØË¢ĞÂ£¨ÕûÌåÌæ»»Ê±ÓÃ£©
- * @note   °óÍêÖ®ºóÄãÖ»¸Ä buf[]£¬²»ÓÃÔÙµ÷ lv_chart_set_next_value
+ * @brief  æŠŠå›¾è¡¨çš„æ•°æ®æºæ¢æˆâ€œå¤–éƒ¨æ•°ç»„â€ï¼ˆé›¶æ‹·è´ï¼Œçœæ‰é€ç‚¹ API è°ƒç”¨ï¼‰
+ * @param  chart  å›¾è¡¨å¯¹è±¡
+ * @param  buf    è°ƒç”¨è€…çš„ int16_t æ•°ç»„ï¼Œå¿…é¡»å¸¸é©»ï¼ˆé¡µé¢æ´»ç€å°±æœ‰æ•ˆï¼‰
+ * @param  n      æ•°ç»„é•¿åº¦ = å›¾è¡¨ç‚¹æ•°
+ * @param  shift  1 = æ–°æ•°æ®ä»å³è¾¹æŒ¤è¿›æ¥ã€æ—§æ•°æ®å·¦ç§»ï¼ˆç¤ºæ³¢å™¨/é¢‘è°±ç”¨ï¼‰
+ *                0 = ç›´æ¥åŸåœ°åˆ·æ–°ï¼ˆæ•´ä½“æ›¿æ¢æ—¶ç”¨ï¼‰
+ * @note   ç»‘å®Œä¹‹åä½ åªæ”¹ buf[]ï¼Œä¸ç”¨å†è°ƒ lv_chart_set_next_value
  */
 void ui_chart_bind(lv_obj_t *chart, int16_t *buf, uint16_t n, uint8_t shift);
 #endif
 
 #if LV_USE_METER
 /**
- * @brief  ÔìÒ»¸öÖ¸ÕëÊ½ÒÇ±íÅÌ
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  size    Ö±¾¶
- * @param  min     ¿Ì¶È×îĞ¡Öµ£¨±íÅÌ×ó¶Ë£©
- * @param  max     ¿Ì¶È×î´óÖµ£¨±íÅÌÓÒ¶Ë£©
- * @param  val     Ö¸Õë³õÊ¼Öµ£¬±ØĞëÔÚ min~max Ö®¼ä
- * @return ÒÇ±í¶ÔÏó£»¸ÄÖ¸ÕëÓÃ lv_meter_set_indicator_value()
+ * @brief  é€ ä¸€ä¸ªæŒ‡é’ˆå¼ä»ªè¡¨ç›˜
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  size    ç›´å¾„
+ * @param  min     åˆ»åº¦æœ€å°å€¼ï¼ˆè¡¨ç›˜å·¦ç«¯ï¼‰
+ * @param  max     åˆ»åº¦æœ€å¤§å€¼ï¼ˆè¡¨ç›˜å³ç«¯ï¼‰
+ * @param  val     æŒ‡é’ˆåˆå§‹å€¼ï¼Œå¿…é¡»åœ¨ min~max ä¹‹é—´
+ * @return ä»ªè¡¨å¯¹è±¡ï¼›æ”¹æŒ‡é’ˆç”¨ lv_meter_set_indicator_value()
  */
 lv_obj_t *ui_meter_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t size,
                        int32_t min, int32_t max, int32_t val);
@@ -422,15 +422,15 @@ lv_obj_t *ui_meter_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t 
 
 #if LV_USE_CANVAS
 /**
- * @brief  ÔìÒ»¿é»­²¼£¨¿ÉÒÔÖ±½ÓÍùÏñËØ»º³åÀïĞ´£¬×ö²¨ĞÎ/Î»Í¼ÓÃ£©
- * @param  parent  ¸¸¶ÔÏó
- * @param  x       ×ó±ßÔµ X ×ø±ê
- * @param  y       ÉÏ±ßÔµ Y ×ø±ê
- * @param  w       ¿í£¨ÏñËØ£©
- * @param  h       ¸ß£¨ÏñËØ£©
- * @param  buf     ÏñËØ»º³å£¬´óĞ¡ w*h*2 ×Ö½Ú£¨RGB565£©£¬±ØĞëÒ»Ö±ÓĞĞ§
- * @return »­²¼¶ÔÏó£»»­µãÓÃ lv_canvas_set_px()£¬Õû¿éË¢ÓÃ lv_canvas_flush ÏµÁĞ
- * @note   LV_USE_CANVAS ´ò¿ªºó LV_MEM_SIZE µÄÑ¹Á¦»á±ä´ó£¬ÏÈËãºÃ»º³åÔÙ¿ª
+ * @brief  é€ ä¸€å—ç”»å¸ƒï¼ˆå¯ä»¥ç›´æ¥å¾€åƒç´ ç¼“å†²é‡Œå†™ï¼Œåšæ³¢å½¢/ä½å›¾ç”¨ï¼‰
+ * @param  parent  çˆ¶å¯¹è±¡
+ * @param  x       å·¦è¾¹ç¼˜ X åæ ‡
+ * @param  y       ä¸Šè¾¹ç¼˜ Y åæ ‡
+ * @param  w       å®½ï¼ˆåƒç´ ï¼‰
+ * @param  h       é«˜ï¼ˆåƒç´ ï¼‰
+ * @param  buf     åƒç´ ç¼“å†²ï¼Œå¤§å° w*h*2 å­—èŠ‚ï¼ˆRGB565ï¼‰ï¼Œå¿…é¡»ä¸€ç›´æœ‰æ•ˆ
+ * @return ç”»å¸ƒå¯¹è±¡ï¼›ç”»ç‚¹ç”¨ lv_canvas_set_px()ï¼Œæ•´å—åˆ·ç”¨ lv_canvas_flush ç³»åˆ—
+ * @note   LV_USE_CANVAS æ‰“å¼€å LV_MEM_SIZE çš„å‹åŠ›ä¼šå˜å¤§ï¼Œå…ˆç®—å¥½ç¼“å†²å†å¼€
  */
 lv_obj_t *ui_canvas_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                         lv_coord_t w, lv_coord_t h, lv_color_t *buf);

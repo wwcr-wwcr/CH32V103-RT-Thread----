@@ -9,7 +9,7 @@
 #include "tasks.h"
 
 /**
- * @brief  °´¼üÏß³ÌµÄ»Øµ÷£º×ª³ÉÒ»¸ö type=0 µÄ°´¼üÊÂ¼ş
+ * @brief  æŒ‰é”®çº¿ç¨‹çš„å›è°ƒï¼šè½¬æˆä¸€ä¸ª type=0 çš„æŒ‰é”®äº‹ä»¶
  */
 static void on_key(key_id_t key)
 {
@@ -20,23 +20,23 @@ int main(void)
 {
     SystemCoreClockUpdate();
 
-    /* 1. °å¼¶ÍâÉè */
+    /* 1. æ¿çº§å¤–è®¾ */
     lcd_init();
     i2c_init(I2C_DEFAULT_SPEED);
 
-    /* 2. äÖÈ¾Í¨µÀ£ºÏÔÊ¾ + ´¥Ãş£¨GT911£© */
+    /* 2. æ¸²æŸ“é€šé“ï¼šæ˜¾ç¤º + è§¦æ‘¸ï¼ˆGT911ï¼‰ */
     lv_port_disp_init();
     lv_port_indev_init();
 
-    /* 3. ÊäÈë£º°´¼üÏß³ÌÖ»Í¶ÊÂ¼ş */
+    /* 3. è¾“å…¥ï¼šæŒ‰é”®çº¿ç¨‹åªæŠ•äº‹ä»¶ */
     key_init();
     key_event_register(on_key);
     key_start();
 
-    /* 4. Ò³ÃæÂ·ÓÉ£º¼ÇÏÂÊ×Ò³£¨Ê×Ò³Ïß³ÌÓÉµÚÒ»ÅÄ router_render ´ò¿ª£© */
+    /* 4. é¡µé¢è·¯ç”±ï¼šè®°ä¸‹é¦–é¡µï¼ˆé¦–é¡µçº¿ç¨‹ç”±ç¬¬ä¸€æ‹ router_render æ‰“å¼€ï¼‰ */
     router_init(&task_menu);
 
-    /* 5. ÄÚºËÏß³Ì½øÖ÷Ñ­»·£¬²»·µ»Ø */
+    /* 5. å†…æ ¸çº¿ç¨‹è¿›ä¸»å¾ªç¯ï¼Œä¸è¿”å› */
     kernel_run(router_dispatch, router_render);
 
     return 0;

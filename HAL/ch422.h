@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* ËÄÎ»ÊıÂë¹Ü£¬Ğ¡Êıµã¸½×ÅÔÚÇ°Ò»Î»¡£Àı CH422_Show("%04d", 23)¡£ */
+/* å››ä½æ•°ç ç®¡ï¼Œå°æ•°ç‚¹é™„ç€åœ¨å‰ä¸€ä½ã€‚ä¾‹ CH422_Show("%04d", 23)ã€‚ */
 int CH422_Show(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 #ifdef __cplusplus

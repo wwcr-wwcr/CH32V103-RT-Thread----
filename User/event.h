@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-#define KEY         0       /* ÊµÌå°´¼ü£ºcode = key_id_t£¬value ²»ÓÃ */
-#define TOUCH        1       /* ´¥Ãş¿Ø¼ş£ºcode = ¿Ø¼ş±àºÅ£¬value = ¿Ø¼şÊıÖµ */
-#define QUIT        2       /* ÈÃÈÎÎñÍË³ö£ºÖ»ÓĞ close() »áÍ¶£¬code/value ¶¼ÊÇ 0 */
+#define KEY         0       /* å®ä½“æŒ‰é”®ï¼šcode = key_id_tï¼Œvalue ä¸ç”¨ */
+#define TOUCH        1       /* è§¦æ‘¸æ§ä»¶ï¼šcode = æ§ä»¶ç¼–å·ï¼Œvalue = æ§ä»¶æ•°å€¼ */
+#define QUIT        2       /* è®©ä»»åŠ¡é€€å‡ºï¼šåªæœ‰ close() ä¼šæŠ•ï¼Œcode/value éƒ½æ˜¯ 0 */
 
 
 typedef struct

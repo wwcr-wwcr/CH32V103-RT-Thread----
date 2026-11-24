@@ -29,29 +29,41 @@ MARKER_REL = os.path.join("User", "tasks.h")          # 用来认工程根目录
 
 UI_C = '''/******************************************************************************
  * 文件名   : {name}_ui.c
- * 说明     : 界面实现 —— 空壳，等 LVGL 设计器生成后整段粘贴进来
+ * 说明     : 界面实现 —— 空壳，等 LVGL 设计器生成后整段替换本文件
  *
  * 设计器里"文件名前缀"填 {name}（会自动补 _ui），生成的就是这一份。
+ * 现在两个函数是空实现：任务能编过、能跑，只是屏幕上什么都不画。
  ******************************************************************************/
 
-/* 还没有界面 */
+#include "{name}_ui.h"
+
+void {name}_ui_render(void)
+{{
+    /* 还没有界面 */
+}}
+
+void {name}_ui_destroy(void)
+{{
+    /* 还没有界面 —— 没有对象要删 */
+}}
 '''
 
 UI_H = '''/******************************************************************************
  * 文件名   : {name}_ui.h
- * 说明     : 界面头文件 —— 空壳，等 LVGL 设计器生成后把它的 .h 内容粘贴进来
+ * 说明     : 界面头文件 —— 空壳，等 LVGL 设计器生成后整段替换本文件
  *
- * 生成后会是这样两行（现在先注释着，task 里也是注释调用，不影响编译）：
- *     void {name}_ui_render(...);
- *     void {name}_ui_destroy(void);
+ * render 现在没有参数。设计器生成的版本可能带参数（例如 float c），
+ * 那时把 task_xxx.c 里 task_render() 的调用一并改成传参即可。
  ******************************************************************************/
 
 #ifndef {guard}
 #define {guard}
 
-#include <stdint.h>
+/* 建页 + 刷新：每帧调用，首次调用时把页面建出来 */
+void {name}_ui_render(void);
 
-/* 等设计器生成后粘贴到这里 */
+/* 关页：把 LVGL 对象还给堆 */
+void {name}_ui_destroy(void);
 
 #endif
 '''
@@ -59,7 +71,7 @@ UI_H = '''/*********************************************************************
 
 # ------------------------------------------------------------------ 基础工具
 def read_text(path):
-    """工程里源码是 GBK，也可能有 UTF-8 的，自动认"""
+    """读源码：先按 UTF-8 解，失败当 GBK（兼容老文件）"""
     raw = open(path, "rb").read()
     try:
         return raw.decode("utf-8")
@@ -67,10 +79,10 @@ def read_text(path):
         return raw.decode("gbk")
 
 
-def save_gbk(path, text):
-    """统一写 GBK + CRLF，和工程保持一致"""
+def save_utf8(path, text):
+    """统一写 UTF-8（无 BOM）+ CRLF —— 工程已于 2026-11-24 全量转 UTF-8"""
     open(path, "wb").write(text.replace("\r\n", "\n").replace("\n", "\r\n")
-                           .encode("gbk", "replace"))
+                           .encode("utf-8"))
 
 
 def find_root(start):
@@ -136,7 +148,7 @@ def generate(root, name, force=False, register=False, template=None, log=None):
     os.makedirs(folder, exist_ok=True)
     made = []
     for path, text in plan:
-        save_gbk(path, text)
+        save_utf8(path, text)
         made.append(os.path.relpath(path, root))
         if log:
             log("生成: " + os.path.relpath(path, root))
@@ -155,14 +167,14 @@ def generate(root, name, force=False, register=False, template=None, log=None):
                 if log:
                     log("注册: 已存在，跳过")
             else:
-                save_gbk(menu, t2)
+                save_utf8(menu, t2)
                 msg += "\n已注册到菜单（%s）" % how
                 if log:
                     log("注册: menu.c " + how)
 
     msg += "\n\n下一步：\n  1) MRS 里 F5，把 %s 加进工程\n" % name
-    msg += "  2) 设计器前缀填 %s_ui，生成后粘到 %s_ui.c / .h\n" % (name, name)
-    msg += "  3) 把 %s.c 里 task_render / task_ui_destroy 的注释打开" % name
+    msg += "  2) 设计器前缀填 %s（自动补 _ui），生成后分别粘到 .c 和 _ui.c/.h\n" % (name, name)
+    msg += "  3) 设计器画完覆盖 _ui.c/_ui.h；render 带参数时改一下 task_render 里的调用"
     return True, msg, made
 
 

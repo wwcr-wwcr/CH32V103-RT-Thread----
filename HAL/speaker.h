@@ -6,11 +6,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* ÔÚÏß³ÌÖĞ²¥·Å 100..6000 Hz Òôµ÷£¬ÒôÁ¿ 0..100%¡£Ê±³¤ 0 ±íÊ¾³ÖĞø²¥·Å¡£
- * Àı£ºspeaker_tone(440, 35, 250); */
+/* åœ¨çº¿ç¨‹ä¸­æ’­æ”¾ 100..6000 Hz éŸ³è°ƒï¼ŒéŸ³é‡ 0..100%ã€‚æ—¶é•¿ 0 è¡¨ç¤ºæŒç»­æ’­æ”¾ã€‚
+ * ä¾‹ï¼šspeaker_tone(440, 35, 250); */
 int speaker_tone(uint32_t hz, uint8_t volume_percent, uint32_t duration_ms);
 int speaker_stop(void);
-/* µ¥ÉùµÀÓĞ·ûºÅ 16 Î» PCM£¬°´ 1000..48000 Hz ²¥·Å£¬²¥Íê·µ»Ø¡£ */
+/* å•å£°é“æœ‰ç¬¦å· 16 ä½ PCMï¼ŒæŒ‰ 1000..48000 Hz æ’­æ”¾ï¼Œæ’­å®Œè¿”å›ã€‚ */
 int speaker_play(const int16_t *samples, size_t count, uint32_t rate);
 
 #ifdef __cplusplus

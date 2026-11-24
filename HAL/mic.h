@@ -6,11 +6,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* PA1 Âó¿Ë·ç£¬µ¥µã·µ»Ø 12 Î»Ô­Ê¼ÂëÖµ¡£ */
+/* PA1 éº¦å…‹é£ï¼Œå•ç‚¹è¿”å› 12 ä½åŸå§‹ç å€¼ã€‚ */
 int mic_read(void);
-/* DMA ²É¼¯ count µã£¬rate_hz Îª 0 ±íÊ¾È«ËÙ¡£Íê³É·µ»Ø 0¡£ */
+/* DMA é‡‡é›† count ç‚¹ï¼Œrate_hz ä¸º 0 è¡¨ç¤ºå…¨é€Ÿã€‚å®Œæˆè¿”å› 0ã€‚ */
 int mic_capture(uint16_t *samples, size_t count, uint32_t rate_hz);
-/* ²É¼¯Í¬ÑùµÄÒ»Ö¡²¢¼ÆËã·å·åÖµ¡£Ö¡ÈÔ¿ÉÓÃÓÚ FFT£¬¸ºÊı±íÊ¾Ê§°Ü¡£ */
+/* é‡‡é›†åŒæ ·çš„ä¸€å¸§å¹¶è®¡ç®—å³°å³°å€¼ã€‚å¸§ä»å¯ç”¨äº FFTï¼Œè´Ÿæ•°è¡¨ç¤ºå¤±è´¥ã€‚ */
 int mic_level(uint16_t *samples, size_t count, uint32_t rate_hz);
 
 #ifdef __cplusplus

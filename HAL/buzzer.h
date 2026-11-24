@@ -5,9 +5,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* task ÖĞµ÷ÓÃ£¬Õ¼¿Õ±È 0..100%£¬ÆµÂÊ 100..10000 Hz¡£
- * duration_ms > 0 Ïìµ½Ê±¼äºó·µ»Ø£»0 ±íÊ¾³ÖĞøÏì¡£Õ¼¿Õ±È 0 Á¢¼´¹Ø±Õ¡£
- * Àı£ºbuzzer_beep(30, 2400, 120); */
+/* task ä¸­è°ƒç”¨ï¼Œå ç©ºæ¯” 0..100%ï¼Œé¢‘ç‡ 100..10000 Hzã€‚
+ * duration_ms > 0 å“åˆ°æ—¶é—´åè¿”å›ï¼›0 è¡¨ç¤ºæŒç»­å“ã€‚å ç©ºæ¯” 0 ç«‹å³å…³é—­ã€‚
+ * ä¾‹ï¼šbuzzer_beep(30, 2400, 120); */
 int buzzer_beep(uint8_t duty_percent, uint32_t hz, uint32_t duration_ms);
 
 #ifdef __cplusplus

@@ -3,43 +3,43 @@
 #include "menu_ui.h"
 #include "rtthread.h"
 
-static rt_sem_t    s_exit = RT_NULL;    /* ÍË³öÎÕÊÖ£ºÏß³Ì exit£¬close µÈËü */
-static rt_mq_t     s_q    = RT_NULL;    /* ×Ô¼ºµÄ¶ÓÁĞ */
+static rt_sem_t    s_exit = RT_NULL;    /* é€€å‡ºæ¡æ‰‹ï¼šçº¿ç¨‹ exitï¼Œclose ç­‰å®ƒ */
+static rt_mq_t     s_q    = RT_NULL;    /* è‡ªå·±çš„é˜Ÿåˆ— */
 static void menu_thread(void *arg);
 
-//********************ÔÚÕâÀïĞ´ÈÎÎñ±í********************//
-//extern const task_t task_x;                                           <----------ÔÚÕâÌí¼Ó
+//********************åœ¨è¿™é‡Œå†™ä»»åŠ¡è¡¨********************//
+//extern const task_t task_x;                                           <----------åœ¨è¿™æ·»åŠ 
 static const task_t *const g_app_list[] =
 {
-//  &task_x,                                                             <----------ÔÚÕâÌí¼Ó
+//  &task_x,                                                             <----------åœ¨è¿™æ·»åŠ 
 };
-static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //×Ô¶¯¼ÆËãËùÓĞtask
+static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //è‡ªåŠ¨è®¡ç®—æ‰€æœ‰task
 static const char *s_names[8];                 
 
-//********************ÔÚÕâÀïĞ´ÄÚÖÃ±äÁ¿********************//
-static uint8_t s_cursor = 0;        //µ±Ç°task
+//********************åœ¨è¿™é‡Œå†™å†…ç½®å˜é‡********************//
+static uint8_t s_cursor = 0;        //å½“å‰task
 
 static void menu_enter(uint8_t index)
 {
-//********************ÔÚÕâÀïĞ´½øÈëtaskÂß¼­********************//
+//********************åœ¨è¿™é‡Œå†™è¿›å…¥taské€»è¾‘********************//
     s_cursor = index;
     router_go(g_app_list[index]);
 }
 
 static void menu_key(key_id_t key)
 {
-//********************ÔÚÕâÀïĞ´°´¼üÂß¼­********************//
+//********************åœ¨è¿™é‡Œå†™æŒ‰é”®é€»è¾‘********************//
     switch(key)
     {
-        case KEY_ID_1:                          /* K1 ÉÏÒ»¸ö£¬µ½Í·»ØÈÆ */
+        case KEY_ID_1:                          /* K1 ä¸Šä¸€ä¸ªï¼Œåˆ°å¤´å›ç»• */
             s_cursor = (uint8_t)((s_cursor + g_app_num - 1) % g_app_num);
             break;
 
-        case KEY_ID_2:                          /* K2 ÏÂÒ»¸ö */
+        case KEY_ID_2:                          /* K2 ä¸‹ä¸€ä¸ª */
             s_cursor = (uint8_t)((s_cursor + 1) % g_app_num);
             break;
 
-        case KEY_ID_3:                          /* K3 ½øµ±Ç°¸ßÁÁ */
+        case KEY_ID_3:                          /* K3 è¿›å½“å‰é«˜äº® */
             menu_enter(s_cursor);
             break;
 
@@ -53,8 +53,8 @@ static void menu_key(key_id_t key)
 
 static void menu_set(uint8_t id, int32_t value)
 {
-//********************ÔÚÕâÀïĞ´´¥Ãş¿Ø¼şÂß¼­********************//
-    if(id > 0)                                  /* ±àºÅ = °´Å¥ÏÂ±ê + 1 */
+//********************åœ¨è¿™é‡Œå†™è§¦æ‘¸æ§ä»¶é€»è¾‘********************//
+    if(id > 0)                                  /* ç¼–å· = æŒ‰é’®ä¸‹æ ‡ + 1 */
     {
         menu_enter((uint8_t)(id - 1));
     }
@@ -66,7 +66,7 @@ static void menu_open(void)
 
     if(s_q != RT_NULL)
     {
-        return;                                 /* ÒÑ¾­ÔÚÅÜ */
+        return;                                 /* å·²ç»åœ¨è·‘ */
     }
 
     s_exit = rt_sem_create("mexit", 0, RT_IPC_FLAG_FIFO);
@@ -82,24 +82,24 @@ static void menu_open(void)
         if(s_exit != RT_NULL) { rt_sem_delete(s_exit);   s_exit = RT_NULL; }
         return;
     }
-//********************ÔÚÕâÀïĞ´½øÈëÂß¼­********************//
+//********************åœ¨è¿™é‡Œå†™è¿›å…¥é€»è¾‘********************//
 
     rt_thread_startup(tid);
 }
 
 static void menu_close(void)
 {
-    message bye = {2, 0, 0};                    /* 2 = ¸ÃÍË³öÁË */
+    message bye = {2, 0, 0};                    /* 2 = è¯¥é€€å‡ºäº† */
     message drop;
     uint8_t retry;
 
     if(s_q == RT_NULL)
     {
-        return;                                 /* Ã»¿ª£¬Ê²Ã´¶¼²»ÓÃ×ö */
+        return;                                 /* æ²¡å¼€ï¼Œä»€ä¹ˆéƒ½ä¸ç”¨åš */
     }
-//********************ÔÚÕâÀïĞ´¹Ø±ÕÂß¼­(menuµÄ¹Ø±ÕÂß¼­¼¸ºõ²»»áÔËĞĞ)********************//
+//********************åœ¨è¿™é‡Œå†™å…³é—­é€»è¾‘(menuçš„å…³é—­é€»è¾‘å‡ ä¹ä¸ä¼šè¿è¡Œ)********************//
 
-    /* ¶ÓÁĞ¿ÉÄÜ¸ÕºÃÂú£ºÌÚÒ»¸öÎ»ÖÃÔÙÍ¶£¬×î¶àÊÔ 20 ´Î */
+    /* é˜Ÿåˆ—å¯èƒ½åˆšå¥½æ»¡ï¼šè…¾ä¸€ä¸ªä½ç½®å†æŠ•ï¼Œæœ€å¤šè¯• 20 æ¬¡ */
     for(retry = 0; retry < 20; retry++)
     {
         if(rt_mq_send(s_q, &bye, sizeof(bye)) == RT_EOK)
@@ -112,16 +112,16 @@ static void menu_close(void)
     if(retry >= 20)
     {
         rt_kprintf("menu: quit msg failed\r\n");
-        return;                                 /* Í¶²»½øÈ¥¾Í±ğ¶¯£¬Ïß³Ì»¹ÔÚÓÃÕâ¸ö¶ÓÁĞ */
+        return;                                 /* æŠ•ä¸è¿›å»å°±åˆ«åŠ¨ï¼Œçº¿ç¨‹è¿˜åœ¨ç”¨è¿™ä¸ªé˜Ÿåˆ— */
     }
 
     if(rt_sem_take(s_exit, rt_tick_from_millisecond(3000)) != RT_EOK)
     {
         rt_kprintf("menu: exit timeout\r\n");
-        return;                                 /* Ïß³Ì»¹Ã»×ß£¬¶ÓÁĞ²»ÄÜÉ¾ */
+        return;                                 /* çº¿ç¨‹è¿˜æ²¡èµ°ï¼Œé˜Ÿåˆ—ä¸èƒ½åˆ  */
     }
 
-    /* Ïß³ÌÒÑ¾­×Ô¼ºÍË³ö£¨entry return£©£¬ÕâÀïÖ»»ØÊÕ×ÊÔ´ */
+    /* çº¿ç¨‹å·²ç»è‡ªå·±é€€å‡ºï¼ˆentry returnï¼‰ï¼Œè¿™é‡Œåªå›æ”¶èµ„æº */
     rt_mq_delete(s_q);      s_q    = RT_NULL;
     rt_sem_delete(s_exit);  s_exit = RT_NULL;
 }
@@ -130,7 +130,7 @@ static void menu_render(void)
 {
     uint8_t i;
 
-    /* Ãû×Ö±íÖ»ÌîÒ»´Î£»render Ò»¶¨ÏÈÓÚµÚÒ»Ö¡Ö´ĞĞ£¬¶øÈÎÎñÏß³Ì¿ÉÄÜ»¹Ã»±»µ÷¶Èµ½ */
+    /* åå­—è¡¨åªå¡«ä¸€æ¬¡ï¼›render ä¸€å®šå…ˆäºç¬¬ä¸€å¸§æ‰§è¡Œï¼Œè€Œä»»åŠ¡çº¿ç¨‹å¯èƒ½è¿˜æ²¡è¢«è°ƒåº¦åˆ° */
     if(s_names[0] == RT_NULL)
     {
         for(i = 0; i < g_app_num; i++)
@@ -150,48 +150,48 @@ static void menu_thread(void *arg)
 
     for(;;)
     {
-        /* ²Ëµ¥ÊÇ¾²Ì¬Ò³£¬Ã»ÓĞÖÜÆÚ»î£¬ËùÒÔËÀµÈÊÂ¼ş£»ÊÕµ½ type=2 ¾ÍÍË³ö */
+        /* èœå•æ˜¯é™æ€é¡µï¼Œæ²¡æœ‰å‘¨æœŸæ´»ï¼Œæ‰€ä»¥æ­»ç­‰äº‹ä»¶ï¼›æ”¶åˆ° type=2 å°±é€€å‡º */
         if(rt_mq_recv(s_q, &msg, sizeof(msg), RT_WAITING_FOREVER) != RT_EOK)
         {
             break;
         }
 
-        if(msg.type == 2)                       /* 2 = ¹ÜÀí¶ËÈÃÍË³ö */
+        if(msg.type == 2)                       /* 2 = ç®¡ç†ç«¯è®©é€€å‡º */
         {
             break;
         }
 
-        if(msg.type == 0)                       /* 0 = ÊµÌå°´¼ü */
+        if(msg.type == 0)                       /* 0 = å®ä½“æŒ‰é”® */
         {
             menu_key((key_id_t)msg.code);
         }
-        else                                    /* 1 = ´¥Ãş¿Ø¼ş */
+        else                                    /* 1 = è§¦æ‘¸æ§ä»¶ */
         {
             menu_set(msg.code, msg.value);
         }
     }
 
-    rt_sem_release(s_exit);                     /* ÎÒ×ßÁË£¬close ÄÇ±ß¿ÉÒÔÍùÏÂ×ß */
+    rt_sem_release(s_exit);                     /* æˆ‘èµ°äº†ï¼Œclose é‚£è¾¹å¯ä»¥å¾€ä¸‹èµ° */
 }
 
 static void menu_post(const message *msg)
 {
     if(s_q != RT_NULL)
     {
-        (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* ¶ÓÁĞÖ»¶Á£¬×ªµô const */
+        (void)rt_mq_send(s_q, (void *)msg, sizeof(*msg));   /* é˜Ÿåˆ—åªè¯»ï¼Œè½¬æ‰ const */
     }
 }
 /**************************************************************************************************
- *                                        ÈÎÎñÃèÊö
+ *                                        ä»»åŠ¡æè¿°
  **************************************************************************************************/
 const task_t task_menu =
 {
-    .name       = "MENU",           /* µ÷ÊÔ´òÓ¡ÓÃ£¬Ò²ÊÇÏß³ÌÃû£¨<= 7 ×Ö·û£© */
-    .keep       = 0,                /* 0 = ÇĞ×ß¾Í¹ØÏß³Ì */
+    .name       = "MENU",           /* è°ƒè¯•æ‰“å°ç”¨ï¼Œä¹Ÿæ˜¯çº¿ç¨‹åï¼ˆ<= 7 å­—ç¬¦ï¼‰ */
+    .keep       = 0,                /* 0 = åˆ‡èµ°å°±å…³çº¿ç¨‹ */
 
-    .open       = menu_open,        /* ×Ô¼º½¨×ÊÔ´ + Ïß³Ì */
-    .close      = menu_close,       /* ×Ô¼ºÈÃÏß³ÌÍË³ö + É¾×ÊÔ´ */
-    .post       = menu_post,        /* ×Ô¼ºÊÕÊÂ¼ş */
-    .render     = menu_render,      /* Ç°Ì¨Ã¿ÅÄ»­½çÃæ */
-    .ui_destroy = menu_ui_destroy,  /* ¹ØÒ³Ê±°ÑÒ³Ãæ»¹¸ø LVGL ¶Ñ */
+    .open       = menu_open,        /* è‡ªå·±å»ºèµ„æº + çº¿ç¨‹ */
+    .close      = menu_close,       /* è‡ªå·±è®©çº¿ç¨‹é€€å‡º + åˆ èµ„æº */
+    .post       = menu_post,        /* è‡ªå·±æ”¶äº‹ä»¶ */
+    .render     = menu_render,      /* å‰å°æ¯æ‹ç”»ç•Œé¢ */
+    .ui_destroy = menu_ui_destroy,  /* å…³é¡µæ—¶æŠŠé¡µé¢è¿˜ç»™ LVGL å † */
 };

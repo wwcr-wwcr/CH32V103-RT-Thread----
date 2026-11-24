@@ -1,20 +1,20 @@
 #include "router.h"
 #include "key.h"
 #include "rtthread.h"
-static const task_t *s_home = RT_NULL;      //·µ»Ø±ê×¼Ò³
-static const task_t *s_cur = RT_NULL;       //Ç°Ì¨ÊÂ¼þ
-static const task_t *volatile s_want = RT_NULL;     //½«ÒªÇÐµÄÊÂ¼þ
+static const task_t *s_home = RT_NULL;      //è¿”å›žæ ‡å‡†é¡µ
+static const task_t *s_cur = RT_NULL;       //å‰å°äº‹ä»¶
+static const task_t *volatile s_want = RT_NULL;     //å°†è¦åˆ‡çš„äº‹ä»¶
 
-static void fore_switch(const task_t *want)         //ÇÐ»»ÊÂ¼þµ÷ÓÃ
+static void fore_switch(const task_t *want)         //åˆ‡æ¢äº‹ä»¶è°ƒç”¨
 {
     const task_t *old = s_cur;
 
     if(want == old)
     {
         return;
-    }                       //·ÀÖ¹ÐÂÈÎÎñÊÇÀÏÈÎÎñ
+    }                       //é˜²æ­¢æ–°ä»»åŠ¡æ˜¯è€ä»»åŠ¡
 
-    /* 1. ÐÂÈÎÎñÉÏ³¡£ºopen ÓÉÈÎÎñ×Ô¼ºÊµÏÖ£¨ÖØ¸´µ÷ÓÃÒªÄÜµ²×¡£© */
+    /* 1. æ–°ä»»åŠ¡ä¸Šåœºï¼šopen ç”±ä»»åŠ¡è‡ªå·±å®žçŽ°ï¼ˆé‡å¤è°ƒç”¨è¦èƒ½æŒ¡ä½ï¼‰ */
     if(want != RT_NULL)
     {
         if(want->open != RT_NULL)
@@ -24,7 +24,7 @@ static void fore_switch(const task_t *want)         //ÇÐ»»ÊÂ¼þµ÷ÓÃ
 
         s_cur = want;
 
-        /* 2. Á¢¿Ì»­Ò»Ö¡£º°ÑÐÂÒ³Ãæ load ³Éµ±Ç°ÆÁ */
+        /* 2. ç«‹åˆ»ç”»ä¸€å¸§ï¼šæŠŠæ–°é¡µé¢ load æˆå½“å‰å± */
         if(want->render != RT_NULL)
         {
             want->render();
@@ -35,7 +35,7 @@ static void fore_switch(const task_t *want)         //ÇÐ»»ÊÂ¼þµ÷ÓÃ
         s_cur = RT_NULL;
     }
 
-    /* 3. ÀÏÈÎÎñÍË³¡£º³£×¤µÄÁô×Å¼ÌÐøÅÜ£¬ÆäËüµÄ¹Øµô£»Ò³ÃæÒ»ÂÉ»¹»ØÈ¥ */
+    /* 3. è€ä»»åŠ¡é€€åœºï¼šå¸¸é©»çš„ç•™ç€ç»§ç»­è·‘ï¼Œå…¶å®ƒçš„å…³æŽ‰ï¼›é¡µé¢ä¸€å¾‹è¿˜å›žåŽ» */
     if((old != RT_NULL) && (old != s_cur))
     {
         if((old->keep == 0) && (old->close != RT_NULL))
@@ -57,10 +57,10 @@ void router_init(const task_t *home)
     s_cur  = RT_NULL;
 }
 
-//Î¨Ò»¾­³£Ê¹ÓÃµÄº¯Êý
+//å”¯ä¸€ç»å¸¸ä½¿ç”¨çš„å‡½æ•°
 void router_go(const task_t *task)
 {
-    s_want = (task != RT_NULL) ? task : s_home;     //ÔÚÏÂÒ»´ÎrenderÖÐË¢ÐÂ
+    s_want = (task != RT_NULL) ? task : s_home;     //åœ¨ä¸‹ä¸€æ¬¡renderä¸­åˆ·æ–°
 }
 
 void router_dispatch(const message *msg)
@@ -70,7 +70,7 @@ void router_dispatch(const message *msg)
         return;
     }
 
-    /* K4 ³¤°´ = È«¾ÖÍË³ö¼ü£ºÈÎºÎÒ³Ãæ¶¼ÄÜ»ØÊ×Ò³£¬ÓÀÔ¶²»ÏÂ·¢¸øÈÎÎñ */
+    /* K4 é•¿æŒ‰ = å…¨å±€é€€å‡ºé”®ï¼šä»»ä½•é¡µé¢éƒ½èƒ½å›žé¦–é¡µï¼Œæ°¸è¿œä¸ä¸‹å‘ç»™ä»»åŠ¡ */
     if((msg->type == KEY) && (msg->code == KEY_ID_LONG_4))
     {
         if(s_cur != s_home)
@@ -88,10 +88,10 @@ void router_dispatch(const message *msg)
 
 void router_render(void)
 {
-    if(s_want != s_cur)                         /* ÓÐÇÐÒ³ÇëÇó¾ÍÇÐ */
+    if(s_want != s_cur)                         /* æœ‰åˆ‡é¡µè¯·æ±‚å°±åˆ‡ */
     {
-        fore_switch(s_want);                    /* ÀïÃæÒÑ¾­°ÑÐÂÒ³»­³Éµ±Ç°ÆÁÁË */
-        return;                                 /* ÕâÒ»ÅÄ²»ÖØ¸´»­ */
+        fore_switch(s_want);                    /* é‡Œé¢å·²ç»æŠŠæ–°é¡µç”»æˆå½“å‰å±äº† */
+        return;                                 /* è¿™ä¸€æ‹ä¸é‡å¤ç”» */
     }
 
     if((s_cur != RT_NULL) && (s_cur->render != RT_NULL))
@@ -101,7 +101,7 @@ void router_render(void)
 }
 
 /**************************************************************************************************
- *                                        MSH µ÷ÊÔ
+ *                                        MSH è°ƒè¯•
  **************************************************************************************************/
 static void router_cmd(void)
 {

@@ -1,13 +1,13 @@
 /******************************************************************************
- * ÎÄ¼şÃû   : demo_chart.c
- * ËµÃ÷     : ËÄÖÖÍ¼±íĞÎÌ¬µÄÊµÏÖ
+ * æ–‡ä»¶å   : demo_chart.c
+ * è¯´æ˜     : å››ç§å›¾è¡¨å½¢æ€çš„å®ç°
  *
- * ÒÆÖ²×Ô CH32H417 Ä£°åµÄ Chart_Demo£¨Oscilloscope / Spectrum / Coordinate / Single£©£¬
- * µ«¸Ä³ÉÓÃ±¾¹¤³ÌµÄ ui_* ¹¤³§ + theme ÅäÉ«£¬ÇÒ²»ÒÀÀµÖĞÎÄ×ÖÌå£¨Ö»ÓÃÄ¬ÈÏ×ÖÌå£¬ÎÄ×ÖÈ« ASCII£©¡£
+ * ç§»æ¤è‡ª CH32H417 æ¨¡æ¿çš„ Chart_Demoï¼ˆOscilloscope / Spectrum / Coordinate / Singleï¼‰ï¼Œ
+ * ä½†æ”¹æˆç”¨æœ¬å·¥ç¨‹çš„ ui_* å·¥å‚ + theme é…è‰²ï¼Œä¸”ä¸ä¾èµ–ä¸­æ–‡å­—ä½“ï¼ˆåªç”¨é»˜è®¤å­—ä½“ï¼Œæ–‡å­—å…¨ ASCIIï¼‰ã€‚
  *
- * ¹Ø¼ü¼¼Êõ£¨Ä£°åÀï×îÖµµÃ³­µÄÁ½Ìõ£©£º
- *   1. lv_chart_set_ext_y_array ¡ª¡ª Í¼±íÖ±½ÓÖ¸ÏòÎÒÃÇµÄÊı×é£¬Áã¿½±´
- *   2. ×Ô¼º memmove ×ö¹ö¶¯ ¡ª¡ª Ğ§¹ûµÈÍ¬ LV_CHART_UPDATE_MODE_SHIFT£¬µ«¿É¿Ø
+ * å…³é”®æŠ€æœ¯ï¼ˆæ¨¡æ¿é‡Œæœ€å€¼å¾—æŠ„çš„ä¸¤æ¡ï¼‰ï¼š
+ *   1. lv_chart_set_ext_y_array â€”â€” å›¾è¡¨ç›´æ¥æŒ‡å‘æˆ‘ä»¬çš„æ•°ç»„ï¼Œé›¶æ‹·è´
+ *   2. è‡ªå·± memmove åšæ»šåŠ¨ â€”â€” æ•ˆæœç­‰åŒ LV_CHART_UPDATE_MODE_SHIFTï¼Œä½†å¯æ§
  ******************************************************************************/
 
 #include "demo_chart.h"
@@ -16,27 +16,27 @@
 #include <string.h>
 
 /**************************************************************************************************
- *                                        ³£Á¿Óë×´Ì¬
+ *                                        å¸¸é‡ä¸çŠ¶æ€
  **************************************************************************************************/
-#define OSC_N       256U        /* Ê¾²¨Æ÷µãÊı */
-#define SPEC_N      64U         /* ÆµÆ×ÖùÊı */
-#define COORD_N     128U        /* ×ø±êÏµµãÊı */
-#define SINGLE_N    128U        /* µ¥ÇúÏßµãÊı */
+#define OSC_N       256U        /* ç¤ºæ³¢å™¨ç‚¹æ•° */
+#define SPEC_N      64U         /* é¢‘è°±æŸ±æ•° */
+#define COORD_N     128U        /* åæ ‡ç³»ç‚¹æ•° */
+#define SINGLE_N    128U        /* å•æ›²çº¿ç‚¹æ•° */
 
-#define DATA_MAX    OSC_N       /* »º³å°´×î´óµãÊı¿ª£¨ËÄÖÖ¹²ÓÃ£© */
+#define DATA_MAX    OSC_N       /* ç¼“å†²æŒ‰æœ€å¤§ç‚¹æ•°å¼€ï¼ˆå››ç§å…±ç”¨ï¼‰ */
 
 static lv_obj_t          *s_chart = NULL;
 static lv_chart_series_t *s_ser   = NULL;
 static demo_chart_t       s_kind  = DEMO_CHART_OSC;
 
-static int16_t  s_buf[DATA_MAX];        /* Í¼±íÊı¾İÔ´£¨ext Êı×é£¬±ØĞë³£×¤£© */
-static uint16_t s_phase = 0;            /* Ôì²¨ĞÎÓÃÏàÎ» 0..1023 */
-static uint32_t s_rand  = 0x1234567U;   /* Î±Ëæ»ú£¬ÔìÔëÉù */
+static int16_t  s_buf[DATA_MAX];        /* å›¾è¡¨æ•°æ®æºï¼ˆext æ•°ç»„ï¼Œå¿…é¡»å¸¸é©»ï¼‰ */
+static uint16_t s_phase = 0;            /* é€ æ³¢å½¢ç”¨ç›¸ä½ 0..1023 */
+static uint32_t s_rand  = 0x1234567U;   /* ä¼ªéšæœºï¼Œé€ å™ªå£° */
 
 /**************************************************************************************************
- *                                        Ğ¡¹¤¾ß
+ *                                        å°å·¥å…·
  **************************************************************************************************/
-/* Èı½Ç²¨£ºÊäÈë 0..1023£¬Êä³ö 0..1000£¨²»ÓÃ libm£© */
+/* ä¸‰è§’æ³¢ï¼šè¾“å…¥ 0..1023ï¼Œè¾“å‡º 0..1000ï¼ˆä¸ç”¨ libmï¼‰ */
 static uint32_t tri(uint16_t ph)
 {
     ph &= 1023U;
@@ -45,7 +45,7 @@ static uint32_t tri(uint16_t ph)
                        : ((uint32_t)(1024U - ph) * 1000U / 512U);
 }
 
-/* xorshift Î±Ëæ»ú */
+/* xorshift ä¼ªéšæœº */
 static uint32_t rnd(void)
 {
     s_rand ^= s_rand << 13;
@@ -56,7 +56,7 @@ static uint32_t rnd(void)
 }
 
 /**************************************************************************************************
- *                                        ¶ÔÍâ½Ó¿Ú
+ *                                        å¯¹å¤–æ¥å£
  **************************************************************************************************/
 const char *demo_chart_name(demo_chart_t kind)
 {
@@ -94,7 +94,7 @@ void demo_chart_create(lv_obj_t *page, demo_chart_t kind)
     switch(kind)
     {
         case DEMO_CHART_OSC:
-            /* Ê¾²¨Æ÷£º256 µã£¬0~4095£¬×ó²à 4 ¸ñ¿Ì¶È */
+            /* ç¤ºæ³¢å™¨ï¼š256 ç‚¹ï¼Œ0~4095ï¼Œå·¦ä¾§ 4 æ ¼åˆ»åº¦ */
             s_chart = ui_chart_new(page, 12, 80, UI_W - 24, 200, 4095);
             lv_chart_set_point_count(s_chart, OSC_N);
             lv_chart_set_div_line_count(s_chart, 4, 8);
@@ -102,7 +102,7 @@ void demo_chart_create(lv_obj_t *page, demo_chart_t kind)
             break;
 
         case DEMO_CHART_SPECTRUM:
-            /* ÆµÆ×£º64 ¸ùÖù×Ó£¬0~100 */
+            /* é¢‘è°±ï¼š64 æ ¹æŸ±å­ï¼Œ0~100 */
             s_chart = ui_chart_new(page, 12, 80, UI_W - 24, 200, 100);
             lv_chart_set_type(s_chart, LV_CHART_TYPE_BAR);
             lv_chart_set_point_count(s_chart, SPEC_N);
@@ -110,7 +110,7 @@ void demo_chart_create(lv_obj_t *page, demo_chart_t kind)
             break;
 
         case DEMO_CHART_COORD:
-            /* ×ø±êÏµ£º128 µã£¬´ø¿Ì¶ÈÍø¸ñ */
+            /* åæ ‡ç³»ï¼š128 ç‚¹ï¼Œå¸¦åˆ»åº¦ç½‘æ ¼ */
             s_chart = ui_chart_new(page, 12, 80, UI_W - 24, 200, 4095);
             lv_chart_set_point_count(s_chart, COORD_N);
             lv_chart_set_div_line_count(s_chart, 6, 10);
@@ -119,14 +119,14 @@ void demo_chart_create(lv_obj_t *page, demo_chart_t kind)
 
         case DEMO_CHART_SINGLE:
         default:
-            /* µ¥ÇúÏß£º128 µã£¬0~1000 */
+            /* å•æ›²çº¿ï¼š128 ç‚¹ï¼Œ0~1000 */
             s_chart = ui_chart_new(page, 12, 80, UI_W - 24, 200, 1000);
             lv_chart_set_point_count(s_chart, SINGLE_N);
             lv_chart_set_div_line_count(s_chart, 4, 6);
             break;
     }
 
-    /* °ÑÊı¾İÔ´°ó³ÉÍâ²¿Êı×é£¨ËÄÖÖĞÎÌ¬¹²ÓÃ s_buf£© */
+    /* æŠŠæ•°æ®æºç»‘æˆå¤–éƒ¨æ•°ç»„ï¼ˆå››ç§å½¢æ€å…±ç”¨ s_bufï¼‰ */
     s_ser = lv_chart_get_series_next(s_chart, NULL);
     if(s_ser != NULL)
     {
@@ -150,7 +150,7 @@ void demo_chart_reflash(void)
     {
         case DEMO_CHART_OSC:
         {
-            /* ×óÒÆ 4 µã£¬ÓÒ±ß²¹ 4 ¸öĞÂÑùµã ¡ª¡ª ¿´ÆğÀ´¾ÍÊÇ²¨ĞÎÔÚ¹ö¶¯ */
+            /* å·¦ç§» 4 ç‚¹ï¼Œå³è¾¹è¡¥ 4 ä¸ªæ–°æ ·ç‚¹ â€”â€” çœ‹èµ·æ¥å°±æ˜¯æ³¢å½¢åœ¨æ»šåŠ¨ */
             memmove(&s_buf[0], &s_buf[4], (OSC_N - 4U) * sizeof(s_buf[0]));
 
             for(i = (uint16_t)(OSC_N - 4U); i < OSC_N; i++)
@@ -163,7 +163,7 @@ void demo_chart_reflash(void)
 
         case DEMO_CHART_SPECTRUM:
         {
-            /* 1/f µ×Ôë + Èı¸ö¹Ì¶¨·å£¬Ä£Äâ FFT Êä³öµÄÑù×Ó */
+            /* 1/f åº•å™ª + ä¸‰ä¸ªå›ºå®šå³°ï¼Œæ¨¡æ‹Ÿ FFT è¾“å‡ºçš„æ ·å­ */
             for(i = 0; i < SPEC_N; i++)
             {
                 uint32_t base = 80U / (1U + i);
@@ -176,7 +176,7 @@ void demo_chart_reflash(void)
 
         case DEMO_CHART_COORD:
         {
-            /* ÕûÖ¡ÖØ»­Ò»Ìõ»ºÂıÆ¯ÒÆµÄÈı½Ç²¨ */
+            /* æ•´å¸§é‡ç”»ä¸€æ¡ç¼“æ…¢æ¼‚ç§»çš„ä¸‰è§’æ³¢ */
             s_phase = (uint16_t)((s_phase + 5U) & 1023U);
 
             for(i = 0; i < COORD_N; i++)
@@ -191,7 +191,7 @@ void demo_chart_reflash(void)
         case DEMO_CHART_SINGLE:
         default:
         {
-            /* ÕûÖ¡Ìæ»»£¬·ù¶ÈÂıÂı±ä»¯ */
+            /* æ•´å¸§æ›¿æ¢ï¼Œå¹…åº¦æ…¢æ…¢å˜åŒ– */
             s_phase = (uint16_t)((s_phase + 3U) & 1023U);
 
             for(i = 0; i < SINGLE_N; i++)
@@ -204,5 +204,5 @@ void demo_chart_reflash(void)
         }
     }
 
-    lv_chart_refresh(s_chart);      /* ext Êı×é¸ÄÍêÁË£¬Í¨Öª LVGL ÖØ»­ */
+    lv_chart_refresh(s_chart);      /* ext æ•°ç»„æ”¹å®Œäº†ï¼Œé€šçŸ¥ LVGL é‡ç”» */
 }

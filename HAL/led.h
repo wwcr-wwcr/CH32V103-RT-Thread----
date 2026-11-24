@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-typedef uint32_t led_color_t;  /* RGB Ë³ĞòÎª 0xRRGGBB¡£ */
+typedef uint32_t led_color_t;  /* RGB é¡ºåºä¸º 0xRRGGBBã€‚ */
 enum {
     LED_COLOR_BLACK   = 0x000000,
     LED_COLOR_RED     = 0xff0000,
@@ -18,9 +18,9 @@ enum {
     LED_COLOR_WHITE   = 0xffffff
 };
 
-/* task ÖĞµ÷ÓÃ£¬Ê×´Î×Ô¶¯ÅäÖÃ PWM¡£duty_percent Îª 0..100£¬°´±ÈÀıËõ·ÅÈıÂ·Õ¼¿Õ±È¡£
- * Àı£ºled_set(LED_COLOR_RED, 30); »ò led_set(0xff8000, 50);
- * Õ¼¿Õ±ÈÎª 0 »òÑÕÉ«ÎªºÚÉ«Ê±Ï¨µÆ¡£³É¹¦·µ»Ø 0£¬²ÎÊıÎŞĞ§·µ»Ø¸ºÊı¡£ */
+/* task ä¸­è°ƒç”¨ï¼Œé¦–æ¬¡è‡ªåŠ¨é…ç½® PWMã€‚duty_percent ä¸º 0..100ï¼ŒæŒ‰æ¯”ä¾‹ç¼©æ”¾ä¸‰è·¯å ç©ºæ¯”ã€‚
+ * ä¾‹ï¼šled_set(LED_COLOR_RED, 30); æˆ– led_set(0xff8000, 50);
+ * å ç©ºæ¯”ä¸º 0 æˆ–é¢œè‰²ä¸ºé»‘è‰²æ—¶ç†„ç¯ã€‚æˆåŠŸè¿”å› 0ï¼Œå‚æ•°æ— æ•ˆè¿”å›è´Ÿæ•°ã€‚ */
 int led_set(led_color_t color, unsigned duty_percent);
 
 #ifdef __cplusplus

@@ -1,11 +1,11 @@
 /******************************************************************************
- * ÎÄ¼şÃû   : common.c
- * ËµÃ÷     : LVGL ¿Ø¼ş·â×° ¡ª¡ª Í³Ò»·ç¸ñµÄ"Ôì¿Ø¼ş"º¯Êı£¨ÉùÃ÷¼û common.h£©
+ * æ–‡ä»¶å   : common.c
+ * è¯´æ˜     : LVGL æ§ä»¶å°è£… â€”â€” ç»Ÿä¸€é£æ ¼çš„"é€ æ§ä»¶"å‡½æ•°ï¼ˆå£°æ˜è§ common.hï¼‰
  *
- * ÕâÀïÖ»×öÁ½¼şÊÂ£º
- *     1. °Ñ"Ô²½Ç + ÅäÉ« + ±ß¿ò + ÄÚ±ß¾à"ÕâÌ×ÑùÊ½¼¯ÖĞĞ´Ò»´Î
- *     2. °Ñ"µãÒ»ÏÂ ¡ú kernel_post(TOUCH, id, Öµ)"Ò²¼¯ÖĞĞ´Ò»´Î
- * ½çÃæÎÄ¼ş´Ó´ËÖ»¹ØĞÄ°æÊ½£¨Ë­·ÅÄÄ¡¢Ê²Ã´ÎÄ×Ö£©£¬²»ÔÙÖØ¸´ÕâÊ®¼¸ĞĞ¡£
+ * è¿™é‡Œåªåšä¸¤ä»¶äº‹ï¼š
+ *     1. æŠŠ"åœ†è§’ + é…è‰² + è¾¹æ¡† + å†…è¾¹è·"è¿™å¥—æ ·å¼é›†ä¸­å†™ä¸€æ¬¡
+ *     2. æŠŠ"ç‚¹ä¸€ä¸‹ â†’ kernel_post(TOUCH, id, å€¼)"ä¹Ÿé›†ä¸­å†™ä¸€æ¬¡
+ * ç•Œé¢æ–‡ä»¶ä»æ­¤åªå…³å¿ƒç‰ˆå¼ï¼ˆè°æ”¾å“ªã€ä»€ä¹ˆæ–‡å­—ï¼‰ï¼Œä¸å†é‡å¤è¿™åå‡ è¡Œã€‚
  ******************************************************************************/
 
 #include "LVGL_Demo.h"
@@ -14,9 +14,9 @@
 #include "event.h"
 
 /**************************************************************************************************
- *                                        ÄÚ²¿£ºÑùÊ½Óë»Øµ÷
+ *                                        å†…éƒ¨ï¼šæ ·å¼ä¸å›è°ƒ
  **************************************************************************************************/
-/* ¿¨Æ¬Íâ¹Û£ºÔ²½Ç¡¢¿¨Æ¬µ×É«¡¢Ï¸±ß¿ò¡¢ÎŞÄÚ±ß¾à¡¢²»¹ö¶¯ */
+/* å¡ç‰‡å¤–è§‚ï¼šåœ†è§’ã€å¡ç‰‡åº•è‰²ã€ç»†è¾¹æ¡†ã€æ— å†…è¾¹è·ã€ä¸æ»šåŠ¨ */
 static void style_card(lv_obj_t *obj, lv_coord_t radius)
 {
     lv_obj_set_style_radius(obj, radius, 0);
@@ -32,7 +32,7 @@ static void style_card(lv_obj_t *obj, lv_coord_t radius)
      LV_USE_DROPDOWN || LV_USE_ROLLER || LV_USE_BTNMATRIX || LV_USE_TEXTAREA || \
      LV_USE_KEYBOARD || LV_USE_CALENDAR)
 
-/* »Øµ÷ÀïÈ¡"¿Ø¼ş±àºÅ"£º×¢²áÊ± user_data ´æµÄ¾ÍÊÇËü */
+/* å›è°ƒé‡Œå–"æ§ä»¶ç¼–å·"ï¼šæ³¨å†Œæ—¶ user_data å­˜çš„å°±æ˜¯å®ƒ */
 static uint8_t ev_id(lv_event_t *e)
 {
     return (uint8_t)(uintptr_t)lv_event_get_user_data(e);
@@ -40,7 +40,7 @@ static uint8_t ev_id(lv_event_t *e)
 #endif
 
 #if LV_USE_BTN
-/* °´Å¥£ºµãÒ»ÏÂ£¬value ¹Ì¶¨ 0 */
+/* æŒ‰é’®ï¼šç‚¹ä¸€ä¸‹ï¼Œvalue å›ºå®š 0 */
 static void cb_click(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), 0);
@@ -48,7 +48,7 @@ static void cb_click(lv_event_t *e)
 #endif
 
 #if LV_USE_SWITCH || LV_USE_CHECKBOX
-/* ¿ª¹Ø / ¸´Ñ¡¿ò£ºvalue = 1 ¿ª£¬0 ¹Ø */
+/* å¼€å…³ / å¤é€‰æ¡†ï¼švalue = 1 å¼€ï¼Œ0 å…³ */
 static void cb_onoff(lv_event_t *e)
 {
     lv_obj_t *obj = lv_event_get_target(e);
@@ -58,7 +58,7 @@ static void cb_onoff(lv_event_t *e)
 #endif
 
 #if LV_USE_SLIDER
-/* »¬Ìõ£ºÖ»ÓĞËÉÊÖ²Å·¢£¬ÍÏ¶¯¹ı³ÌÒ»Ìõ¶¼²»·¢ */
+/* æ»‘æ¡ï¼šåªæœ‰æ¾æ‰‹æ‰å‘ï¼Œæ‹–åŠ¨è¿‡ç¨‹ä¸€æ¡éƒ½ä¸å‘ */
 static void cb_slider_done(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_slider_get_value(lv_event_get_target(e)));
@@ -66,7 +66,7 @@ static void cb_slider_done(lv_event_t *e)
 #endif
 
 #if LV_USE_ARC
-/* Ô²»¡£ºÍ¬ÑùÖ»ÔÚËÉÊÖÊ±·¢ */
+/* åœ†å¼§ï¼šåŒæ ·åªåœ¨æ¾æ‰‹æ—¶å‘ */
 static void cb_arc_done(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_arc_get_value(lv_event_get_target(e)));
@@ -74,7 +74,7 @@ static void cb_arc_done(lv_event_t *e)
 #endif
 
 #if LV_USE_DROPDOWN
-/* ÏÂÀ­¿ò£ºvalue = Ñ¡ÖĞÏîÏÂ±ê */
+/* ä¸‹æ‹‰æ¡†ï¼švalue = é€‰ä¸­é¡¹ä¸‹æ ‡ */
 static void cb_dropdown(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_dropdown_get_selected(lv_event_get_target(e)));
@@ -82,7 +82,7 @@ static void cb_dropdown(lv_event_t *e)
 #endif
 
 #if LV_USE_ROLLER
-/* ¹öÂÖ£ºvalue = Ñ¡ÖĞÏîÏÂ±ê */
+/* æ»šè½®ï¼švalue = é€‰ä¸­é¡¹ä¸‹æ ‡ */
 static void cb_roller(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_roller_get_selected(lv_event_get_target(e)));
@@ -90,7 +90,7 @@ static void cb_roller(lv_event_t *e)
 #endif
 
 #if LV_USE_BTNMATRIX
-/* °´Å¥¾ØÕó£ºvalue = °´ÏÂµÚ¼¸¸ö */
+/* æŒ‰é’®çŸ©é˜µï¼švalue = æŒ‰ä¸‹ç¬¬å‡ ä¸ª */
 static void cb_btnmatrix(lv_event_t *e)
 {
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_btnmatrix_get_selected_btn(lv_event_get_target(e)));
@@ -98,13 +98,13 @@ static void cb_btnmatrix(lv_event_t *e)
 #endif
 
 #if LV_USE_TEXTAREA || LV_USE_KEYBOARD
-/* ÎÄ±¾¿ò / ¼üÅÌ£ºÈ·ÈÏ = 1£¬È¡Ïû = 0 */
+/* æ–‡æœ¬æ¡† / é”®ç›˜ï¼šç¡®è®¤ = 1ï¼Œå–æ¶ˆ = 0 */
 static void cb_ready(lv_event_t *e)  { kernel_post(TOUCH, ev_id(e), 1); }
 static void cb_cancel(lv_event_t *e) { kernel_post(TOUCH, ev_id(e), 0); }
 #endif
 
 #if LV_USE_CALENDAR
-/* ÈÕÀú£ºvalue = µãÖĞµÄ"ÈÕ"£¨1..31£©£¬¹»ÓÃ£»ÒªÄêÔÂÔÙ×Ô¼ºÈ¡ */
+/* æ—¥å†ï¼švalue = ç‚¹ä¸­çš„"æ—¥"ï¼ˆ1..31ï¼‰ï¼Œå¤Ÿç”¨ï¼›è¦å¹´æœˆå†è‡ªå·±å– */
 static void cb_calendar(lv_event_t *e)
 {
     lv_calendar_date_t d;
@@ -117,7 +117,7 @@ static void cb_calendar(lv_event_t *e)
 #endif
 
 /**************************************************************************************************
- *                                        »ù´¡£ºÒ³Ãæ / ¿¨Æ¬ / ÎÄ×Ö
+ *                                        åŸºç¡€ï¼šé¡µé¢ / å¡ç‰‡ / æ–‡å­—
  **************************************************************************************************/
 lv_obj_t *ui_page_new(void)
 {
@@ -186,7 +186,7 @@ lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
 }
 
 /**************************************************************************************************
- *                                        ½»»¥Àà
+ *                                        äº¤äº’ç±»
  **************************************************************************************************/
 #if LV_USE_BTN
 lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
@@ -198,7 +198,7 @@ lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, h);
     style_card(btn, 18);
-    lv_obj_set_style_shadow_width(btn, 0, 0);       /* Ö÷Ìâ¸ø°´Å¥¼ÓÁËÒõÓ°£¬È¥µô */
+    lv_obj_set_style_shadow_width(btn, 0, 0);       /* ä¸»é¢˜ç»™æŒ‰é’®åŠ äº†é˜´å½±ï¼Œå»æ‰ */
 
     lv_obj_add_event_cb(btn, cb_click, LV_EVENT_CLICKED, (void *)(uintptr_t)id);
 
@@ -261,7 +261,7 @@ lv_obj_t *ui_slider_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_style_bg_color(sld, UI_C_TEXT, LV_PART_KNOB);
     lv_obj_set_style_shadow_width(sld, 0, LV_PART_KNOB);
 
-    /* Ö»ÓĞËÉÊÖ²Å·¢Ò»Ìõ ¡ª¡ª ÍÏ¶¯ÖĞÒ»Ìõ¶¼²»·¢ */
+    /* åªæœ‰æ¾æ‰‹æ‰å‘ä¸€æ¡ â€”â€” æ‹–åŠ¨ä¸­ä¸€æ¡éƒ½ä¸å‘ */
     lv_obj_add_event_cb(sld, cb_slider_done, LV_EVENT_RELEASED, (void *)(uintptr_t)id);
 
     return sld;
@@ -414,7 +414,7 @@ lv_obj_t *ui_calendar_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 #endif
 
 /**************************************************************************************************
- *                                        Ö»ÏÔÊ¾¡¢²»½»»¥
+ *                                        åªæ˜¾ç¤ºã€ä¸äº¤äº’
  **************************************************************************************************/
 #if LV_USE_BAR
 lv_obj_t *ui_bar_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
@@ -568,7 +568,7 @@ void ui_chart_bind(lv_obj_t *chart, int16_t *buf, uint16_t n, uint8_t shift)
     }
 
     lv_chart_set_point_count(chart, n);
-    lv_chart_set_ext_y_array(chart, ser, buf);      /* Áã¿½±´£ºÍ¼±íÖ±½ÓÓÃÄãµÄÊı×é */
+    lv_chart_set_ext_y_array(chart, ser, buf);      /* é›¶æ‹·è´ï¼šå›¾è¡¨ç›´æ¥ç”¨ä½ çš„æ•°ç»„ */
 
     if(shift != 0)
     {
@@ -618,7 +618,7 @@ lv_obj_t *ui_canvas_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 #endif
 
 /**************************************************************************************************
- *                                        ÑùÊ½ĞŞÊÎÆ÷
+ *                                        æ ·å¼ä¿®é¥°å™¨
  **************************************************************************************************/
 void ui_frame(lv_obj_t *obj, lv_coord_t radius, lv_coord_t border_w, lv_color_t border_color)
 {

@@ -95,7 +95,6 @@
 					"${project}/User/ui/task_system_ui.c",
 					"${project}/User/ui/task_system_ui.h",
 					"${project}/User/ui/task_clock_ui.h",
-					"${project}/LVGL/GUI_APP",
 					"${project}/HAL/I2C",
 					"${project}/tools"
 				],

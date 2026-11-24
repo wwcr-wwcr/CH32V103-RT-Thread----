@@ -144,15 +144,14 @@ static void task_close(void)
 
 static void task_render(void)
 {
-    /* 贴完设计器生成的 UI 后，把下面这行的注释去掉，按你的数据传参 */
-    /* task_name_ui_render(); */
+    /* 界面 render 带参数时（例如 float c），这里改成 task_name_ui_render(s_c) */
+    task_name_ui_render();
 }
 
 
 static void task_ui_destroy(void)
 {
-    /* 贴完设计器生成的 UI 后，把下面这行的注释去掉 */
-    /* task_name_ui_destroy(); */
+    task_name_ui_destroy();
 }
 
 

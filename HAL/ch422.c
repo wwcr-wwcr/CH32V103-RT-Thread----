@@ -21,7 +21,7 @@ static void drive(uint16_t pin, int high)
 
 static void write_byte(uint8_t byte)
 {
-    /* µÚ¾Å¸öÊ±ÖÓÊÍ·Å SDA¡£ */
+    /* ç¬¬ä¹ä¸ªæ—¶é’Ÿé‡Šæ”¾ SDAã€‚ */
     uint16_t bits = ((uint16_t)byte << 1) | 1U;
     for (uint16_t mask = 0x100; mask; mask >>= 1) {
         drive(SDA, bits & mask);
@@ -82,7 +82,7 @@ int CH422_Show(const char *format, ...)
         GPIO_SetBits(GPIOE, SCL | SDA);
         gpio_config(GPIOE, SCL, GPIO_Mode_Out_PP);
         gpio_config(GPIOE, SDA, GPIO_Mode_Out_OD);
-        rt_thread_mdelay(81); /* CH422 ÉÏµçÎÈ¶¨Ê±¼ä£¬½öÊ×´Îµ÷ÓÃ¡£ */
+        rt_thread_mdelay(81); /* CH422 ä¸Šç”µç¨³å®šæ—¶é—´ï¼Œä»…é¦–æ¬¡è°ƒç”¨ã€‚ */
     }
     for (unsigned i = 0; i < 4; ++i) write_frame(0x70U + 2U * i, digits[i]);
     if (!ready) write_frame(0x48, 0x05);

@@ -368,7 +368,7 @@
             </toolChain>
           </folderInfo>
           <sourceEntries>
-            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|LVGL/GUI_APP|HAL/I2C|tools" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+            <entry excluding="Startup/startup_ch32v30x_D8.S|Task/L_GUI|Task/Task.h|Task/Task7.c|Task/Task6.c|Task/Task5.c|Task/Task4.c|Task/Task2.c|Task/Task1.c|.workbuddy|User/task/task_clock.c|User/ui/task_clock_ui.c|User/task/task_system.c|User/ui/task_system_ui.c|User/ui/task_system_ui.h|User/ui/task_clock_ui.h|HAL/I2C|tools" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
           </sourceEntries>
         </configuration>
       </storageModule>

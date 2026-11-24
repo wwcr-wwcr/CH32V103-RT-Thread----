@@ -3,7 +3,7 @@
 #include <rtthread.h>
 
 #define VEML7700_ADDR 0x10
-#define ALS_GAIN_QUARTER (3U << 11)  /* °åÔØÆ÷¼þÊ¹ÓÃ²Î¿¼Çý¶¯Ä¬ÈÏµÄ 1/4 ±¶ÔöÒæ¡£ */
+#define ALS_GAIN_QUARTER (3U << 11)  /* æ¿è½½å™¨ä»¶ä½¿ç”¨å‚è€ƒé©±åŠ¨é»˜è®¤çš„ 1/4 å€å¢žç›Šã€‚ */
 static struct rt_mutex mutex;
 static int last_config = -1;
 static int light_ipc_init(void) { return rt_mutex_init(&mutex, "veml", RT_IPC_FLAG_PRIO); }
@@ -37,7 +37,7 @@ int veml7700_raw(uint16_t integration_ms)
     int config = ALS_GAIN_QUARTER | (it << 6);
     int err = I2C_OK;
     if (last_config != config) {
-        /* ÏÈÒÔµ±Ç°ÅäÖÃÐÝÃß£¬ÔÙÐ´ÐÂÅäÖÃ²¢»½ÐÑ¡£ */
+        /* å…ˆä»¥å½“å‰é…ç½®ä¼‘çœ ï¼Œå†å†™æ–°é…ç½®å¹¶å”¤é†’ã€‚ */
         err = write_reg(0, (last_config < 0 ? 0 : last_config) | 1);
         if (err == I2C_OK && last_config < 0) err = write_reg(3, 0);
         if (err == I2C_OK) err = write_reg(0, config);
@@ -57,7 +57,7 @@ float veml7700_lux(uint16_t integration_ms)
     int raw = veml7700_raw(integration_ms);
     if (raw < 0) return (float)raw;
     if (raw == UINT16_MAX) return -RT_EIO;
-    /* 1/4 ±¶ÔöÒæ¡¢100 ms »ý·ÖÊ±£¬Ã¿¸ö¼ÆÊý¶ÔÓ¦ 0.2304 lx¡£ */
+    /* 1/4 å€å¢žç›Šã€100 ms ç§¯åˆ†æ—¶ï¼Œæ¯ä¸ªè®¡æ•°å¯¹åº” 0.2304 lxã€‚ */
     float x = raw * 0.2304f * (100.0f / integration_ms);
     if (x > 1000.0f)
         x = (((6.0135e-13f * x - 9.3924e-9f) * x + 8.1488e-5f) * x + 1.0023f) * x;

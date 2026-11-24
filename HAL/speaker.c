@@ -17,7 +17,7 @@ static struct rt_mutex mutex;
 static int speaker_ipc_init(void) { return rt_mutex_init(&mutex, "speaker", RT_IPC_FLAG_PRIO); }
 INIT_COMPONENT_EXPORT(speaker_ipc_init);
 
-/* DMA ¸Õ¶ÁÍêµÄ°ëÇø²Å¿ÉÒÔÖØÌî¡£Ä©Î²²¹ DAC ÖĞµã£¬Ê¹²¥·Å×ÔÈ»Í£Ö¹¡£ */
+/* DMA åˆšè¯»å®Œçš„åŠåŒºæ‰å¯ä»¥é‡å¡«ã€‚æœ«å°¾è¡¥ DAC ä¸­ç‚¹ï¼Œä½¿æ’­æ”¾è‡ªç„¶åœæ­¢ã€‚ */
 static void fill(unsigned half)
 {
     size_t n = remaining < HALF ? remaining : HALF;
@@ -32,13 +32,13 @@ static void fill(unsigned half)
 static void pcm_interrupt(void)
 {
     uint32_t flags = DMA2->INTFR & (DMA2_FLAG_HT3 | DMA2_FLAG_TC3 | DMA2_FLAG_TE3);
-    /* ±ê×¼¿â³£Á¿µÄ¸ßÎ»ÓÃÓÚÑ¡Ôñ DMA2£¬²»ÊôÓÚÓ²¼ş×´Ì¬Î»¡£ */
+    /* æ ‡å‡†åº“å¸¸é‡çš„é«˜ä½ç”¨äºé€‰æ‹© DMA2ï¼Œä¸å±äºç¡¬ä»¶çŠ¶æ€ä½ã€‚ */
     flags &= 0xEU << 8;
     if (!flags) return;
     DMA2->INTFCR = flags;
     unsigned half = (flags & DMA2_FLAG_HT3) ? 0U : 1U;
     if ((flags & DMA2_FLAG_TE3) || ((flags & DMA2_FLAG_HT3) && (flags & DMA2_FLAG_TC3))) {
-        result = -RT_EIO;  /* °ëÇøÎ´¼°Ê±ÖØÌî»ò DMA ×ÜÏß´íÎó¡£ */
+        result = -RT_EIO;  /* åŠåŒºæœªåŠæ—¶é‡å¡«æˆ– DMA æ€»çº¿é”™è¯¯ã€‚ */
     } else if (!last[half]) {
         fill(half);
         return;

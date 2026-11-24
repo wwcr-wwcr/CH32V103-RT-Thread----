@@ -16,7 +16,7 @@ static int init_pwm(void)
     GPIO_PinRemapConfig(GPIO_PartialRemap_TIM10, ENABLE);
     rt_hw_interrupt_enable(irq);
 
-    /* PB3 ºì¡¢PB4 ÂÌ¡¢PB5 À¶£¬µÍµçÆ½µãÁÁ¡£ÏÈÈÃÈý¸öÊä³ö´¦ÓÚÃðµÆµçÆ½¡£ */
+    /* PB3 çº¢ã€PB4 ç»¿ã€PB5 è“ï¼Œä½Žç”µå¹³ç‚¹äº®ã€‚å…ˆè®©ä¸‰ä¸ªè¾“å‡ºå¤„äºŽç­ç¯ç”µå¹³ã€‚ */
     TIM_OCInitTypeDef pwm = {0};
     pwm.TIM_OCMode = TIM_OCMode_PWM1;
     pwm.TIM_OutputState = TIM_OutputState_Enable;
@@ -46,7 +46,7 @@ int led_set(led_color_t color, unsigned duty_percent)
     rt_enter_critical();
     int rc = period_ticks ? RT_EOK : init_pwm();
     if (rc == RT_EOK) {
-        /* ÔÝÍ£Ó°×Ó¼Ä´æÆ÷¸üÐÂ£¬ÈýÂ·±È½ÏÖµÔÚÍ¬Ò»ÖÜÆÚ±ß½çÉúÐ§¡£ */
+        /* æš‚åœå½±å­å¯„å­˜å™¨æ›´æ–°ï¼Œä¸‰è·¯æ¯”è¾ƒå€¼åœ¨åŒä¸€å‘¨æœŸè¾¹ç•Œç”Ÿæ•ˆã€‚ */
         TIM_UpdateDisableConfig(TIM10, ENABLE);
         TIM_SetCompare1(TIM10, compare_value((uint8_t)(color >> 16), duty_percent));
         TIM_SetCompare2(TIM10, compare_value((uint8_t)(color >> 8), duty_percent));

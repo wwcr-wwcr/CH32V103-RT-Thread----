@@ -7,23 +7,23 @@ extern "C" {
 
 #include "event.h"
 
-typedef void (*evt_handler_t)(const message *ev);       //ÊÂ¼ş´¦Àíº¯Êı£ºmain Àï´«µÄÊÇ router_dispatch
-typedef void (*render_cb_t)(void);      //äÖÈ¾º¯Êı£ºÃ¿ÅÄµ÷Ò»´Î£¬main Àï´«µÄÊÇ router_render 
+typedef void (*evt_handler_t)(const message *ev);       //äº‹ä»¶å¤„ç†å‡½æ•°ï¼šmain é‡Œä¼ çš„æ˜¯ router_dispatch
+typedef void (*render_cb_t)(void);      //æ¸²æŸ“å‡½æ•°ï¼šæ¯æ‹è°ƒä¸€æ¬¡ï¼Œmain é‡Œä¼ çš„æ˜¯ router_render 
 
 /**
- * @brief  ¿ªÊ¼ÔËĞĞÊÂ¼ş
- * @param  on_evt   ÊÂ¼şº¯ÊıµØÖ·
- * @param  on_render   Ñ­»·º¯ÊıµØÖ·
- * @note   ÈÎºÎÏß³Ì¶¼ÄÜµ÷£¬²»×èÈû£º¶ÓÁĞÂúÁË¶ªÒ»¸öÊÂ¼ş£¬·µ»Ø¾ÍĞĞ
+ * @brief  å¼€å§‹è¿è¡Œäº‹ä»¶
+ * @param  on_evt   äº‹ä»¶å‡½æ•°åœ°å€
+ * @param  on_render   å¾ªç¯å‡½æ•°åœ°å€
+ * @note   ä»»ä½•çº¿ç¨‹éƒ½èƒ½è°ƒï¼Œä¸é˜»å¡ï¼šé˜Ÿåˆ—æ»¡äº†ä¸¢ä¸€ä¸ªäº‹ä»¶ï¼Œè¿”å›å°±è¡Œ
  */
 void kernel_run(evt_handler_t on_evt, render_cb_t on_render);
 
 /**
- * @brief  Í¶Ò»¸öÊÂ¼ş
- * @param  type   0 = °´¼ü£¬1 = ¿Ø¼şÊÂ¼ş£¨¼û event.h£©
- * @param  code   °´¼üºÅ / ¿Ø¼ş±àºÅ
- * @param  value  ¿Ø¼şµ±Ç°Öµ£¨°´¼üÊÂ¼ş´« 0£©
- * @note   ÈÎºÎÏß³Ì¶¼ÄÜµ÷£¬²»×èÈû£º¶ÓÁĞÂúÁË¶ªÒ»¸öÊÂ¼ş£¬·µ»Ø¾ÍĞĞ
+ * @brief  æŠ•ä¸€ä¸ªäº‹ä»¶
+ * @param  type   0 = æŒ‰é”®ï¼Œ1 = æ§ä»¶äº‹ä»¶ï¼ˆè§ event.hï¼‰
+ * @param  code   æŒ‰é”®å· / æ§ä»¶ç¼–å·
+ * @param  value  æ§ä»¶å½“å‰å€¼ï¼ˆæŒ‰é”®äº‹ä»¶ä¼  0ï¼‰
+ * @note   ä»»ä½•çº¿ç¨‹éƒ½èƒ½è°ƒï¼Œä¸é˜»å¡ï¼šé˜Ÿåˆ—æ»¡äº†ä¸¢ä¸€ä¸ªäº‹ä»¶ï¼Œè¿”å›å°±è¡Œ
  */
 void kernel_post(uint8_t type, uint8_t code, int32_t value);
 

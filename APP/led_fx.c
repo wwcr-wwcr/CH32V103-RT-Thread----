@@ -1,17 +1,17 @@
 /******************************************************************************
- * ÎÄ¼şÃû   : led_fx.c
- * ËµÃ÷     : RGB µÆĞ§ÊµÏÖ ¡ª¡ª ¶¯Ì¬Ä£Ê½ÓÉÄÚ²¿ rt_timer Çı¶¯£¨10ms Ò»²½£©
+ * æ–‡ä»¶å   : led_fx.c
+ * è¯´æ˜     : RGB ç¯æ•ˆå®ç° â€”â€” åŠ¨æ€æ¨¡å¼ç”±å†…éƒ¨ rt_timer é©±åŠ¨ï¼ˆ10ms ä¸€æ­¥ï¼‰
  *
- * ÄÚ´æ£ºµ÷É«°å 40 ×Ö½Ú£¨ÔÚ led_fx.h Àï¶¨ÒåÒ»´Î£©£¬Ã»ÓĞ±ğµÄÊı×é¡£
+ * å†…å­˜ï¼šè°ƒè‰²æ¿ 40 å­—èŠ‚ï¼ˆåœ¨ led_fx.h é‡Œå®šä¹‰ä¸€æ¬¡ï¼‰ï¼Œæ²¡æœ‰åˆ«çš„æ•°ç»„ã€‚
  ******************************************************************************/
 
-#define LED_FX_PALETTE_DEFINE           /* ÈÃÍ·ÎÄ¼ş°Ñµ÷É«°åÊµÀı»¯³öÀ´ */
+#define LED_FX_PALETTE_DEFINE           /* è®©å¤´æ–‡ä»¶æŠŠè°ƒè‰²æ¿å®ä¾‹åŒ–å‡ºæ¥ */
 #include "led_fx.h"
 #include "led.h"
 #include <rtthread.h>
 
 /**************************************************************************************************
- *                                        ×´Ì¬
+ *                                        çŠ¶æ€
  **************************************************************************************************/
 typedef enum
 {
@@ -21,14 +21,14 @@ typedef enum
     M_RAINBOW
 } fx_mode_t;
 
-static uint32_t   s_rgb     = 0xff0000;     /* µ±Ç°ÑÕÉ«£¨0xRRGGBB£© */
+static uint32_t   s_rgb     = 0xff0000;     /* å½“å‰é¢œè‰²ï¼ˆ0xRRGGBBï¼‰ */
 static fx_mode_t  s_mode    = M_STEADY;
-static uint16_t   s_period  = 2000;         /* ¶¯Ì¬Ä£Ê½µÄÖÜÆÚ£¨ms£© */
-static uint8_t    s_off     = 0;            /* 1 = ±» off() ¹ØµôÁË */
-static rt_tick_t  s_phase_t0;               /* ÏàÎ»»ù×¼ */
-static rt_timer_t s_timer   = RT_NULL;      /* 10ms ÖÜÆÚ¶¨Ê±Æ÷ */
+static uint16_t   s_period  = 2000;         /* åŠ¨æ€æ¨¡å¼çš„å‘¨æœŸï¼ˆmsï¼‰ */
+static uint8_t    s_off     = 0;            /* 1 = è¢« off() å…³æ‰äº† */
+static rt_tick_t  s_phase_t0;               /* ç›¸ä½åŸºå‡† */
+static rt_timer_t s_timer   = RT_NULL;      /* 10ms å‘¨æœŸå®šæ—¶å™¨ */
 
-/* ½¥±ä */
+/* æ¸å˜ */
 static uint32_t   s_fade_from;
 static uint32_t   s_fade_to;
 static uint16_t   s_fade_ms;
@@ -36,9 +36,9 @@ static rt_tick_t  s_fade_t0;
 static uint8_t    s_fading;
 
 /**************************************************************************************************
- *                                        ÄÚ²¿¹¤¾ß
+ *                                        å†…éƒ¨å·¥å…·
  **************************************************************************************************/
-/* 0..1000 ÈıÍ¨µÀÏßĞÔ²åÖµ */
+/* 0..1000 ä¸‰é€šé“çº¿æ€§æ’å€¼ */
 static uint32_t lerp_rgb(uint32_t a, uint32_t b, uint32_t p)
 {
     int32_t ar = (int32_t)((a >> 16) & 0xFFU);
@@ -58,7 +58,7 @@ static uint32_t lerp_rgb(uint32_t a, uint32_t b, uint32_t p)
     return (r << 16) | (g << 8) | bl;
 }
 
-/* HSV -> RGB£ºh 0..359£¬s/v 0..100£¨ÕûÊıÊµÏÖ£¬²»ÓÃ¸¡µã£© */
+/* HSV -> RGBï¼šh 0..359ï¼Œs/v 0..100ï¼ˆæ•´æ•°å®ç°ï¼Œä¸ç”¨æµ®ç‚¹ï¼‰ */
 static uint32_t hsv2rgb(uint16_t h, uint8_t s, uint8_t v)
 {
     uint32_t vv;
@@ -95,7 +95,7 @@ static uint32_t hsv2rgb(uint16_t h, uint8_t s, uint8_t v)
     }
 }
 
-/* µ±Ç°ÏàÎ»£¨0..period ¸ö tick£© */
+/* å½“å‰ç›¸ä½ï¼ˆ0..period ä¸ª tickï¼‰ */
 static uint32_t phase_now(void)
 {
     rt_tick_t per = rt_tick_from_millisecond(s_period);
@@ -108,13 +108,13 @@ static uint32_t phase_now(void)
     return (uint32_t)((rt_tick_get() - s_phase_t0) % per);
 }
 
-/* ËãÒ»Ö¡²¢Êä³ö */
+/* ç®—ä¸€å¸§å¹¶è¾“å‡º */
 static void led_fx_step(void)
 {
     uint32_t rgb  = s_rgb;
     uint32_t duty = 100;
 
-    /* 1. ½¥±äÍÆ½ø */
+    /* 1. æ¸å˜æ¨è¿› */
     if(s_fading != 0U)
     {
         uint32_t el = (uint32_t)(rt_tick_get() - s_fade_t0);
@@ -132,14 +132,14 @@ static void led_fx_step(void)
         rgb = s_rgb;
     }
 
-    /* 2. ±» off() ¹ØµôÁË */
+    /* 2. è¢« off() å…³æ‰äº† */
     if(s_off != 0U)
     {
         (void)led_set(0, 0);
         return;
     }
 
-    /* 3. °´Ä£Ê½ËãÕâÒ»Ö¡ */
+    /* 3. æŒ‰æ¨¡å¼ç®—è¿™ä¸€å¸§ */
     switch(s_mode)
     {
         case M_BREATH:
@@ -186,7 +186,7 @@ static void led_fx_timer_cb(void *param)
 
     led_fx_step();
 
-    /* ³£ÁÁÇÒÃ»ÓĞ½¥±äÔÚÅÜ£º¶¨Ê±Æ÷¿ÉÒÔĞªÁË */
+    /* å¸¸äº®ä¸”æ²¡æœ‰æ¸å˜åœ¨è·‘ï¼šå®šæ—¶å™¨å¯ä»¥æ­‡äº† */
     if((s_mode == M_STEADY) && (s_fading == 0U) && (s_timer != RT_NULL))
     {
         (void)rt_timer_stop(s_timer);
@@ -216,7 +216,7 @@ static void led_fx_timer_halt(void)
 }
 
 /**************************************************************************************************
- *                                        ¶ÔÍâ½Ó¿Ú
+ *                                        å¯¹å¤–æ¥å£
  **************************************************************************************************/
 void led_fx_init(void)
 {
@@ -224,7 +224,7 @@ void led_fx_init(void)
     s_off      = 0;
     s_fading   = 0;
 
-    (void)led_set(s_rgb, 100);                  /* Ë³±ã°Ñ PWM ³õÊ¼»¯µô£¬±ğÈÃ¶¨Ê±Æ÷Àï×ö */
+    (void)led_set(s_rgb, 100);                  /* é¡ºä¾¿æŠŠ PWM åˆå§‹åŒ–æ‰ï¼Œåˆ«è®©å®šæ—¶å™¨é‡Œåš */
 }
 
 void led_fx_set_color(uint32_t rgb)
@@ -234,7 +234,7 @@ void led_fx_set_color(uint32_t rgb)
         return;
     }
 
-    s_fading = 0;                               /* Ö±½Ó»»É«»á´ò¶Ï½¥±ä */
+    s_fading = 0;                               /* ç›´æ¥æ¢è‰²ä¼šæ‰“æ–­æ¸å˜ */
     s_off    = 0;
     s_rgb    = rgb;
 
@@ -283,7 +283,7 @@ void led_fx_fade_to(uint32_t rgb, uint16_t ms)
     s_fading    = 1;
     s_off       = 0;
 
-    led_fx_timer_run();                         /* ½¥±ä¿¿¶¨Ê±Æ÷ÍÆ½ø */
+    led_fx_timer_run();                         /* æ¸å˜é å®šæ—¶å™¨æ¨è¿› */
 }
 
 void led_fx_steady(void)
@@ -343,24 +343,24 @@ void led_fx_off(void)
 }
 
 /* ============================================================================
- * Ê¹ÓÃÊ¾Àı£ºÕû¶Î¸´ÖÆµ½ÄãµÄ task Àï
+ * ä½¿ç”¨ç¤ºä¾‹ï¼šæ•´æ®µå¤åˆ¶åˆ°ä½ çš„ task é‡Œ
  * ========================================================================== */
 #if 0
 #include "led_fx.h"
 
 static void led_demo(void)
 {
-    led_fx_init();                      /* ½øÒ³Ãæ£ºÍÆ³öÄ¬ÈÏºìÉ«³£ÁÁ */
+    led_fx_init();                      /* è¿›é¡µé¢ï¼šæ¨å‡ºé»˜è®¤çº¢è‰²å¸¸äº® */
 
-    led_fx_next_color();                /* ÇĞµ½¶ÓÁĞÀïµÄÏÂÒ»¸öÑÕÉ« */
-    led_fx_set_color_index(2);          /* Ö±½ÓÌøµ½µÚ 3 ¸ö£¨À¶£© */
-    led_fx_fade_to(0xff8000, 300);      /* 300ms ½¥±äµ½çúçê */
+    led_fx_next_color();                /* åˆ‡åˆ°é˜Ÿåˆ—é‡Œçš„ä¸‹ä¸€ä¸ªé¢œè‰² */
+    led_fx_set_color_index(2);          /* ç›´æ¥è·³åˆ°ç¬¬ 3 ä¸ªï¼ˆè“ï¼‰ */
+    led_fx_fade_to(0xff8000, 300);      /* 300ms æ¸å˜åˆ°ç¥ç€ */
 
-    led_fx_steady();                    /* ³£ÁÁ£ºÍ£Ö¹¶¯Ì¬Ä£Ê½£¬¶¨Ê±Æ÷×Ô¼º»áÍ£ */
-    led_fx_breath(2000);                /* 2 ÃëÒ»´ÎºôÎü£¬ÈÎÎñ²»ÓÃÔÙ¹Ü */
-    led_fx_blink(400);                  /* 0.2 ÃëÁÁ / 0.2 ÃëÃğ */
-    led_fx_rainbow(6000);               /* 6 Ãë×ªÒ»È¦²Êºç */
+    led_fx_steady();                    /* å¸¸äº®ï¼šåœæ­¢åŠ¨æ€æ¨¡å¼ï¼Œå®šæ—¶å™¨è‡ªå·±ä¼šåœ */
+    led_fx_breath(2000);                /* 2 ç§’ä¸€æ¬¡å‘¼å¸ï¼Œä»»åŠ¡ä¸ç”¨å†ç®¡ */
+    led_fx_blink(400);                  /* 0.2 ç§’äº® / 0.2 ç§’ç­ */
+    led_fx_rainbow(6000);               /* 6 ç§’è½¬ä¸€åœˆå½©è™¹ */
 
-    led_fx_off();                       /* ÍËÒ³Ãæ£ºÏ¨µÆ²¢Í£µô¶¨Ê±Æ÷ */
+    led_fx_off();                       /* é€€é¡µé¢ï¼šç†„ç¯å¹¶åœæ‰å®šæ—¶å™¨ */
 }
 #endif
