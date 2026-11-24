@@ -8,10 +8,14 @@ static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void menu_thread(void *arg);
 
 //********************在这里写任务表********************//
+extern const task_t task_01;
+extern const task_t task_02;
 //extern const task_t task_x;                                           <----------在这添加
 static const task_t *const g_app_list[] =
 {
 //  &task_x,                                                             <----------在这添加
+    &task_01,
+    &task_02,
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
 static const char *s_names[8];                 

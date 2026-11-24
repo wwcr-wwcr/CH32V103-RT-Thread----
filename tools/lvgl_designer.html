@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>LVGL 可视化设计器 — 基于 LVGL_Demo.h</title>
+<title>LVGL 图形化设计器 · 界面与任务</title>
 <style>
 :root{
   --bg:#f7f4f7; --panel:#ffffff; --line:#e8dde6; --text:#3a2e39; --dim:#9a8c98;
@@ -26,6 +26,11 @@ label.mini{color:var(--dim);font-size:12px}
 /* ---------- 三栏 ---------- */
 #main{flex:1;display:flex;min-height:0}
 #left{width:174px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px}
+#paletteFilter{width:100%;margin-bottom:6px}
+#taskBindingInfo{overflow-wrap:anywhere;margin-top:6px}
+#canvas .k-btnmatrix{display:flex;flex-direction:column;gap:2px;padding:3px;background:#fff}
+.matrix-row{display:flex;flex:1;gap:2px;min-height:0}
+.matrix-row span{flex:1;min-width:0;overflow:hidden;text-align:center;align-content:center;border-radius:3px;background:#f4eaf0;color:var(--text)}
 #right{width:264px;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:8px}
 #center{flex:1;display:flex;flex-direction:column;min-width:0}
 
@@ -50,6 +55,8 @@ label.mini{color:var(--dim);font-size:12px}
 #canvas{position:relative;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.12);overflow:hidden;
   background-image:linear-gradient(#00000008 1px,transparent 1px),linear-gradient(90deg,#00000008 1px,transparent 1px);
   background-size:8px 8px}
+#canvas{touch-action:none;user-select:none}
+#canvas .marquee{position:absolute;border:1px solid var(--sel);background:rgba(255,79,139,.12);pointer-events:none}
 #canvas.grid-off{background-image:none}
 .w{position:absolute;border:1px dashed transparent;cursor:move;overflow:hidden;user-select:none}
 .w.sel{border-color:var(--sel);box-shadow:0 0 0 1px var(--sel) inset}
@@ -96,7 +103,7 @@ label.mini{color:var(--dim);font-size:12px}
 .k-ta{background:#fff;border:1px solid #ffd9e8;border-radius:10px;padding:6px 8px;font-size:12px;color:#9a8c98}
 .k-led{border-radius:50%;background:#3fc8b4;box-shadow:0 0 12px #3fc8b4aa}
 .k-spin{border-radius:50%;border:4px dashed #3fc8b4}
-.k-line{background:#fff;border:1px solid #ffd9e8;border-radius:6px;background-image:linear-gradient(to top right,transparent 49%,#3fc8b4 49%,#3fc8b4 51%,transparent 51%)}
+.k-line svg{display:block;width:100%;height:100%}
 .k-img{background:#eee;border:1px dashed #bbb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:18px}
 .k-table{background:#fff;border:1px solid #ffd9e8;border-radius:8px;background-image:
   linear-gradient(#00000012 1px,transparent 1px),linear-gradient(90deg,#00000012 1px,transparent 1px);
@@ -138,7 +145,7 @@ label.mini{color:var(--dim);font-size:12px}
     <button id="btnClear" title="一键清空当前页的控件（Ctrl+Z 可撤销）；Shift+点击 = 清空所有页">清空</button>
     <button id="btnDemo">示例</button>
     <button id="btnOpen">打开…</button>
-    <button id="btnPickC" title="选你的 task_xxx.c，工具会读出里面定义的变量，供控件绑形参时选择">导入 C 文件</button>
+    <button id="btnPickC" title="选择一个任务 .c 和对应的 .h，从文件级变量中选择控件数据">绑定 C / H…</button>
     <button id="btnSave">保存工程</button>
   </div>
   <div class="grp">
@@ -166,7 +173,8 @@ label.mini{color:var(--dim);font-size:12px}
     </select>
   </div>
   <div class="grp" style="margin-left:auto">
-    <button id="btnCode" class="pri">查看 / 复制代码</button>
+    <button id="btnCode">查看 / 复制代码</button>
+    <button id="btnTaskGenerator" class="pri">生成任务三件套</button>
   </div>
 </header>
 
@@ -180,8 +188,11 @@ label.mini{color:var(--dim);font-size:12px}
     <div class="sec">
       <h4>工程</h4>
       <div class="row"><div class="fld"><label>文件名前缀</label><input id="projName" value="app_ui"></div></div>
-      <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 同时生成 task_xxx.c</label></div></div>
-      <div class="hint">生成的文件放进 <b>User/&lt;task名&gt;/</b> 里（和它的 .c 放一起），包含 theme.h 与 LVGL_DEMO/LVGL_Demo.h。</div>
+      <div class="row"><div class="fld"><label><input type="checkbox" id="genTask" style="width:auto"> 代码预览中包含任务骨架</label></div></div>
+      <div class="hint">目标为 LVGL 8.2.0 · LVGL_Demo.h。三件套写入 <b>User/&lt;任务名&gt;/</b>。</div>
+      <div class="hint" id="taskBindingInfo" role="status"></div>
+      <details id="taskFunctions" hidden><summary></summary><ul style="padding-left:18px;overflow-wrap:anywhere"></ul></details>
+      <button type="button" id="btnDetachTask" hidden>解除文件绑定</button>
     </div>
     <div class="sec">
       <h4>属性</h4>
@@ -191,23 +202,27 @@ label.mini{color:var(--dim);font-size:12px}
       <h4>图层（后加的在上）</h4>
       <div id="layers"></div>
       <div class="row" style="margin-top:6px">
-        <button id="lyUp">上移</button><button id="lyDown">下移</button><button id="lyDel">删除</button>
+        <button id="lyUp">上移</button><button id="lyDown">下移</button><button id="lyDel" title="删除选中控件及其子控件，可撤销">删除</button>
       </div>
     </div>
     <div class="sec">
-      <h4>对齐到页面</h4>
+      <h4 id="alignTitle">对齐到页面</h4>
       <div class="row">
         <button data-al="l">左</button><button data-al="c">中</button><button data-al="r">右</button>
       </div>
       <div class="row">
         <button data-al="t">上</button><button data-al="m">中</button><button data-al="b">下</button>
       </div>
+      <div class="row">
+        <button data-al="dx" title="选中三个或更多控件后，使水平间距相等">水平等距</button>
+        <button data-al="dy" title="选中三个或更多控件后，使垂直间距相等">垂直等距</button>
+      </div>
     </div>
   </aside>
 </div>
 
 <footer id="status">
-  <span id="stPos">—</span><span id="stSel">未选中</span><span id="stTip">拖动移动 · 方向键微调 · Del 删除 · Ctrl+D 复制</span>
+  <span id="stPos">—</span><span id="stSel">未选中</span><span id="stTip">空白处拖动框选 · Ctrl/Shift 点选 · 方向键微调 · Ctrl+D 创建副本</span>
 </footer>
 
 <div id="codeMask">
@@ -225,7 +240,7 @@ label.mini{color:var(--dim);font-size:12px}
 </div>
 
 <input type="file" id="fileIn" accept=".json" style="display:none">
-<input type="file" id="fileC" accept=".c,.h,.txt" style="display:none">
+<input type="file" id="fileC" accept=".c,.h,.txt" multiple style="display:none">
 <datalist id="varpool"></datalist>
 
 <script>
@@ -255,7 +270,7 @@ const W = {
   img:      {n:'图片',   fn:'ui_img_new',      need:'LV_USE_IMG',  d:{w:64,h:64}},
   table:    {n:'表格',   fn:'ui_table_new',    need:'LV_USE_TABLE',d:{w:260,h:110,rows:3,cols:3}},
   meter:    {n:'仪表',   fn:'ui_meter_new',    need:'LV_USE_METER',d:{w:120,h:120,min:0,max:100,val:50}},
-  canvas:   {n:'画布',   fn:'ui_canvas_new',   need:'LV_USE_CANVAS',d:{w:200,h:100}},
+  canvas:   {n:'画布',   fn:'ui_canvas_new',   need:'LV_USE_CANVAS',d:{w:120,h:80}},
   btnmatrix:{n:'按钮矩阵',fn:'ui_btnmatrix_new',need:'LV_USE_BTNMATRIX',d:{w:220,h:80,options:'1,2,3\n4,5,6',code:1}},
 };
 const GROUPS = [
@@ -297,7 +312,7 @@ const EXTRA = {
   arc:      [{k:'angStart', label:'起始角度', def:'135'},
              {k:'angEnd', label:'结束角度', def:'45'}],
   led:      [{k:'initOn', label:'初始点亮', type:'bool', def:'1'}],
-  img:      [{k:'imgName', label:'图片变量名（LV_IMG_DECLARE 的名字）', def:'my_img'}],
+  img:      [{k:'imgName', label:'图片资源变量名（留空显示内置图标）', def:''}],
 };
 
 /* genWidget 往这里塞"额外声明"和"额外函数"，genCode 统一输出 */
@@ -327,27 +342,61 @@ const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x
 const scr = ()=>S.screens[S.cur];
 const wid = i=>scr().widgets[i];
 
-function snapshot(){history.push(JSON.stringify(S.screens)); if(history.length>60)history.shift(); future.length=0;}
+function recordSnapshot(state){history.push(state); if(history.length>60) history.shift(); future.length=0;}
+function snapshot(){recordSnapshot(JSON.stringify(S.screens));}
 function undo(){
   if(!history.length) return;
   const s=JSON.parse(history.pop());
   if(!Array.isArray(s)) return;
   future.push(JSON.stringify(S.screens));
-  S.screens=s; S.sel=-1; renderAll();
+  S.screens=s; S.cur=Math.min(S.cur,s.length-1); S.sel=-1; renderAll();
 }
 function redo(){
   if(!future.length) return;
   const s=JSON.parse(future.pop());
   if(!Array.isArray(s)) return;
   history.push(JSON.stringify(S.screens));
-  S.screens=s; S.sel=-1; renderAll();
+  S.screens=s; S.cur=Math.min(S.cur,s.length-1); S.sel=-1; renderAll();
 }
 
 /* ---------- 左侧控件面板 ---------- */
+const referenceEnabled=new Set(['LV_USE_BTN','LV_USE_BAR','LV_USE_SLIDER','LV_USE_CHART','LV_USE_CANVAS','LV_USE_IMG','LV_USE_LINE']);
+let widgetFlags=new Map(Object.values(W).filter(d=>d.need).map(d=>[d.need,referenceEnabled.has(d.need)]));
+let widgetFlagSource='参考工程';
+function setWidgetConfig(source){
+  const flags=new Map();
+  const defines=(source||'').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,' ');
+  for(const m of defines.matchAll(/^[ \t]*#[ \t]*define[ \t]+(LV_USE_\w+)[ \t]+\(?([01])\)?[ \t]*\r?$/gm)){
+    flags.set(m[1],m[2]==='1');
+  }
+  widgetFlags=flags; widgetFlagSource='所选工程';
+  refreshPaletteFlags();
+}
+function refreshPaletteFlags(){
+  for(const item of document.querySelectorAll('#left [data-widget]')){
+    const macro=W[item.dataset.widget].need;
+    if(!macro) continue;
+    const enabled=widgetFlags.get(macro);
+    const status=enabled===true?'已启用':enabled===false?'需启用':'待确认';
+    item.classList.toggle('off',enabled===false);
+    item.querySelector('span').textContent=status;
+    item.title=widgetFlagSource+' · '+macro+' · '+status;
+  }
+}
+function disabledWidgetMacros(){
+  const used=S.screens.flatMap(page=>page.widgets.map(w=>W[w.type].need));
+  return [...new Set(used.filter(m=>m && widgetFlags.get(m)===false))];
+}
 function buildPalette(){
   const L=$('#left'); L.innerHTML='';
+  const filter=document.createElement('input');
+  filter.type='search'; filter.id='paletteFilter'; filter.placeholder='查找控件…';
+  filter.setAttribute('aria-label','按名称、函数或宏查找控件');
+  L.appendChild(filter);
+  const groups=[];
   GROUPS.forEach(([g,list])=>{
-    L.appendChild(el('div','pal-title',g));
+    const heading=el('div','pal-title',g);
+    L.appendChild(heading);
     const box=el('div','pal');
     list.forEach(t=>{
       const d=W[t];
@@ -355,65 +404,116 @@ function buildPalette(){
       it.innerHTML='<b>'+d.n+'</b><span>'+(d.need?d.need.replace('LV_USE_',''):'基础')+'</span>';
       it.title=d.need?('需要 '+d.need+' = 1（生成的代码会带 #if 保护）'):'不需要额外宏';
       it.onclick=()=>addWidget(t);
+      it.draggable=true;
+      it.dataset.widget=t;
+      it.dataset.search=[g,d.n,t,d.fn,d.need].join(' ').toLowerCase();
+      it.ondragstart=e=>{
+        e.dataTransfer.effectAllowed='copy';
+        e.dataTransfer.setData('application/x-lvgl-widget',t);
+      };
       box.appendChild(it);
     });
     L.appendChild(box);
+    groups.push({heading,box});
   });
   const tip=el('div','hint');
   tip.style.marginTop='10px';
-  tip.innerHTML='点一下加到当前页；生成的代码对未启用的控件会自动加 <code>#if</code> 保护。';
+  tip.textContent='点击添加，或拖到画布指定位置。';
   L.appendChild(tip);
+  refreshPaletteFlags();
+  filter.oninput=()=>{
+    const query=filter.value.trim().toLowerCase();
+    let count=0;
+    for(const {heading,box} of groups){
+      let visible=0;
+      for(const item of box.children){
+        item.hidden=!item.dataset.search.includes(query);
+        if(!item.hidden) visible++;
+      }
+      heading.hidden=!visible; box.style.display=visible?'':'none'; count+=visible;
+    }
+    tip.textContent=count?'点击添加，或拖到画布指定位置。':'找不到匹配的控件。';
+  };
 }
 
 /* ---------- 加控件 ---------- */
-function addWidget(type){
+function addWidget(type,point){
   const d=W[type]; if(!d)return;
   snapshot();
-  const n={type, name:type+(S.seq++), x:12, y:12, ...JSON.parse(JSON.stringify(d.d))};
+  const names=new Set(S.screens.flatMap(page=>page.widgets.map(w=>w.name)));
+  let name;
+  do { name=type+(S.seq++); } while(names.has(name));
+  const n={type,name,x:12,y:12,...JSON.parse(JSON.stringify(d.d))};
   /* 级联偏移，避免叠在一起 */
   const k=scr().widgets.length;
   n.x=8+(k%8)*12; n.y=64+Math.floor(k/8)*12;
   if(n.w>W_()-16)n.w=W_()-16;
   if(n.h>H_()-24)n.h=H_()-24;
-  /* 父级：如果落点在某张卡片里就挂进去 */
+  if(point){
+    n.x=Math.max(0,Math.min(Math.round(point.x),W_()-n.w));
+    n.y=Math.max(0,Math.min(Math.round(point.y),H_()-n.h));
+  }
   n.parent=-1;
   scr().widgets.push(n);
   S.sel=scr().widgets.length-1;
   renderAll();
 }
 
+const widgetMime='application/x-lvgl-widget';
+$('#canvas').addEventListener('dragover',e=>{
+  if(e.dataTransfer.types.includes(widgetMime)){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; }
+});
+$('#canvas').addEventListener('drop',e=>{
+  const type=e.dataTransfer.getData(widgetMime);
+  if(!Object.hasOwn(W,type)) return;
+  e.preventDefault();
+  const bounds=e.currentTarget.getBoundingClientRect();
+  addWidget(type,{x:(e.clientX-bounds.left)*W_()/bounds.width,y:(e.clientY-bounds.top)*H_()/bounds.height});
+});
+
 /* ---------- 画布渲染 ---------- */
+function matrixRows(widget){
+  return String(widget.options ?? W.btnmatrix.d.options).split(/\r?\n/)
+    .map(row=>row.split(/[,，]/).map(label=>label.trim()).filter(Boolean)).filter(row=>row.length);
+}
 function widgetNode(w,i){
   const n=el('div','w k-'+w.type);
   const ax=absOf(w);
   n.style.left=ax.x+'px'; n.style.top=ax.y+'px';
   n.style.width=w.w+'px'; n.style.height=w.h+'px';
   n.dataset.i=i;
-  if(i===S.sel)n.classList.add('sel');
+  if(selected.has(i))n.classList.add('sel');
 
   switch(w.type){
     case 'card': n.style.borderRadius=(w.radius||22)+'px'; break;
     case 'label': n.textContent=w.text||''; n.style.color=colorOf(w.color); n.style.alignItems='center'; break;
     case 'btn':   n.textContent=w.text||''; break;
+    case 'btnmatrix':
+      for(const labels of matrixRows(w)){
+        const row=el('div','matrix-row');
+        row.append(...labels.map(label=>el('span','',label))); n.appendChild(row);
+      }
+      break;
     case 'bar':   n.innerHTML='<i style="width:'+pct(w.val,w.min,w.max)+'%"></i>'; n.style.height=w.h+'px'; break;
     case 'slider':n.innerHTML='<i style="width:'+pct(w.val,w.min,w.max)+'%"></i><u style="left:calc('+pct(w.val,w.min,w.max)+'% - 7px);top:calc(50% - 7px)"></u>'; break;
     case 'chart': n.innerHTML=chartSVG(w); break;
     case 'switch':n.innerHTML='<u></u>'; break;
-    case 'checkbox':n.innerHTML='<b></b>'+(w.text||''); break;
+    case 'checkbox':n.innerHTML='<b></b>'+esc(w.text||''); break;
     case 'arc':   n.style.borderWidth='6px'; break;
-    case 'dropdown':n.innerHTML='<span>'+(String(w.options||'').split('\n')[0])+'</span><span>▾</span>'; break;
-    case 'roller':n.innerHTML='<div>'+String(w.options||'').split('\n').slice(0,3).join('<br>')+'</div>'; break;
+    case 'dropdown':n.innerHTML='<span>'+esc(String(w.options||'').split('\n')[0])+'</span><span>▾</span>'; break;
+    case 'roller':n.innerHTML='<div>'+String(w.options||'').split('\n').slice(0,3).map(esc).join('<br>')+'</div>'; break;
     case 'textarea':n.textContent=w.text||''; break;
     case 'led':   n.style.background=colorOf(w.color); break;
     case 'spinner':n.style.borderColor='#3fc8b4'; break;
     case 'img':   n.textContent='🖼'; break;
+    case 'line':  n.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="100" x2="100" y2="0" stroke="#3fc8b4" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>'; break;
     case 'meter': n.innerHTML='<i style="transform:rotate('+( -45 + 270*pct(w.val,w.min,w.max)/100 )+'deg)"></i>'; break;
     default: break;
   }
 
   /* 选中框的 8 个缩放手柄 */
-  if(i===S.sel){
-    [['nw',-4,-4],['n',-4,'50%'],['ne',-4,'100%'],['w','50%',-4],['e','50%',-4],['sw','100%',-4],['s','50%','100%'],['se','100%','100%']]
+  if(selected.size===1 && selected.has(i)){
+    [['nw',-4,-4],['n','50%',-4],['ne','100%',-4],['w',-4,'50%'],['e','100%','50%'],['sw',-4,'100%'],['s','50%','100%'],['se','100%','100%']]
     .forEach(([dir,lx,ly])=>{
       const h=el('div','hd'); h.dataset.dir=dir;
       if(typeof lx==='number')h.style.left=(lx)+'px'; else h.style.left='calc('+lx+' - 4px)';
@@ -470,9 +570,9 @@ function renderLayers(){
   const L=$('#layers'); L.innerHTML='';
   if(!scr().widgets.length){L.appendChild(el('div','hint','还没有控件'));return;}
   scr().widgets.forEach((w,i)=>{
-    const r=el('div','ly'+(i===S.sel?' act':''));
-    r.innerHTML='<span>'+W[w.type].n+'</span><em>'+w.name+'</em>'+(w.code!=null?'<span>#'+w.code+'</span>':'');
-    r.onclick=()=>{S.sel=i;renderAll();};
+    const r=el('div','ly'+(selected.has(i)?' act':''));
+    r.innerHTML='<span>'+W[w.type].n+'</span><em>'+esc(w.name)+'</em>'+(w.code!=null?'<span>#'+esc(w.code)+'</span>':'');
+    r.onclick=e=>{pickWidget(i,e.ctrlKey||e.metaKey||e.shiftKey);renderAll();};
     L.appendChild(r);
   });
 }
@@ -513,6 +613,10 @@ const FIELDS_BY_TYPE = {
 
 function renderInspector(){
   const box=$('#inspector');
+  if(selected.size>1){
+    box.innerHTML='<div class="hint">'+selected.size+' 个控件已选。可整体拖动、对齐，或用 Ctrl+C / Ctrl+V 跨页复制。</div>';
+    return;
+  }
   if(S.sel<0||!wid(S.sel)){box.innerHTML='<div class="hint">先在画布上选一个控件。</div>';return;}
   const w=wid(S.sel);
   box.innerHTML='';
@@ -521,10 +625,17 @@ function renderInspector(){
   r0.innerHTML='<div class="fld"><label>变量名</label><input id="f_name" value="'+esc(w.name)+'"></div>';
   box.appendChild(r0);
   const r1=el('div','row');
-  const opts=['-1|<页面本身>'].concat(scr().widgets.map((o,i)=>o.type==='card'?i+'|'+o.name:null).filter(Boolean));
+  const opts=[[-1,'<页面本身>']];
+  scr().widgets.forEach((o,i)=>{
+    if(o.type==='card' && i!==S.sel && !hasSelectedAncestor(o,selected))opts.push([i,o.name]);
+  });
   r1.innerHTML='<div class="fld"><label>父级（放进卡片）</label><select id="f_parent">'+
-     opts.map(o=>{const [v,t]=o.split('|');return '<option value="'+v+'"'+((w.parent||-1)==+v?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select></div>';
+     opts.map(([v,t])=>'<option value="'+v+'"'+((w.parent ?? -1)===v?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>';
   box.appendChild(r1);
+  if(w.type==='canvas'){
+    const bytes=w.w*w.h*2;
+    box.appendChild(el('div','hint','RGB565 像素缓冲占用 '+bytes.toLocaleString('zh-CN')+' 字节 RAM（'+w.w+' × '+w.h+' × 2）。'));
+  }
 
   /* 绑定形参：让 render() 自动长出一个参数，并生成对应的 set 代码 */
   if(['label','bar','chart','led','slider','arc'].includes(w.type)){
@@ -535,7 +646,7 @@ function renderInspector(){
 
     const d0b=el('div','row');
     d0b.innerHTML='<div class="fld"><label>类型</label><select id="f_bindType">'+
-      ['int32_t','uint32_t','uint16_t','uint8_t','int16_t','float','const char *']
+      ['int32_t','uint32_t','uint16_t','uint8_t','int16_t','int8_t','char','float','double','const char *']
       .map(tp=>'<option value="'+tp+'"'+((w.bindType||'int32_t')===tp?' selected':'')+'>'+tp+'</option>').join('')+
       '</select></div>';
     box.appendChild(d0b);
@@ -595,7 +706,17 @@ function renderInspector(){
     inp.onchange=()=>{
       const k=inp.id.slice(2);
       snapshot();
-      if(k==='parent'){ w.parent=+inp.value; }
+      if(k==='parent'){
+        const pos=absOf(w); w.parent=+inp.value;
+        const root=w.parent>=0?absOf(wid(w.parent)):{x:0,y:0};
+        w.x=pos.x-root.x; w.y=pos.y-root.y;
+        if(w.parent>S.sel){
+          const parent=wid(w.parent), subtree=new Set(selectedTree().map(wid));
+          const next=scr().widgets.filter(o=>!subtree.has(o));
+          next.splice(next.indexOf(parent)+1,0,...subtree);
+          remapWidgets(next);setSelection([next.indexOf(w)]);
+        }
+      }
       else if(k==='name'){ w.name=inp.value||('w'+S.seq++); }
       else if(k==='bind'){
         w.bind = inp.value.trim();
@@ -612,31 +733,173 @@ function renderInspector(){
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 /* ---------- 交互：选择 / 拖动 / 缩放 ---------- */
-let drag=null;
-
+/* 选择与几何均留在编辑器；固件工程数据仍只包含原来的控件数组。 */
+let selected = new Set(), selectionPage = null, widgetClipboard = null;
+let drag = null;
+function setSelection(indices){
+  selected = new Set(indices.filter(i=>Number.isInteger(i) && wid(i)));
+  S.sel = Array.from(selected).pop() ?? -1;
+  selectionPage = scr();
+}
+function syncSelection(){
+  if(selectionPage!==scr() || !selected.has(S.sel) || !wid(S.sel)) setSelection([S.sel]);
+}
+function pickWidget(i, extend){
+  if(!extend){ setSelection([i]); return; }
+  const next=new Set(selected);
+  if(next.has(i)) next.delete(i); else next.add(i);
+  setSelection([...next]);
+}
+function hasSelectedAncestor(w, indices){
+  const visited=new Set();
+  for(let p=w.parent; p!=null && p>=0 && wid(p) && !visited.has(p); p=wid(p).parent){
+    if(indices.has(p)) return true;
+    visited.add(p);
+  }
+  return false;
+}
+function selectionRoots(){
+  return [...selected].filter(i=>!hasSelectedAncestor(wid(i), selected));
+}
+function selectedTree(){
+  return scr().widgets.map((w,i)=>i).filter(i=>selected.has(i) || hasSelectedAncestor(wid(i),selected));
+}
+function boundsOf(indices){
+  const boxes=indices.map(i=>{const w=wid(i);return {...absOf(w),w:w.w,h:w.h};});
+  const x=Math.min(...boxes.map(b=>b.x)), y=Math.min(...boxes.map(b=>b.y));
+  const right=Math.max(...boxes.map(b=>b.x+b.w)), bottom=Math.max(...boxes.map(b=>b.y+b.h));
+  return {x,y,w:right-x,h:bottom-y};
+}
+function remapWidgets(next){
+  const old=scr().widgets, positions=new Map(next.map((w,i)=>[w,i]));
+  for(const w of next) w.parent=positions.get(old[w.parent]) ?? -1;
+  scr().widgets=next;
+}
+function removeSelected(){
+  if(!selected.size) return;
+  const removed=new Set(selectedTree());
+  snapshot();
+  remapWidgets(scr().widgets.filter((w,i)=>!removed.has(i)));
+  setSelection([]); renderAll();
+}
+function moveLayer(dir){
+  if(!selected.size) return;
+  const old=scr().widgets, next=old.slice(), chosen=new Set([...selected].map(wid));
+  for(let i=dir>0?next.length-2:1; dir>0?i>=0:i<next.length; i-=dir){
+    const a=next[i], b=next[i+dir];
+    if(!chosen.has(a) || chosen.has(b)) continue;
+    if(old[a.parent]===b || old[b.parent]===a) continue;
+    [next[i],next[i+dir]]=[b,a];
+  }
+  if(next.every((w,i)=>w===old[i])) return;
+  snapshot(); remapWidgets(next);
+  setSelection([...chosen].map(w=>next.indexOf(w))); renderAll();
+}
+function copyWidgets(){
+  if(!selected.size) return null;
+  const indices=selectedTree(), offsets=new Map(indices.map((i,n)=>[i,n]));
+  return {page:scr(),items:indices.map(i=>{
+    const w=wid(i);
+    return {value:JSON.parse(JSON.stringify(w)), parent:offsets.get(w.parent) ?? -1,
+      externalParent:wid(w.parent), absolute:absOf(w), selected:selected.has(i)};
+  })};
+}
+function pasteWidgets(clip){
+  if(!clip) return;
+  snapshot();
+  const a=scr().widgets, first=a.length, chosen=[];
+  const names=new Set(S.screens.flatMap(page=>page.widgets.map(w=>String(w.name).toLowerCase())));
+  const roots=clip.items.filter(item=>item.parent<0);
+  const gap=(pos,size,limit)=>Math.max(-Math.min(...roots.map(it=>it.absolute[pos])),
+    Math.min(12,limit-Math.max(...roots.map(it=>it.absolute[pos]+it.value[size]))));
+  const dx=gap('x','w',W_()), dy=gap('y','h',H_());
+  for(const item of clip.items){
+    const w={...item.value};
+    do {w.name=w.type+(S.seq++);} while(names.has(w.name.toLowerCase()));
+    names.add(w.name.toLowerCase());
+    if(item.parent>=0) w.parent=first+item.parent;
+    else{
+      w.parent=clip.page===scr()?a.indexOf(item.externalParent):-1;
+      const pa=w.parent>=0?absOf(wid(w.parent)):{x:0,y:0};
+      w.x=item.absolute.x+dx-pa.x; w.y=item.absolute.y+dy-pa.y;
+    }
+    if(item.selected) chosen.push(a.length);
+    a.push(w);
+  }
+  setSelection(chosen); renderAll();
+}
+function alignWidgets(mode){
+  const roots=selectionRoots(); if(!roots.length) return;
+  const axis=['l','c','r','dx'].includes(mode)?'x':'y', size=axis==='x'?'w':'h';
+  const boxes=roots.map(i=>({i,pos:absOf(wid(i))[axis],size:wid(i)[size]}));
+  const single=boxes.length===1;
+  const lo=single?0:Math.min(...boxes.map(b=>b.pos));
+  const hi=single?(axis==='x'?W_():H_()):Math.max(...boxes.map(b=>b.pos+b.size));
+  if(mode==='dx' || mode==='dy'){
+    if(boxes.length<3) return;
+    boxes.sort((a,b)=>a.pos-b.pos || a.i-b.i);
+    const last=boxes[boxes.length-1];
+    const span=last.pos+last.size-boxes[0].pos;
+    const gap=(span-boxes.reduce((sum,b)=>sum+b.size,0))/(boxes.length-1);
+    snapshot();
+    let pos=boxes[0].pos;
+    for(const b of boxes){wid(b.i)[axis]+=Math.round(pos)-b.pos; pos+=b.size+gap;}
+  }else{
+    snapshot();
+    for(const b of boxes){
+      let pos;
+      if(mode==='l' || mode==='t') pos=lo+(single?8:0);
+      else if(mode==='r' || mode==='b') pos=hi-b.size-(single?8:0);
+      else pos=(lo+hi-b.size)/2;
+      wid(b.i)[axis]+=Math.round(pos)-b.pos;
+    }
+  }
+  renderAll();
+}
+function canvasPoint(e){
+  const rect=$('#canvas').getBoundingClientRect();
+  return {x:(e.clientX-rect.left)/S.zoom, y:(e.clientY-rect.top)/S.zoom};
+}
+function drawMarquee(start,end){
+  const x=Math.min(start.x,end.x), y=Math.min(start.y,end.y);
+  const r={x,y,w:Math.abs(start.x-end.x),h:Math.abs(start.y-end.y)};
+  const box=el('div','marquee');
+  Object.assign(box.style,{left:x+'px',top:y+'px',width:r.w+'px',height:r.h+'px'});
+  const g=$('#guides'); g.replaceChildren(box);
+  return r;
+}
 $('#canvas').addEventListener('pointerdown',e=>{
-  const t=e.target.closest('.w');
-  if(!t){ S.sel=-1; renderAll(); return; }
-  const i=+t.dataset.i;
-  S.sel=i; renderAll();
-  const c=$('#canvas').getBoundingClientRect();
-  const w=wid(i);
-  const dir=e.target.dataset.dir;
-  const a=absOf(w), pa=absOf({x:0,y:0,parent:w.parent});
-  drag={mode:dir?'resize':'move', i, dir, sx:e.clientX, sy:e.clientY,
-        oa:a, pa:{x:a.x-w.x, y:a.y-w.y}, ow:w.w, oh:w.h, rect:c};
-  e.preventDefault();
+  if(e.button!==0 || drag) return;
+  const canvas=$('#canvas'), elem=e.target.closest('.w'), dir=e.target.dataset.dir;
+  const point=canvasPoint(e), extend=e.ctrlKey || e.metaKey || e.shiftKey;
+  if(!elem){
+    if(!extend) setSelection([]);
+    drag={mode:'box',base:[...selected]};
+  }else{
+    const i=+elem.dataset.i;
+    if(extend || !selected.has(i)) pickWidget(i,extend);
+    if(!selected.has(i)){renderAll();e.preventDefault();return;}
+    const w=wid(i), roots=selectionRoots();
+    drag={mode:dir?'resize':'move',dir,i,singleOnClick:!extend && selected.size>1,bounds:boundsOf(dir?[i]:selectedTree()),
+      roots:roots.map(idx=>({w:wid(idx),x:wid(idx).x,y:wid(idx).y})),
+      origin:{...absOf(w),xRel:w.x,yRel:w.y,w:w.w,h:w.h},
+      targets:snapTargets(new Set(selectedTree()))};
+  }
+  Object.assign(drag,{point,pointerId:e.pointerId,page:scr(),changed:false});
+  canvas.setPointerCapture(e.pointerId);
+  renderAll();e.preventDefault();
 });
+
 /* ---------- 坐标与吸附 ---------- */
 function absOf(w){
   let x=w.x, y=w.y, p=w.parent, g=0;
   while(p!=null && p>=0 && g++<32){ const P=scr().widgets[p]; if(!P)break; x+=P.x; y+=P.y; p=P.parent; }
   return {x:x, y:y};
 }
-function snapTargets(self){
+function snapTargets(excluded){
   const xs=[0, Math.round(W_()/2), W_()], ys=[0, Math.round(H_()/2), H_()];
   scr().widgets.forEach((o,i)=>{
-    if(i===self) return;
+    if(excluded.has(i)) return;
     const a=absOf(o);
     xs.push(a.x, Math.round(a.x+o.w/2), a.x+o.w);
     ys.push(a.y, Math.round(a.y+o.h/2), a.y+o.h);
@@ -661,81 +924,110 @@ function drawGuides(gx, gy){
   if(gy!=null){ const d=el('div','guide h'); d.style.top=gy+'px'; g.appendChild(d); }
 }
 
+function clampDelta(value, start, length, limit){
+  const min=Math.min(0,-start), max=Math.max(0,limit-start-length);
+  return Math.round(Math.max(min,Math.min(max,value)));
+}
 window.addEventListener('pointermove',e=>{
-  if(!drag) return;
-  const w=wid(drag.i); if(!w) return;
-  const k=S.zoom;
-  const dx=(e.clientX-drag.sx)/k, dy=(e.clientY-drag.sy)/k;
-  const mode = e.altKey ? 'off' : S.snapMode;
-  let gx=null, gy=null;
-
-  if(drag.mode==='move'){
-    let nx=drag.oa.x+dx, ny=drag.oa.y+dy;
-    if(mode==='grid'||mode==='both'){ nx=Math.round(nx/8)*8; ny=Math.round(ny/8)*8; }
-    if(mode==='smart'||mode==='both'){
-      const t=snapTargets(drag.i);
-      const rx=snapAxis(nx, w.w, t.xs, 6); nx=rx.pos; gx=rx.line;
-      const ry=snapAxis(ny, w.h, t.ys, 6); ny=ry.pos; gy=ry.line;
-    }
-    nx=Math.max(0, Math.min(W_()-w.w, Math.round(nx)));
-    ny=Math.max(0, Math.min(H_()-w.h, Math.round(ny)));
-    w.x=nx-drag.pa.x; w.y=ny-drag.pa.y;
-  }else{
-    const d=drag.dir;
-    let ax=drag.oa.x, ay=drag.oa.y, aw=drag.ow, ah=drag.oh;
-    if(d.includes('e')) aw=drag.ow+dx;
-    if(d.includes('s')) ah=drag.oh+dy;
-    if(d.includes('w')){ const left=drag.oa.x+dx; aw=drag.ow+(drag.oa.x-left); ax=left; }
-    if(d.includes('n')){ const top=drag.oa.y+dy; ah=drag.oh+(drag.oa.y-top); ay=top; }
-    if(mode==='grid'||mode==='both'){ ax=Math.round(ax/8)*8; ay=Math.round(ay/8)*8; aw=Math.round(aw/8)*8; ah=Math.round(ah/8)*8; }
-    if(mode==='smart'||mode==='both'){
-      const t=snapTargets(drag.i);
-      const rx=snapAxis(ax, aw, t.xs, 6); if(rx.line!=null){ const delta=rx.pos-ax; ax=rx.pos; aw-=delta; gx=rx.line; }
-      const ry=snapAxis(ay, ah, t.ys, 6); if(ry.line!=null){ const delta=ry.pos-ay; ay=ry.pos; ah-=delta; gy=ry.line; }
-    }
-    w.w=Math.max(8, Math.round(aw)); w.h=Math.max(8, Math.round(ah));
-    w.x=Math.round(ax)-drag.pa.x; w.y=Math.round(ay)-drag.pa.y;
+  if(!drag || drag.pointerId!==e.pointerId || drag.page!==scr()) return;
+  const point=canvasPoint(e), dx=point.x-drag.point.x, dy=point.y-drag.point.y;
+  if(!drag.changed && Math.hypot(dx,dy)*S.zoom<3) return;
+  if(drag.mode==='box'){
+    drag.changed=true;
+    const r=drawMarquee(drag.point,point);
+    const hits=scr().widgets.map((w,i)=>i).filter(i=>{
+      const w=wid(i), p=absOf(w);
+      return p.x>=r.x && p.y>=r.y && p.x+w.w<=r.x+r.w && p.y+w.h<=r.y+r.h;
+    });
+    setSelection(drag.base.concat(hits));
+    renderAll();drawMarquee(drag.point,point);
+    return;
   }
-
-  $('#stPos').textContent='x '+Math.round(w.x)+'  y '+Math.round(w.y)+'  w '+Math.round(w.w)+'  h '+Math.round(w.h);
-  renderCanvas();
-  drawGuides(gx, gy);
-  renderInspector();
+  if(!drag.changed){drag.before=JSON.stringify(S.screens);drag.changed=true;}
+  const mode=e.altKey?'off':S.snapMode, t=drag.targets;
+  const grid=mode==='grid' || mode==='both', smart=mode==='smart' || mode==='both';
+  const snap=(pos,size,lines)=>{
+    const value=grid?Math.round(pos/8)*8:pos;
+    return smart?snapAxis(value,size,lines,6):{pos:value,line:null};
+  };
+  let gx=null,gy=null;
+  if(drag.mode==='move'){
+    const b=drag.bounds;
+    const sx=snap(b.x+dx,b.w,t.xs), sy=snap(b.y+dy,b.h,t.ys);
+    const mx=clampDelta(sx.pos-b.x,b.x,b.w,W_()), my=clampDelta(sy.pos-b.y,b.y,b.h,H_());
+    for(const r of drag.roots){r.w.x=r.x+mx;r.w.y=r.y+my;}
+    gx=sx.line; gy=sy.line;
+  }else{
+    const w=wid(drag.i), o=drag.origin, d=drag.dir;
+    let l=o.x, r=o.x+o.w, top=o.y, bot=o.y+o.h;
+    if(d.includes('w')){const s=snap(l+dx,0,t.xs);l=Math.min(r-8,Math.round(s.pos));gx=s.line;}
+    if(d.includes('e')){const s=snap(r+dx,0,t.xs);r=Math.max(l+8,Math.round(s.pos));gx=s.line;}
+    if(d.includes('n')){const s=snap(top+dy,0,t.ys);top=Math.min(bot-8,Math.round(s.pos));gy=s.line;}
+    if(d.includes('s')){const s=snap(bot+dy,0,t.ys);bot=Math.max(top+8,Math.round(s.pos));gy=s.line;}
+    w.x=o.xRel+l-o.x; w.y=o.yRel+top-o.y; w.w=r-l;w.h=bot-top;
+  }
+  renderCanvas();drawGuides(gx,gy);renderInspector();
 });
-window.addEventListener('pointerup',e=>{
-  if(!drag)return;
-  drag=null;
-  snapshot();
+function finishGesture(cancel){
+  if(!drag) return;
+  const active=drag; drag=null;
+  const canvas=$('#canvas');
+  if(canvas.hasPointerCapture(active.pointerId))canvas.releasePointerCapture(active.pointerId);
+  if(active.page!==scr())return;
+  if(active.mode==='box' && cancel) setSelection(active.base);
+  if(!cancel && !active.changed && active.singleOnClick) setSelection([active.i]);
+  if(active.before && cancel){
+    for(const r of active.roots){r.w.x=r.x;r.w.y=r.y;}
+    if(active.mode==='resize') Object.assign(wid(active.i),{w:active.origin.w,h:active.origin.h});
+  }else if(active.before && active.before!==JSON.stringify(S.screens)) recordSnapshot(active.before);
   renderAll();
-});
+}
+window.addEventListener('pointerup',e=>{if(drag?.pointerId===e.pointerId) finishGesture(false);});
+window.addEventListener('pointercancel',e=>{if(drag?.pointerId===e.pointerId) finishGesture(true);});
+$('#canvas').addEventListener('lostpointercapture',e=>{if(drag?.pointerId===e.pointerId) finishGesture(true);});
 $('#canvas').addEventListener('pointermove',e=>{
-  const c=$('#canvas').getBoundingClientRect();
-  $('#stPos').textContent='x '+Math.round((e.clientX-c.left)/S.zoom)+'  y '+Math.round((e.clientY-c.top)/S.zoom);
+  const p=canvasPoint(e);$('#stPos').textContent='x '+Math.round(p.x)+'  y '+Math.round(p.y);
 });
-
-/* ---------- 键盘 ---------- */
 window.addEventListener('keydown',e=>{
-  const tag=(e.target.tagName||'').toLowerCase();
-  if(tag==='input'||tag==='textarea'||tag==='select')return;
-  if(e.key==='Escape'){ const m=$('#codeMask'); if(m.classList.contains('on')){ m.classList.remove('on'); return; } }
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){e.preventDefault();if(S.sel>=0){snapshot();const c=JSON.parse(JSON.stringify(wid(S.sel)));c.name=c.type+(S.seq++);c.x+=12;c.y+=12;scr().widgets.push(c);S.sel=scr().widgets.length-1;renderAll();}return;}
-  if(S.sel<0)return;
-  const w=wid(S.sel); if(!w)return;
-  const step=e.shiftKey?10:1;
-  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();snapshot();scr().widgets.splice(S.sel,1);S.sel=-1;renderAll();return;}
-  let hit=false;
-  if(e.key==='ArrowLeft'){w.x=Math.max(0,w.x-step);hit=true;}
-  if(e.key==='ArrowRight'){w.x=Math.min(W_()-w.w,w.x+step);hit=true;}
-  if(e.key==='ArrowUp'){w.y=Math.max(0,w.y-step);hit=true;}
-  if(e.key==='ArrowDown'){w.y=Math.min(H_()-w.h,w.y+step);hit=true;}
-  if(hit){e.preventDefault();renderCanvas();renderInspector();}
+  if(document.querySelector('dialog[open]')) return;
+  if($('#codeMask').classList.contains('on')){
+    if(e.key==='Escape')$('#codeMask').classList.remove('on');
+    return;
+  }
+  if(e.target.closest('input,textarea,select,[contenteditable="true"],dialog,[role="dialog"]')) return;
+  const ctrl=e.ctrlKey || e.metaKey, key=e.key.toLowerCase();
+  if(key==='escape'){
+    if(drag)finishGesture(true);else{setSelection([]);renderAll();}return;
+  }
+  if(drag)return;
+  if(ctrl){
+    if(!['z','y','a','d','c','v'].includes(key)) return;
+    if((key==='c'||key==='d')&&!selected.size || key==='v'&&!widgetClipboard) return;
+    e.preventDefault();
+    if(key==='z'){if(e.shiftKey)redo();else undo();}
+    if(key==='y')redo();
+    if(key==='a'){setSelection(scr().widgets.map((w,i)=>i));renderAll();}
+    if(key==='d')pasteWidgets(copyWidgets());
+    if(key==='c')widgetClipboard=copyWidgets();
+    if(key==='v')pasteWidgets(widgetClipboard);
+    return;
+  }
+  if(!selected.size)return;
+  if(key==='delete'||key==='backspace'){e.preventDefault();removeSelected();return;}
+  const arrows={arrowleft:[-1,0],arrowright:[1,0],arrowup:[0,-1],arrowdown:[0,1]};
+  if(!arrows[key])return;
+  e.preventDefault();
+  const step=e.shiftKey?10:1, b=boundsOf(selectedTree());
+  const dx=clampDelta(arrows[key][0]*step,b.x,b.w,W_()), dy=clampDelta(arrows[key][1]*step,b.y,b.h,H_());
+  if(!dx && !dy)return;
+  snapshot(); for(const i of selectionRoots()){wid(i).x+=dx;wid(i).y+=dy;}
+  renderAll();
 });
 
 /* ---------- 工具栏 ---------- */
 $('#btnNew').onclick=()=>{ if(!confirm('清空当前工程？'))return; history=[];future=[];
-  S={name:'app_ui',landscape:S.landscape,screens:[{name:'Screen1',widgets:[]}],cur:0,sel:-1,seq:1,grid:S.grid,snap:S.snap,zoom:S.zoom};
+  clearImportedTask();
+  S={name:'app_ui',landscape:S.landscape,screens:[{name:'Screen1',widgets:[]}],cur:0,sel:-1,seq:1,grid:S.grid,snap:S.snap,snapMode:S.snapMode,zoom:S.zoom};
   $('#projName').value=S.name; renderAll(); };
 
 /* 一键清空：默认清当前页，Shift+点击清所有页；都能 Ctrl+Z 撤销 */
@@ -763,6 +1055,7 @@ $('#btnClear').onclick=(e)=>{
 };
 
 $('#btnDemo').onclick=()=>{
+  clearImportedTask();
   history=[];future=[];
   S.screens=[{name:'Screen1',widgets:[]}]; S.cur=0; S.seq=1;
   const A=(o)=>scr().widgets.push(Object.assign({parent:-1},o));
@@ -787,23 +1080,26 @@ $('#snapMode').onchange=e=>{S.snapMode=e.target.value;};
 $('#zoom').onchange=e=>{S.zoom=+e.target.value;renderCanvas();};
 $('#btnUndo').onclick=undo;
 $('#btnRedo').onclick=redo;
-$('#lyUp').onclick=()=>{if(S.sel<0)return;const a=scr().widgets;if(S.sel>=a.length-1)return;snapshot();[a[S.sel],a[S.sel+1]]=[a[S.sel+1],a[S.sel]];S.sel++;renderAll();};
-$('#lyDown').onclick=()=>{if(S.sel<=0)return;const a=scr().widgets;snapshot();[a[S.sel],a[S.sel-1]]=[a[S.sel-1],a[S.sel]];S.sel--;renderAll();};
-$('#lyDel').onclick=()=>{if(S.sel<0)return;snapshot();scr().widgets.splice(S.sel,1);S.sel=-1;renderAll();};
-document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
-  if(S.sel<0)return; const w=wid(S.sel); snapshot();
-  const a=b.dataset.al;
-  if(a==='l')w.x=8; if(a==='c')w.x=Math.round((W_()-w.w)/2); if(a==='r')w.x=W_()-w.w-8;
-  if(a==='t')w.y=8; if(a==='m')w.y=Math.round((H_()-w.h)/2); if(a==='b')w.y=H_()-w.h-8;
-  renderAll();
-});
+$('#lyUp').onclick=()=>moveLayer(1);
+$('#lyDown').onclick=()=>moveLayer(-1);
+$('#lyDel').onclick=removeSelected;
+document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>alignWidgets(b.dataset.al));
 
 /* ---------- 查看 / 复制代码（两个页签） ---------- */
 let TAB = 'ui';          /* 'ui' | 'task' */
 
 function fillCode(kind){
   TAB = kind;
-  const g = genCode();
+  let g;
+  try{g=genCode();}
+  catch(error){
+    $('#codeOut').value=error.message;
+    $('#codeName').textContent='检查控件属性';
+    $('#codeHint').textContent='修正后可以重新生成代码';
+    $('#btnCopyCode').disabled=true;
+    return;
+  }
+  $('#btnCopyCode').disabled=false;
 
   if(kind === 'task' && TASKSRC){
     $('#codeOut').value        = patchTask();
@@ -821,7 +1117,8 @@ function fillCode(kind){
 }
 
 function openCode(){
-  fillCode((TAB === 'task' && TASKSRC) ? 'task' : 'ui');
+  try { fillCode((TAB === 'task' && TASKSRC) ? 'task' : 'ui'); }
+  catch(error){ alert(error.message); return; }
   $('#codeMask').classList.add('on');
   $('#codeOut').focus();
   $('#codeOut').setSelectionRange(0,0);
@@ -850,10 +1147,45 @@ $('#btnSave').onclick=()=>{
   download(S.name+'.json',JSON.stringify(data,null,2),'application/json');
 };
 $('#btnOpen').onclick=()=>$('#fileIn').click();
+function validateProject(data){
+  if(!data || !Array.isArray(data.screens) || !data.screens.length)
+    throw new Error('请选择本设计器保存的工程 JSON，工程至少需要一页。');
+  for(const [i,page] of data.screens.entries()){
+    if(!page || typeof page.name!=='string' || !Array.isArray(page.widgets))
+      throw new Error('第 '+(i+1)+' 页缺少页面名或控件列表。');
+    for(const [j,w] of page.widgets.entries()){
+      if(!w || !Object.hasOwn(W,w.type) || typeof w.name!=='string' ||
+         !['x','y','w','h'].every(key=>Number.isFinite(w[key])))
+        throw new Error(page.name+' 第 '+(j+1)+' 个控件的数据不完整或类型不受支持。');
+      if(w.parent!=null && w.parent!==-1 &&
+         (!Number.isInteger(w.parent) || w.parent<0 || page.widgets[w.parent]?.type!=='card'))
+        throw new Error(page.name+' 内 '+w.name+' 的父卡片不存在。');
+    }
+    if(page.widgets.some((w,j)=>w.parent!=null && w.parent>=j)){
+      const old=page.widgets,ordered=[],indices=new Map(),visiting=new Set();
+      function place(index){
+        if(indices.has(index)) return;
+        if(visiting.has(index)) throw new Error(page.name+' 存在循环嵌套的卡片。');
+        visiting.add(index);
+        const w=old[index],p=w.parent;
+        if(p!=null && p>=0) place(p);
+        indices.set(index,ordered.length);
+        ordered.push({...w,parent:indices.get(p) ?? -1});
+        visiting.delete(index);
+      }
+      old.forEach((w,j)=>place(j));
+      page.widgets=ordered;
+    }
+  }
+  return data;
+}
 $('#fileIn').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{ try{const d=JSON.parse(r.result); S.name=d.name||'app_ui'; S.landscape=!!d.landscape; S.screens=d.screens||[{name:'Screen1',widgets:[]}]; S.cur=0;S.sel=-1;
+  r.onload=()=>{ try{const d=validateProject(JSON.parse(r.result));
+      clearImportedTask(); history=[];future=[];
+      S.name=typeof d.name==='string' && d.name?d.name:'app_ui'; S.landscape=!!d.landscape;
+      S.screens=d.screens; S.cur=0; S.sel=-1; S.seq=1;
       $('#projName').value=S.name;
       (S.landscape?$('#btnLandscape'):$('#btnPortrait')).click();
       renderAll();}catch(err){alert('文件解析失败：'+err.message);} };
@@ -1033,23 +1365,38 @@ function genWidget(w,idx,varMap,parentVar){
       L.push(v+' = ui_meter_new('+p+', '+px+', '+py+', '+pw+', '+(w.min|0)+', '+(w.max|0)+', '+(w.val|0)+');');
       break;
     case 'line':
-      L.push('/* TODO 折线需要点集：static const lv_point_t pts[] = {{0,0},{100,50}}; */');
-      L.push(v+' = NULL;  /* ui_line_new('+p+', pts, 2, UI_C_ACCENT) */');
+      L.push('static const lv_point_t '+v+'_pts[] = {{0, '+Math.max(0,ph-1)+'}, {'+Math.max(0,pw-1)+', 0}};');
+      L.push(v+' = ui_line_new('+p+', '+v+'_pts, 2, UI_C_ACCENT);');
+      L.push('lv_obj_set_pos('+v+', '+px+', '+py+');');
       break;
-    case 'img':
-      L.push('/* 需要图片资源：在资源文件里 LV_IMG_DECLARE('+(w.imgName||'my_img')+'); */');
-      L.push(v+' = ui_img_new('+p+', '+px+', '+py+', &'+(w.imgName||'my_img')+');');
+    case 'img': {
+      const asset=String(w.imgName ?? '').trim();
+      if(asset){
+        const reserved=/^(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|_Bool|_Complex|_Imaginary)$/;
+        if(!/^[A-Za-z_]\w*$/.test(asset) || reserved.test(asset))
+          throw new Error('图片控件「'+w.name+'」的资源变量名「'+asset+'」不是有效的 C 标识符。请填写资源变量名，或留空使用内置图标。');
+        L.push('LV_IMG_DECLARE('+asset+');');
+      }
+      L.push(v+' = ui_img_new('+p+', '+px+', '+py+', '+(asset?'&'+asset:'LV_SYMBOL_IMAGE')+');');
       break;
+    }
     case 'canvas':
       GEN_AUX.decl.push('#if LV_USE_CANVAS');
       GEN_AUX.decl.push('static lv_color_t '+v+'_buf['+(pw*ph)+'];   /* '+w.name+' 画布缓冲：'+(pw*ph*2)+' 字节 RAM */');
       GEN_AUX.decl.push('#endif');
       L.push(v+' = ui_canvas_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+v+'_buf);');
       break;
-    case 'btnmatrix':
-      L.push('/* TODO 按钮矩阵需要字符串表：static const char *map[] = {"1","2","",""}; */');
-      L.push(v+' = NULL;  /* ui_btnmatrix_new('+p+', '+px+', '+py+', '+pw+', '+ph+', map, '+(w.code|0)+') */');
+    case 'btnmatrix':{
+      const labels=[];
+      for(const row of matrixRows(w)){
+        if(labels.length) labels.push('\n');
+        labels.push(...row);
+      }
+      labels.push('');  /* LVGL 的字符串表以空字符串结束 */
+      L.push('static const char *'+v+'_map[] = {'+labels.map(cstr).join(', ')+'};');
+      L.push(v+' = ui_btnmatrix_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+v+'_map, '+(w.code|0)+');');
       break;
+    }
     default:
       L.push('/* 未支持的控件: '+w.type+' */');
   }
@@ -1112,13 +1459,6 @@ function genCode(){
     });
     H.push('');
   }
-  GEN_AUX.vbar.forEach(b=>{
-    const fname=prefix+'_'+String(b.name).replace(/[^A-Za-z0-9_]/g,'_');
-    H.push('/* 竖向进度条 '+b.name+'：设值 0~'+b.max+'，例如 '+fname+'_set(level); */');
-    H.push('void '+fname+'_set(int32_t v);');
-    H.push('');
-  });
-
   if(multi){
     H.push('#ifndef '+U+'_SCREEN_CNT');
     H.push('#define '+U+'_SCREEN_CNT  '+cnt);
@@ -1166,8 +1506,6 @@ function genCode(){
     }
     H.push('');
   }));
-  H.push('#endif');
-
   /* ---------- .c ---------- */
   const C=[];
   C.push('/* ============================================================');
@@ -1200,9 +1538,8 @@ function genCode(){
     const body=[];
     body.push(multi ? ('    s_page['+si+'] = ui_page_new();                 /* 建整屏 */')
                     : '    s_page = ui_page_new();                        /* 建整屏 */');
-    let idx=0;
     s.widgets.forEach((w,i)=>{
-      idx++;
+      const idx = si === 0 ? i + 1 : si + '_' + (i + 1);
       const pageVar = multi ? ('s_page['+si+']') : 's_page';
       const parentVar = (w.parent!=null && w.parent>=0 && s.widgets[w.parent]) ? varMap[w.parent] : pageVar;
       const g=genWidget(w,idx,varMap,parentVar);
@@ -1212,10 +1549,12 @@ function genCode(){
         series.push({v:g.var, name:w.name, si:si, max:(w.max|0)||1000,
                      mode:(w.chartMode||'push'), ctype:(w.chartType||'line'),
                      src:(w.dataSrc||'demo'), pts:(w.points|0||64)});
-        body.push('    s_ser_'+g.var+' = lv_chart_get_series_next('+g.var+', NULL);');
       }
       if(g.guardStart) body.push('    '+g.guardStart);
       g.lines.forEach(l=>body.push('    '+l));
+      if(w.type==='chart' && (w.dataSrc !== 'ext' || w.bind)){
+        body.push('    s_ser_'+g.var+' = lv_chart_get_series_next('+g.var+', NULL);');
+      }
       if(g.guardEnd) body.push('    '+g.guardEnd);
     });
 
@@ -1224,7 +1563,7 @@ function genCode(){
       const v=varMap[i];
       const upd = ['label','bar','chart','led','slider','arc','meter'].includes(w.type);
       handleDecl.push('static lv_obj_t *'+v+' = NULL;   /* '+w.name+' ('+W[w.type].n+')'+(upd?'  ← render 里更新':'')+' */');
-      if(w.type==='chart') handleDecl.push('static lv_chart_series_t *s_ser_'+v+' = NULL;');
+      if(w.type==='chart' && (w.dataSrc !== 'ext' || w.bind)) handleDecl.push('static lv_chart_series_t *s_ser_'+v+' = NULL;');
     });
 
     buildFns.push(
@@ -1243,6 +1582,9 @@ function genCode(){
   /* ---- 竖向进度条的设值函数 ---- */
   GEN_AUX.vbar.forEach(b=>{
     const fname=prefix+'_'+String(b.name).replace(/[^A-Za-z0-9_]/g,'_');
+    H.push('/* 竖向进度条 '+b.name+'：设值 0~'+b.max+'，例如 '+fname+'_set(level); */');
+    H.push('void '+fname+'_set(int32_t v);');
+    H.push('');
     C.push('/**');
     C.push(' * @brief  设置 '+b.name+' 的值（0~'+b.max+'）—— 竖向进度条，改的是填充块高度');
     C.push(' * @note   例如：'+fname+'_set(level);');
@@ -1377,10 +1719,7 @@ function genCode(){
     });
 
     /* 演示正弦：选了"内置演示"才有 */
-    const demos=series.filter(s=>{
-      const w=S.screens[s.si].widgets.find(x=>('w'+(s.si===S.cur?0:0))!=null && x.name===s.name);
-      return w && (w.dataSrc||'demo')==='demo';
-    });
+    const demos = series.filter(s => s.src === 'demo');
     if(demos.length){
       C.push('/* ---------------- 演示数据（接真实数据后删掉 render 里那几行） ---------------- */');
       demos.forEach(s=>{
@@ -1430,12 +1769,8 @@ function genCode(){
     C.push('    }');
   }
   C.push('');
-  const demoSeries=[];
-  S.screens.forEach((s,si)=>s.widgets.forEach(w=>{
-    if(w.type==='chart' && (w.dataSrc||'demo')==='demo'){
-      demoSeries.push({si:si, fn:'chart_demo_'+'w'+(s.widgets.indexOf(w)+1)});
-    }
-  }));
+  const demoSeries = series.filter(s => s.src === 'demo')
+    .map(s => ({si:s.si, fn:'chart_demo_'+s.v}));
   if(demoSeries.length){
     C.push('    /* 演示波形：接真实数据时删掉这几行，改成 xxx_push() / xxx_set() */');
     demoSeries.forEach(d=>{
@@ -1456,20 +1791,27 @@ function genCode(){
     s.widgets.forEach((w,i)=>{
       const nm=(w.bind||'').trim();
       if(!nm) return;
-      const v='w'+(i+1);
+      const v='w'+(si === 0 ? i + 1 : si + '_' + (i + 1));
       const isStr=(w.bindType==='const char *');
+      const firstLine = lines.length;
       if(w.type==='label'){
         if(isStr){
           lines.push('        ui_label_set('+v+', '+nm+');');
         }else{
-          const fmt=(w.bindFmt||'').trim() || (w.bindType==='float' ? '%.2f'
+          const floating=w.bindType==='float' || w.bindType==='double';
+          const fmt=(w.bindFmt||'').trim() || (floating ? '%.2f'
                     : (w.bindType&&w.bindType.indexOf('uint')===0 ? '%u' : '%d'));
-          const cast=(w.bindType==='float') ? '(double)' : (w.bindType&&w.bindType.indexOf('uint')===0 ? '(unsigned)' : '(int)');
+          const cast=floating ? '(double)' : (w.bindType&&w.bindType.indexOf('uint')===0 ? '(unsigned)' : '(int)');
           lines.push('        snprintf(buf, sizeof(buf), "'+fmt+'", '+cast+'('+nm+'));');
           lines.push('        ui_label_set('+v+', buf);');
         }
+      }else if(w.type==='bar' && w.barDir==='v'){
+        const fname=prefix+'_'+String(w.name).replace(/[^A-Za-z0-9_]/g,'_');
+        lines.push('        '+fname+'_set((int32_t)('+nm+'));');
       }else if(w.type==='bar'){
         lines.push('        if('+v+' != NULL) { ui_bar_set('+v+', (int32_t)('+nm+')); }');
+      }else if(w.type==='chart' && w.dataSrc==='ext'){
+        lines.push('        if('+v+' != NULL) { lv_chart_set_next_value('+v+', s_ser_'+v+', (lv_coord_t)('+nm+')); }');
       }else if(w.type==='chart'){
         lines.push('        '+prefix+'_'+String(w.name).replace(/[^A-Za-z0-9_]/g,'_')+'_push((int32_t)('+nm+'));');
       }else if(w.type==='led'){
@@ -1478,6 +1820,10 @@ function genCode(){
         lines.push('        if('+v+' != NULL) { lv_slider_set_value('+v+', (int32_t)('+nm+'), LV_ANIM_OFF); }');
       }else if(w.type==='arc'){
         lines.push('        if('+v+' != NULL) { lv_arc_set_value('+v+', (int32_t)('+nm+')); }');
+      }
+      if(W[w.type].need && lines.length > firstLine){
+        lines.splice(firstLine,0,'#if '+W[w.type].need);
+        lines.push('#endif');
       }
     });
     if(lines.length){
@@ -1692,8 +2038,9 @@ function genCode(){
     T.push('');
     T.push('static void '+prefix+'_redraw(void)');
     T.push('{');
-    T.push('    '+prefix+'_render('+(multi?'s_screen':'')+binds.map(b=>
-      (multi?', ':((multi?'':''))) + ((b.type==='const char *') ? ('s_'+b.name) : ('('+b.type+')s_'+b.name))).join('')+');');
+    const redrawArgs = binds.map(b => b.type==='const char *' ? 's_'+b.name : '('+b.type+')s_'+b.name);
+    if(multi) redrawArgs.unshift('s_screen');
+    T.push('    '+prefix+'_render('+redrawArgs.join(', ')+');');
     T.push('}');
     T.push('');
     T.push('const task_t task_'+prefix+' =');
@@ -1712,6 +2059,7 @@ function genCode(){
   /* ---- 拼成一份可直接复制的内容：.c 在前，.h / task 用 #if 0 包起来 ----
    * 选 #if 0 而不是注释块，这样 .h / task 里自身的注释不会被破坏，
    * 复制出去时只要删掉首尾的 #if 0 / #endif 两行即可。 */
+  H.push('#endif');
   const parts = [];
   parts.push(C.join('\n'));
   parts.push('');
@@ -1736,6 +2084,7 @@ function genCode(){
 /* ---------- 导入 task .c：识别变量 + 同步出可直接复制的文本 ---------- */
 let TASKSRC  = null;    /* 原始 task .c 的文本（自动判 utf-8 / gbk） */
 let TASKNAME = '';
+let TASKHEADERS = [];
 let VARPOOL  = [];      /* [{name,type}] 从 task 里认出来的变量 */
 
 /* 文件字节 -> 文本：先严格按 UTF-8 解，失败就当 GBK（工程里大多是 GBK） */
@@ -1751,17 +2100,39 @@ function decodeText(buf){
   }
 }
 
-/* 只认"行首"的声明，函数参数（在括号里）不会被当成变量 */
-function parseVars(text){
-  const re = /^[ \t]*(?:static\s+|extern\s+)?(?:const\s+)?(?:volatile\s+)?(uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t|float|double|char)\s*(\*?)\s*([A-Za-z_]\w*)\s*(?==|;|\[|,)/gm;
-  const out = [];
-  let m;
-  while((m = re.exec(text)) !== null){
-    const ty = (m[1]==='char' && m[2]==='*') ? 'const char *' : m[1];
-    if(out.some(o=>o.name === m[3])) continue;
-    out.push({name:m[3], type:ty});
+/* 只推荐任务回调可引用的文件级标量和字符串；跳过函数体、形参和复合类型。 */
+function inspectTaskC(text){
+  const cleaned=text.replace(/\\\r?\n/g,'').replace(/^[ \t]*#[^\n]*|\/\*[\s\S]*?\*\/|\/\/[^\n]*|\bextern\s*"C"\s*\{|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gm,' ');
+  const result=new Map(),functions=new Set();
+  const declaration=/^(?:(?:static|extern|const|volatile)\s+)*((?:rt_)?u?int(?:8|16|32)_t|float|double|char|(?:(?:un)?signed\s+)?(?:int|(?:short|long)(?:\s+int)?)|unsigned|signed)\b\s+([\s\S]+)$/;
+  function recordFunction(raw){
+    const signature=raw.trim().replace(/\s+/g,' ');
+    if(!signature.startsWith('typedef ') && /^[\w\s*]+[\s*][A-Za-z_]\w*\s*\([^;{}]*\)$/.test(signature))
+      functions.add(signature);
   }
-  return out;
+  let statement='',depth=0,parens=0;
+  for(const ch of cleaned){
+    if(ch==='{'){ if(!depth){ recordFunction(statement); statement=''; } depth++; continue; }
+    if(ch==='}'){ depth=Math.max(0,depth-1); continue; }
+    if(depth) continue;
+    if(ch==='(') parens++;
+    if(ch===')') parens=Math.max(0,parens-1);
+    if(ch!==';' || parens){ statement+=ch; continue; }
+    recordFunction(statement);
+    const match=statement.trim().replace(/\bchar\s*\*/g,'char *').match(declaration);
+    statement='';
+    if(!match) continue;
+    for(const item of match[2].split(/,(?![^()]*\))/)){
+      const field=item.trim().match(/^(\*?)\s*([A-Za-z_]\w*)\s*(\[[^\]]*\])?\s*(?:=[\s\S]*)?$/);
+      if(!field || ((field[1] || field[3]) && match[1]!=='char')) continue;
+      let type=match[1].replace(/^rt_/,'');
+      if(/^(?:int|short|long|unsigned|signed)\b/.test(type))
+        type=(/^unsigned\b/.test(type)?'u':'')+(/short/.test(type)?'int16_t':'int32_t');
+      if(field[1] || field[3]) type='const char *';
+      result.set(field[2],{name:field[2],type});
+    }
+  }
+  return {variables:[...result.values()],functions:[...functions]};
 }
 
 function refreshVarPool(){
@@ -1791,26 +2162,61 @@ function patchTaskSummary(){
 }
 
 $('#btnPickC').onclick = () => $('#fileC').click();
-$('#fileC').onchange = e => {
-  const f = e.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  r.onload = () => {
-    const buf = new Uint8Array(r.result);
-    TASKSRC  = decodeText(buf);
-    TASKNAME = f.name;
-    VARPOOL  = parseVars(TASKSRC);
+let taskImportId=0;
+function clearImportedTask(){
+  taskImportId++;
+  TASKSRC=null; TASKNAME=''; TASKHEADERS=[]; VARPOOL=[]; TAB='ui';
+  refreshVarPool();
+  $('#tabTask').disabled=true;
+  $('#taskBindingInfo').textContent='';
+  $('#taskFunctions').hidden=true;
+  $('#btnDetachTask').hidden=true;
+}
+$('#btnDetachTask').onclick=()=>{clearImportedTask();renderAll();};
+$('#fileC').onchange = async e => {
+  const files=Array.from(e.target.files);
+  e.target.value='';
+  if(!files.length) return;
+  const sources=files.filter(f=>!f.name.toLowerCase().endsWith('.h'));
+  if(sources.length>1){ alert('每个任务请选择一个业务 .c 文件，可以同时选择多个 .h。'); return; }
+  const current=++taskImportId;
+  try{
+    const picked=await Promise.all(files.map(async file=>({name:file.name,text:decodeText(new Uint8Array(await file.arrayBuffer()))})));
+    if(current!==taskImportId) return;
+    const source=sources.length?picked.find(entry=>entry.name===sources[0].name):(TASKSRC?{name:TASKNAME,text:TASKSRC}:null);
+    const headers=new Map((sources.length?[]:TASKHEADERS).map(h=>[h.name,h]));
+    for(const h of picked.filter(item=>item!==source)) headers.set(h.name,h);
+    const entries=source?[source,...headers.values()]:[...headers.values()];
+    const variables=new Map(),signatures=new Set();
+    for(const entry of entries){
+      const parsed=inspectTaskC(entry.text);
+      for(const variable of parsed.variables) variables.set(variable.name,variable);
+      for(const signature of parsed.functions) signatures.add(signature);
+    }
+    TASKSRC=source?source.text:null;
+    TASKNAME=source?source.name:'';
+    TASKHEADERS=[...headers.values()];
+    VARPOOL=[...variables.values()];
     refreshVarPool();
-    $('#tabTask').disabled = false;
+    $('#tabTask').disabled=!TASKSRC;
+    if(!TASKSRC) TAB='ui';
     renderAll();
-    $('#stSel').textContent = '已导入 ' + TASKNAME + '：认出 ' + VARPOOL.length + ' 个变量（打开代码面板切到 task 页签复制）';
-  };
-  r.readAsArrayBuffer(f);
-  e.target.value = '';
+    $('#taskBindingInfo').textContent=entries.map(item=>item.name).join('、')+' · '+VARPOOL.length+' 个候选变量。';
+    $('#btnDetachTask').hidden=false;
+    const details=$('#taskFunctions');
+    details.hidden=!signatures.size; details.open=false;
+    details.querySelector('summary').textContent='任务函数（'+signatures.size+'）';
+    details.querySelector('ul').replaceChildren(...[...signatures].map(s=>el('li','',s)));
+  }catch(error){ if(current===taskImportId) alert('读取任务文件失败：'+error.message); }
 };
 
 /* ---------- 渲染总入口 ---------- */
-function renderAll(){ renderCanvas(); renderTabs(); renderLayers(); renderInspector();
+function renderAll(){ syncSelection(); renderCanvas(); renderTabs(); renderLayers(); renderInspector();
+  const n=selectionRoots().length;
+  $('#alignTitle').textContent=n>1?'对齐选中控件':'对齐到页面';
+  document.querySelectorAll('[data-al]').forEach(b=>{b.disabled=['dx','dy'].includes(b.dataset.al)?n<3:!n;});
+  if(selected.size>1){$('#stSel').textContent='已选 '+selected.size+' 个控件';return;}
+
   $('#stSel').textContent = S.sel<0?'未选中':('已选：'+wid(S.sel).name+' ('+W[wid(S.sel).type].n+')');
 }
 
@@ -1819,6 +2225,10 @@ buildPalette();
 $('#projName').value=S.name;
 $('#btnDemo').click();
 renderAll();
+</script>
+<script src="designer-taskgen.js"></script>
+<script>
+$('#btnTaskGenerator').onclick=()=>DesignerTaskGenerator.open();
 </script>
 </body>
 </html>

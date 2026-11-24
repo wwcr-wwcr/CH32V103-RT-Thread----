@@ -1,0 +1,38 @@
+LVGL 界面与任务设计器
+
+用 Microsoft Edge 或 Chrome 打开 lvgl_designer.html 即可离线使用。
+适用工程包含 User/tasks.h、User/router.h 和 APP/LVGL_DEMO/LVGL_Demo.h。
+本包采用 CH32V103-RT-Thread---- 工程中的 LVGL 8.2.0 和 task_t 接口。
+
+设计界面
+  在左侧搜索控件，点击添加或拖到画布指定位置。在画布空白处按住鼠标左键并拖动即可框选。
+  多选后可一起移动、对齐或等距分布。Ctrl+C / Ctrl+V 支持跨页粘贴，Ctrl+Z 撤销。
+  “保存工程”导出可继续编辑的 JSON。“打开”可读取原 lvgl_designer.html 保存的设计。
+  控件库标出参考工程中已启用的控件。选择工程根目录后，状态取自该工程的 lv_conf.h。
+  若设计中使用了尚未启用的控件，生成面板会列出对应的 LV_USE_* 宏。
+
+以光照任务 task_light 为例
+  1. 在业务代码中保留供 task_render 读取的照度值，例如文件级的 uint32_t lux。
+     用“绑定 C / H…”选择 task_light.c 及需要的头文件，其他目录的头文件也可以随后追加。
+     展开“任务函数”可查看识别到的函数签名。读取兼容 UTF-8 和 GBK。
+  2. 在画布上选中文本标签，在属性的“绑定形参名”选择 lux。生成的单页接口包含
+     void task_light_ui_render(uint32_t lux)。采样放在任务线程，框架在渲染回调中读取结果。
+  3. 按钮或滑块的事件编号对应业务函数 task_set(uint8_t id, int32_t value)。
+     在 task_set 的对应分支处理输入。业务线程通过任务队列接收事件。
+  4. 点击“生成任务三件套”，填写 light 或 task_light，选择下载 ZIP 或写入工程。
+     新任务会用原任务模板建立线程和回调，并接入当前画布。若提示为变量添加了初值，
+     需要在任务中更新它才能显示实时读数。多页设计的 screen 参数由业务逻辑选择。
+
+输出目录
+  User/task_light/task_light.c
+  User/task_light/task_light_ui.c
+  User/task_light/task_light_ui.h
+
+“写入工程”需选择含 User/tasks.h 的根目录。面板列出将新建或更新的文件。
+对已有任务，生成器读取业务文件，在可识别的回调内同步 UI 调用。自定义回调无法匹配时，
+按面板提示补入对应调用后再生成。若业务函数已有带参数的 UI 调用，下载 ZIP 前可以同时
+选择原来的 task_light_ui.h 以便匹配参数。外部传感器头文件仍由固件工程提供。
+按需勾选“登记到主菜单”可同步 User/task_menu/menu.c，下载的 ZIP 只含三个任务文件。
+ZIP 解压到工程根目录后，在 MounRiver Studio 刷新工程并重新构建。
+
+任务生成器.exe、new_task.py 和 templates/task_template.c 随包附带，可用于独立创建空白任务。
