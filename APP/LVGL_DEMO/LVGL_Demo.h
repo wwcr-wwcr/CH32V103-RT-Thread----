@@ -57,21 +57,23 @@ lv_obj_t *ui_card_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                       lv_coord_t w, lv_coord_t h, lv_coord_t radius);
 
 /**
- * @brief  造一段文字（透明底、无边框，字体固定 montserrat_14）
+ * @brief  造一段文字（透明底、无边框）
  * @param  parent  父对象
  * @param  color   文字颜色，取 theme.h 里的 UI_C_* 宏
+ * @param  font    字体：UI_FONT_NORMAL(12px) / UI_FONT_BIG(16px)，传 NULL 用 NORMAL
  * @return 标签对象（之后要改文字用 ui_label_set）
  */
-lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color);
+lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color, const lv_font_t *font);
 
 /**
  * @brief  造一段带初始文字的文字
  * @param  parent  父对象
  * @param  color   文字颜色
- * @param  text    初始文字，只支持 ASCII（没有中文字库）；传 NULL 当空串
+ * @param  text    初始文字（中文走字库，英文数字走 fallback）；传 NULL 当空串
  * @return 标签对象
  */
-lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text);
+lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text,
+                         const lv_font_t *font);
 
 /**
  * @brief  改文字内容
@@ -91,7 +93,7 @@ void      ui_label_set(lv_obj_t *lbl, const char *text);
  * @note   专门给"可视化设计器生成的代码"用，省掉一行 lv_obj_set_pos
  */
 lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
-                      lv_coord_t x, lv_coord_t y);
+                      lv_coord_t x, lv_coord_t y, const lv_font_t *font);
 
 /* ============================ 交互类（点了自动发 TOUCH 事件） ============================ */
 
@@ -108,7 +110,8 @@ lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
  * @return 按钮对象（要单独改样式/禁用时用）
  */
 lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
-                     lv_coord_t w, lv_coord_t h, const char *text, uint8_t id);
+                     lv_coord_t w, lv_coord_t h, const char *text, uint8_t id,
+                     const lv_font_t *font);
 #endif
 
 #if LV_USE_SWITCH
@@ -134,7 +137,7 @@ lv_obj_t *ui_switch_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, uint8_t id
  * @return 复选框对象
  */
 lv_obj_t *ui_checkbox_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
-                          const char *text, uint8_t id);
+                          const char *text, uint8_t id, const lv_font_t *font);
 #endif
 
 #if LV_USE_SLIDER

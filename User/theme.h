@@ -25,10 +25,10 @@
  * 形状 / 字体
  *********************************************************************/
 #define UI_RADIUS        22                         /* 卡片圆角，越大越"软" */
-#define UI_FONT_SMALL    (&lv_font_montserrat_14)
-#define UI_FONT_NORMAL   (&lv_font_montserrat_14)
-#define UI_FONT_BIG      (&lv_font_montserrat_14)
-#define UI_FONT_HUGE     (&lv_font_montserrat_14)
+#define UI_FONT_SMALL    (&lv_font_cn12)
+#define UI_FONT_NORMAL   (&lv_font_cn12)
+#define UI_FONT_BIG      (&lv_font_cn16)
+#define UI_FONT_HUGE     (&lv_font_cn16)
 /*********************************************************************
  * 尺寸
  *********************************************************************/

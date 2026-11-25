@@ -144,7 +144,6 @@ static void task_close(void)
 
 static void task_render(void)
 {
-    /* 界面 render 带参数时（例如 float c），这里改成 task_name_ui_render(s_c) */
     task_name_ui_render();
 }
 

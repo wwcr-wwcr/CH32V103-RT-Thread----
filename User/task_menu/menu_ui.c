@@ -63,11 +63,11 @@ void menu_ui_render(const char **names, uint8_t count, uint8_t sel)
                           (lv_coord_t)(UI_TITLE_H - 10), UI_RADIUS);
         lv_obj_set_style_bg_opa(bar, 242, 0);
 
-        lbl = ui_label_text(bar, UI_C_TEXT, "TASKS");
+        lbl = ui_label_text(bar, UI_C_TEXT, "TASKS", UI_FONT_BIG);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, UI_PAD, 0);
 
         snprintf(buf, sizeof(buf), "%d TASKS", count);
-        lbl = ui_label_text(bar, UI_C_TEXT_DIM, buf);
+        lbl = ui_label_text(bar, UI_C_TEXT_DIM, buf, UI_FONT_NORMAL);
         lv_obj_align(lbl, LV_ALIGN_RIGHT_MID, -UI_PAD, 0);
 
         /* 1.2 按钮墙：2 列（x = 16 / 168），行距 76，最多 4 行 */
@@ -77,7 +77,8 @@ void menu_ui_render(const char **names, uint8_t count, uint8_t sel)
             y = (lv_coord_t)(66 + (i / 2) * 76);
 
             btn = ui_btn_new(s_page, x, y, 140, 70,
-                             (names[i] != NULL) ? names[i] : "-", (uint8_t)(i + 1));
+                             (names[i] != NULL) ? names[i] : "-", (uint8_t)(i + 1),
+                             UI_FONT_NORMAL);
 
             s_btn[i] = btn;
         }
@@ -89,7 +90,7 @@ void menu_ui_render(const char **names, uint8_t count, uint8_t sel)
         bar = ui_card_new(s_page, 24, (lv_coord_t)(UI_H - 46), (lv_coord_t)(UI_W - 48), 36, 18);
         lv_obj_set_style_bg_opa(bar, 215, 0);
 
-        lbl = ui_label_text(bar, UI_C_TEXT_DIM, "TAP OR K3 TO ENTER");
+        lbl = ui_label_text(bar, UI_C_TEXT_DIM, "TAP OR K3 TO ENTER", UI_FONT_NORMAL);
         lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     }
 

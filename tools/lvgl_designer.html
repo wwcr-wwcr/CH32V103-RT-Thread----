@@ -236,13 +236,13 @@ label.mini{color:var(--dim);font-size:12px}
 /* ---------- 控件表：type -> 生成函数 / 默认属性 / 需要的 lv_conf 宏 ---------- */
 const W = {
   card:     {n:'卡片',   fn:'ui_card_new',     need:'',            d:{w:240,h:100,radius:22}},
-  label:    {n:'文字',   fn:'ui_label_at',     need:'',            d:{w:80,h:20,text:'TEXT',color:'TEXT'}},
-  btn:      {n:'按钮',   fn:'ui_btn_new',      need:'LV_USE_BTN',  d:{w:96,h:48,text:'BTN',code:1}},
+  label:    {n:'文字',   fn:'ui_label_at',     need:'',            d:{w:80,h:20,text:'TEXT',color:'TEXT',font:'N'}},
+  btn:      {n:'按钮',   fn:'ui_btn_new',      need:'LV_USE_BTN',  d:{w:96,h:48,text:'BTN',code:1,font:'N'}},
   bar:      {n:'进度条', fn:'ui_bar_new',      need:'LV_USE_BAR',  d:{w:200,h:10,min:0,max:100,val:60}},
   slider:   {n:'滑条',   fn:'ui_slider_new',   need:'LV_USE_SLIDER',d:{w:200,h:8,min:0,max:100,val:50,code:200}},
   chart:    {n:'图表',   fn:'ui_chart_new',    need:'LV_USE_CHART',d:{w:280,h:130,max:1000,points:64,dataSrc:'demo'}},
   switch:   {n:'开关',   fn:'ui_switch_new',   need:'LV_USE_SWITCH',d:{w:56,h:28,code:1}},
-  checkbox: {n:'复选框', fn:'ui_checkbox_new', need:'LV_USE_CHECKBOX',d:{w:110,h:22,text:'OPT',code:1}},
+  checkbox: {n:'复选框', fn:'ui_checkbox_new', need:'LV_USE_CHECKBOX',d:{w:110,h:22,text:'OPT',code:1,font:'N'}},
   arc:      {n:'圆弧',   fn:'ui_arc_new',      need:'LV_USE_ARC',  d:{w:100,h:100,min:0,max:100,val:50,code:1}},
   dropdown: {n:'下拉框', fn:'ui_dropdown_new', need:'LV_USE_DROPDOWN',d:{w:150,h:40,options:'AUTO\nMANUAL\nOFF',code:1}},
   roller:   {n:'滚轮',   fn:'ui_roller_new',   need:'LV_USE_ROLLER',d:{w:100,h:110,options:'ONE\nTWO\nTHREE',code:1}},
@@ -485,16 +485,17 @@ const FIELDS = {
   points:['点数','num'], ms:['周期(ms)','num'],
   options:['选项(换行分隔)','area'], rows:['行','num'], cols:['列','num'],
   code:['事件编号','num'],
+  font:['字体','font'],
 };
 const FIELDS_BY_TYPE = {
   card:['x','y','w','h','radius'],
-  label:['x','y','w','h','text','color'],
-  btn:['x','y','w','h','text','code'],
+  label:['x','y','w','h','text','color','font'],
+  btn:['x','y','w','h','text','code','font'],
   bar:['x','y','w','h','min','max','val'],
   slider:['x','y','w','h','min','max','val','code'],
   chart:['x','y','w','h','max','points'],
   switch:['x','y','w','h','code'],
-  checkbox:['x','y','w','h','text','code'],
+  checkbox:['x','y','w','h','text','code','font'],
   arc:['x','y','w','h','min','max','val','code'],
   dropdown:['x','y','w','h','options','code'],
   roller:['x','y','w','h','options','code'],
@@ -584,6 +585,12 @@ function renderInspector(){
     }else if(kind==='color'){
       d.innerHTML='<div class="fld"><label>'+lab+'</label><select id="f_'+k+'">'+
         Object.keys(COLORS).map(c=>'<option value="'+c+'"'+(val===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>';
+    }else if(kind==='font'){
+      const fv = val || 'N';
+      d.innerHTML='<div class="fld"><label>'+lab+'</label><select id="f_'+k+'">'+
+        '<option value="N"'+(fv==='N'?' selected':'')+'>正常 12px（UI_FONT_NORMAL）</option>'+
+        '<option value="B"'+(fv==='B'?' selected':'')+'>大 16px（UI_FONT_BIG）</option>'+
+        '</select></div>';
     }else{
       d.innerHTML='<div class="fld"><label>'+lab+'</label><input id="f_'+k+'" type="'+(kind==='num'?'number':'text')+'" value="'+esc(val)+'"></div>';
     }
@@ -903,7 +910,7 @@ function genWidget(w,idx,varMap,parentVar){
       L.push(v+' = ui_card_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.radius||22)+');');
       break;
     case 'label':
-      L.push(v+' = ui_label_at('+p+', '+(COLORS[w.color]||'UI_C_TEXT')+', '+cstr(w.text)+', '+px+', '+py+');');
+      L.push(v+' = ui_label_at('+p+', '+(COLORS[w.color]||'UI_C_TEXT')+', '+cstr(w.text)+', '+px+', '+py+', '+fontArg(w)+');');
       if((w.longMode||'none')==='wrap')
         L.push('lv_label_set_long_mode('+v+', LV_LABEL_LONG_WRAP);  lv_obj_set_width('+v+', '+pw+');');
       else if(w.longMode==='dot')
@@ -912,7 +919,7 @@ function genWidget(w,idx,varMap,parentVar){
         L.push('lv_label_set_long_mode('+v+', LV_LABEL_LONG_SCROLL_CIRCULAR); lv_obj_set_width('+v+', '+pw+');');
       break;
     case 'btn':
-      L.push(v+' = ui_btn_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cstr(w.text)+', '+(w.code|0)+');');
+      L.push(v+' = ui_btn_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cstr(w.text)+', '+(w.code|0)+', '+fontArg(w)+');');
       if(w.btnStyle==='primary'){
         L.push('lv_obj_set_style_bg_color('+v+', UI_C_ACCENT, 0);');
         L.push('if(lv_obj_get_child('+v+', 0) != NULL) { lv_obj_set_style_text_color(lv_obj_get_child('+v+', 0), lv_color_white(), 0); }');
@@ -965,7 +972,7 @@ function genWidget(w,idx,varMap,parentVar){
       /* Y 轴单位：图表左上角一个小字，不占句柄 */
       if((w.yUnit||'').trim()){
         L.push('{   /* Y 轴单位 */');
-        L.push('    lv_obj_t *u = ui_label_text('+p+', UI_C_TEXT_DIM, '+cstr(w.yUnit.trim())+');');
+        L.push('    lv_obj_t *u = ui_label_text('+p+', UI_C_TEXT_DIM, '+cstr(w.yUnit.trim())+', UI_FONT_NORMAL);');
         L.push('    lv_obj_align_to(u, '+v+', LV_ALIGN_OUT_TOP_LEFT, 0, -14);');
         L.push('}');
       }
@@ -984,7 +991,7 @@ function genWidget(w,idx,varMap,parentVar){
       if(String(w.initOn)==='1') L.push('lv_obj_add_state('+v+', LV_STATE_CHECKED);');
       break;
     case 'checkbox':
-      L.push(v+' = ui_checkbox_new('+p+', '+px+', '+py+', '+cstr(w.text)+', '+(w.code|0)+');');
+      L.push(v+' = ui_checkbox_new('+p+', '+px+', '+py+', '+cstr(w.text)+', '+(w.code|0)+', '+fontArg(w)+');');
       if(String(w.initOn)==='1') L.push('lv_obj_add_state('+v+', LV_STATE_CHECKED);');
       break;
     case 'arc':
@@ -1821,22 +1828,48 @@ function refreshVarPool(){
   $('#varpool').innerHTML = VARPOOL.map(v=>'<option value="'+v.name+'">'+v.type+'</option>').join('');
 }
 
-/* 把 task 源码里三处引用改成新名字，返回改好的整份文本 */
+/* 把 task 源码里三处引用改成新名字，返回改好的整份文本
+ *
+ * 逐行处理，原因：以前用一条全局正则跨行匹配 ([^;]*? 允许换行)，
+ * 会把注释里的 "xxx_ui_render(s_c)" 和下一行真实调用的 ";" 凑成一次匹配，
+ * 连注释的结束符一起吃掉 —— 结果 task_render 整个函数被注释掉。
+ * 现在：注释行原样放过，只认"行首"的调用，物理上不可能跨行。 */
+/* 字体选择：正常 12px / 大 16px */
+function fontArg(w){ return (w && w.font === 'B') ? 'UI_FONT_BIG' : 'UI_FONT_NORMAL'; }
+
 function patchTask(){
   if(!TASKSRC) return '';
   const g = genCode();
-  let s = TASKSRC;
 
-  /* 1) xxx_ui_render(...) 调用 -> <前缀>_render(<新实参>)；前面是 void 的是函数定义，跳过 */
-  s = s.replace(/(?<!void\s)([A-Za-z_]\w*_ui_render)\s*\([^;]*?\)\s*;/g,
-                g.prefix + '_render(' + g.renderCall + ');');
-  /* 2) .ui_destroy = xxx */
-  /* 2) .ui_destroy 统一指向任务里的 static 包装函数 */
-  s = s.replace(/(\.ui_destroy\s*=\s*)[A-Za-z_]\w*/g, '$1task_ui_destroy');
-  /* 3) 界面头文件：#include "xxx_ui.h" */
-  s = s.replace(/(#include\s+")([^"]*_ui\.h)(")/g, '$1' + g.prefix + '.h$3');
+  const lines = TASKSRC.split('\n');
+  for(let i = 0; i < lines.length; i++){
+    const t = lines[i].trim();
 
-  return s;
+    /* 注释行、空行：一个字都不动 */
+    if(t === '' || t.startsWith('/*') || t.startsWith('*') || t.startsWith('//')) continue;
+
+    /* 1) 行首的 xxx_ui_render(...); 调用 -> <前缀>_render(<实参>); */
+    lines[i] = lines[i].replace(/^(\s*)[A-Za-z_]\w*_ui_render\s*\([^;]*\)\s*;/,
+      (m, indent) => indent + g.prefix + '_render(' + g.renderCall + ');');
+
+    /* 2) .ui_destroy = xxx -> task_ui_destroy（任务里的 static 包装函数） */
+    lines[i] = lines[i].replace(/(\.ui_destroy\s*=\s*)[A-Za-z_]\w*/, '$1task_ui_destroy');
+
+    /* 3) #include "xxx_ui.h" -> #include "<前缀>.h" */
+    lines[i] = lines[i].replace(/^(\s*#include\s*")[^"]*_ui\.h(")/,
+      (m, pre, post) => pre + g.prefix + '.h' + post);
+  }
+
+  return lines.join('\n');
+}
+
+/* 导入 task 时把设计器前缀同步成任务名，省得两边对不上 */
+function applyTaskName(fileName){
+  const base = String(fileName || '').replace(/\.c$/i, '').replace(/_ui$/i, '');
+  if(!base) return '';
+  S.name = base;
+  $('#projName').value = base;
+  return base;
 }
 
 function patchTaskSummary(){
@@ -1853,11 +1886,13 @@ $('#fileC').onchange = e => {
     const buf = new Uint8Array(r.result);
     TASKSRC  = decodeText(buf);
     TASKNAME = f.name;
+    const synced = applyTaskName(f.name);        /* 前缀自动跟任务名一致 */
     VARPOOL  = parseVars(TASKSRC);
     refreshVarPool();
     $('#tabTask').disabled = false;
     renderAll();
-    $('#stSel').textContent = '已导入 ' + TASKNAME + '：认出 ' + VARPOOL.length + ' 个变量（打开代码面板切到 task 页签复制）';
+    $('#stSel').textContent = '已导入 ' + TASKNAME + '：前缀已同步为 ' + synced +
+      '，认出 ' + VARPOOL.length + ' 个变量（打开代码面板切到 task 页签复制）';
   };
   r.readAsArrayBuffer(f);
   e.target.value = '';

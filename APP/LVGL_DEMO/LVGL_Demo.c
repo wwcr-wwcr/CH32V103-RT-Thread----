@@ -146,11 +146,11 @@ lv_obj_t *ui_card_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     return obj;
 }
 
-lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color)
+lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color, const lv_font_t *font)
 {
     lv_obj_t *lbl = lv_label_create(parent);
 
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl, (font != NULL) ? font : UI_FONT_NORMAL, 0);
     lv_obj_set_style_text_color(lbl, color, 0);
     lv_obj_set_style_bg_opa(lbl, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(lbl, 0, 0);
@@ -158,9 +158,10 @@ lv_obj_t *ui_label_new(lv_obj_t *parent, lv_color_t color)
     return lbl;
 }
 
-lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text)
+lv_obj_t *ui_label_text(lv_obj_t *parent, lv_color_t color, const char *text,
+                         const lv_font_t *font)
 {
-    lv_obj_t *lbl = ui_label_new(parent, color);
+    lv_obj_t *lbl = ui_label_new(parent, color, font);
 
     lv_label_set_text(lbl, (text != NULL) ? text : "");
 
@@ -176,9 +177,9 @@ void ui_label_set(lv_obj_t *lbl, const char *text)
 }
 
 lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
-                      lv_coord_t x, lv_coord_t y)
+                      lv_coord_t x, lv_coord_t y, const lv_font_t *font)
 {
-    lv_obj_t *lbl = ui_label_text(parent, color, text);
+    lv_obj_t *lbl = ui_label_text(parent, color, text, font);
 
     lv_obj_set_pos(lbl, x, y);
 
@@ -190,7 +191,8 @@ lv_obj_t *ui_label_at(lv_obj_t *parent, lv_color_t color, const char *text,
  **************************************************************************************************/
 #if LV_USE_BTN
 lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
-                     lv_coord_t w, lv_coord_t h, const char *text, uint8_t id)
+                     lv_coord_t w, lv_coord_t h, const char *text, uint8_t id,
+                     const lv_font_t *font)
 {
     lv_obj_t *btn = lv_btn_create(parent);
     lv_obj_t *lbl;
@@ -202,7 +204,7 @@ lv_obj_t *ui_btn_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 
     lv_obj_add_event_cb(btn, cb_click, LV_EVENT_CLICKED, (void *)(uintptr_t)id);
 
-    lbl = ui_label_text(btn, UI_C_VALUE, text);
+    lbl = ui_label_text(btn, UI_C_VALUE, text, font);
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
 
     return btn;
@@ -226,13 +228,13 @@ lv_obj_t *ui_switch_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, uint8_t id
 
 #if LV_USE_CHECKBOX
 lv_obj_t *ui_checkbox_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
-                          const char *text, uint8_t id)
+                          const char *text, uint8_t id, const lv_font_t *font)
 {
     lv_obj_t *cb = lv_checkbox_create(parent);
 
     lv_obj_set_pos(cb, x, y);
     lv_checkbox_set_text(cb, (text != NULL) ? text : "");
-    lv_obj_set_style_text_font(cb, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(cb, (font != NULL) ? font : UI_FONT_NORMAL, 0);
     lv_obj_set_style_text_color(cb, UI_C_TEXT, 0);
 
     lv_obj_add_event_cb(cb, cb_onoff, LV_EVENT_VALUE_CHANGED, (void *)(uintptr_t)id);

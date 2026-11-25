@@ -48,7 +48,9 @@ extern void rt_kprintf(const char *fmt, ...);
    字体：只开 14 号
  *====================*/
 #define LV_FONT_MONTSERRAT_14   1
-#define LV_FONT_DEFAULT         &lv_font_montserrat_14
+/* 中文字库做默认，缺的字（英文/数字/符号）自动回退到 montserrat_14 */
+#define LV_FONT_CUSTOM_DECLARE  LV_FONT_DECLARE(lv_font_cn12) LV_FONT_DECLARE(lv_font_cn16)
+#define LV_FONT_DEFAULT         &lv_font_cn12
 
 /*====================
    控件开关
