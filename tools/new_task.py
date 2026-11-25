@@ -162,7 +162,11 @@ def generate(root, name, force=False, register=False, template=None, log=None):
         else:
             t = read_text(menu).replace("\r\n", "\n")
             t2, how = _register_in_menu(name, t)
-            if t2 == t:
+            if how.startswith("失败"):
+                msg += "\n!! " + how
+                if log:
+                    log("注册失败: " + how)
+            elif t2 == t:
                 msg += "\n菜单里已经有 %s，跳过注册" % name
                 if log:
                     log("注册: 已存在，跳过")
@@ -173,28 +177,52 @@ def generate(root, name, force=False, register=False, template=None, log=None):
                     log("注册: menu.c " + how)
 
     msg += "\n\n下一步：\n  1) MRS 里 F5，把 %s 加进工程\n" % name
-    msg += "  2) 设计器前缀填 %s（自动补 _ui），生成后分别粘到 .c 和 _ui.c/.h\n" % (name, name)
+    msg += "  2) 设计器前缀填 %s（自动补 _ui），生成后分别粘到 .c 和 _ui.c/.h\n" % name
     msg += "  3) 设计器画完覆盖 _ui.c/_ui.h；render 带参数时改一下 task_render 里的调用"
     return True, msg, made
 
 
 def _register_in_menu(name, t):
-    """往 menu.c 加 extern 和 &task_xxx, —— 返回 (新文本, 说明)"""
+    """往 menu.c 加 extern 和 &task_xxx, —— 返回 (新文本, 说明)
+
+    extern 的插入位置按顺序找，找到哪个用哪个：
+        1. 已有的 `extern const task_t xxx;` 后面（最常见）
+        2. `//********************在这里写任务表********************//` 后面
+        3. `static const task_t *const g_app_list[] =` 前面（兜底，必须有）
+    以前只有 1、2 两条路，锚点注释被删掉时会「只加了 g_app_list、没加 extern」，
+    编出来就是 undeclared，非常难查。现在 3 兜底，永不静默跳过。
+    """
     how = []
 
     if ("extern const task_t %s;" % name) not in t:
+        # 只认行首真正的 extern（`//extern ...` 是注释，不算）
         ms = list(re.finditer(r"^extern const task_t \w+;\n", t, flags=re.M))
+        anchor = "//********************在这里写任务表********************//\n"
+        decl = "extern const task_t %s;\n" % name
+
         if ms:
             pos = ms[-1].end()
-            t = t[:pos] + "extern const task_t %s;\n" % name + t[pos:]
+            t = t[:pos] + decl + t[pos:]
+            how.append("extern")
+        elif anchor in t:
+            t = t.replace(anchor, anchor + decl)
+            how.append("extern(锚点)")
         else:
-            anchor = "//********************在这里写任务表********************//\n"
-            if anchor in t:
-                t = t.replace(anchor, anchor + "extern const task_t %s;\n" % name)
-        how.append("extern")
+            marker = "static const task_t *const g_app_list[] ="
+            if marker in t:
+                pos = t.index(marker)
+                t = t[:pos] + decl + t[pos:]
+                how.append("extern(g_app_list 前)")
+            else:
+                # 连任务表都找不到：宁可报出来，也不假装成功
+                return t, "失败：menu.c 里找不到 g_app_list，没注册"
 
     if ("&%s," % name) not in t:
-        i = t.index("static const task_t *const g_app_list[] =")
+        marker = "static const task_t *const g_app_list[] ="
+        if marker not in t:
+            return t, "失败：menu.c 里找不到 g_app_list，没注册"
+
+        i = t.index(marker)
         j = t.index("};", i)
         ls = t.rindex("\n", 0, j) + 1
         t = t[:ls] + "    &%s,\n" % name + t[ls:]

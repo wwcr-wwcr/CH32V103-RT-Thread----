@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "wave_ana.h"
+#include "vref.h"
 
 /* 幅值谱缓冲：count 上限 1024 -> 需要 513 个点（1026 字节） */
 #define WAVE_ANA_BINS   ((uint16_t)(FFT_COUNT_MAX / 2U + 1U))
@@ -129,7 +130,7 @@ static uint8_t shape_by_cf(const uint16_t *s, uint16_t cnt, uint16_t dc, uint16_
  **************************************************************************************************/
 uint32_t wave_ana_mv(uint16_t code)
 {
-    return (uint32_t)code * 3300U / 4095U;
+    return (uint32_t)vref_code_to_mv(code);
 }
 
 int wave_ana_run(const uint16_t *samples, uint16_t count, uint32_t rate_hz, wave_ana_t *out)

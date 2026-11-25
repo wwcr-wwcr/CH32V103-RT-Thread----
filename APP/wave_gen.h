@@ -6,9 +6,11 @@
  *     HAL/siggen   只负责"把表按速率打出去"
  *     本文件       负责算波形：正弦 / 三角 / 方波 / 调频扫频
  *
- * ★ 所有电压参数都用「毫伏(mV)」，范围 0..3300，不用自己算码值：
+ * ★ 所有电压参数都用「毫伏(mV)」，不用自己算码值：
  *     想输出 0.8V~2.5V 就写 800, 2500
- *     1 mV 约等于 1.24 个码值，所以分辨率约 0.8 mV，够用
+ *     最大可到板子的 VDDA（实测约 3666mV），换算见 BSP/vref.h
+ *     1 mV 约等于 1.12 个码值（VDDA=3.666V），分辨率约 0.9 mV，够用
+ *     注意：VDDA 不是标称 3.3V，别再用 3300 近似，统一走 vref_mv_to_code()
  *
  * 参数说明：
  *     freq_hz   输出频率（Hz），1..20000
@@ -29,7 +31,8 @@ extern "C" {
 #endif
 
 #define WAVE_GEN_FREQ_MAX     20000U    /* 输出频率上限 */
-#define WAVE_GEN_VREF_MV      3300U     /* 参考电压：3.3V */
+/* 名义参考电压：只用于文档/兼容旧代码，真正换算走 BSP/vref（实测 3.6V） */
+#define WAVE_GEN_VREF_MV      3300U
 #define WAVE_GEN_SWEEP_MS_MIN 100U
 #define WAVE_GEN_SWEEP_MS_MAX 10000U
 

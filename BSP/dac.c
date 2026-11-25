@@ -63,6 +63,10 @@ static int write_code(dac_port_t *port, uint16_t code)
 {
     prepare(port);
     port->code = code;
+    /* 先清掉上一次传输留下的 TC/TE 标志：否则下面的轮询会立刻“成功”，
+     * dma_stop() 在新传输落地前就把它掐断 —— 表现为上电后第一次写正常、
+     * 之后每次 dac_write 都返回 0 但输出不再变化。 */
+    DMA_ClearFlag(port == &pa4 ? DMA2_FLAG_GL3 : DMA2_FLAG_GL4);
     configure_dma(port, &port->code, 1, 0);
     uint32_t done = port == &pa4 ? DMA2_FLAG_TC3 : DMA2_FLAG_TC4;
     uint32_t error = port == &pa4 ? DMA2_FLAG_TE3 : DMA2_FLAG_TE4;

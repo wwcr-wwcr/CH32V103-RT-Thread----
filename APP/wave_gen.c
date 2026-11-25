@@ -10,6 +10,7 @@
 
 #include "wave_gen.h"
 #include "siggen.h"
+#include "vref.h"
 #include <rtthread.h>
 
 #define WG_POINTS_MAX   1024U       /* 输出表容量（扫频用满，其它波形用前面一段） */
@@ -90,16 +91,12 @@ static int range_of(uint16_t low, uint16_t high, int32_t *mid, int32_t *amp)
 }
 
 /**
- * @brief  毫伏 -> 12 位码值（四舍五入，超过 3300mV 直接钳到满量程）
+ * @brief  毫伏 -> 12 位码值（四舍五入，超过 VDDA 直接钳到满量程）
+ * @note   换算统一走 BSP/vref（实测 VDDA ≈ 3.6V，不是 3.3V）
  */
 static uint16_t mv_to_code(uint16_t mv)
 {
-    if(mv > WAVE_GEN_VREF_MV)
-    {
-        mv = (uint16_t)WAVE_GEN_VREF_MV;
-    }
-
-    return (uint16_t)(((uint32_t)mv * 4095U + (WAVE_GEN_VREF_MV / 2U)) / WAVE_GEN_VREF_MV);
+    return vref_mv_to_code(mv);
 }
 
 /**************************************************************************************************
