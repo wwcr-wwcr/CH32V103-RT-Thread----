@@ -6,7 +6,6 @@
 static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close 等它 */
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void menu_thread(void *arg);
-
 //extern const task_t task_x;                                           <----------在这添加
 static const task_t *const g_app_list[] =
 {
