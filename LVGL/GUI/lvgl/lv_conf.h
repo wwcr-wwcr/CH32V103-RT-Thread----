@@ -29,7 +29,8 @@ extern void rt_kprintf(const char *fmt, ...);
    内存（LVGL 自己的堆，不是 RT-Thread 的）
  *====================*/
 #define LV_MEM_CUSTOM           0           /* 用 LVGL 内置 TLSF */
-#define LV_MEM_SIZE             (20U * 1024U)
+#define LV_MEM_SIZE             (32U * 1024U)
+#define LV_GRAD_CACHE_DEF_SIZE  (4U * 1024U)   /* gradient cache: 4KB, must fit inside LV_MEM_SIZE */
 
 /*====================
    时基：直接用 RT-Thread 的 tick（1ms）

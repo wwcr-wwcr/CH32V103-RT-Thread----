@@ -58,9 +58,31 @@ static void cb_onoff(lv_event_t *e)
 #endif
 
 #if LV_USE_SLIDER
-/* 滑条：只有松手才发，拖动过程一条都不发 */
-static void cb_slider_done(lv_event_t *e)
+/* 滑条：拖动中每 SLIDER_REPORT_MS 上报一条（节流），松手再补一条终值。
+ *
+ * 为什么不是"只在松手发"：界面上数值/预览都是任务侧算出来再喂回来的，
+ * 不松手就永远不更新，调节起来很难受。
+ * 为什么不干脆每条都发：触摸本身 30ms 采一次，而任务侧收到一条要重算波形表
+ * 并重启 DMA，发太密波形会抖、CPU 也白烧。60ms 是手感和稳定性的折中。
+ */
+#define SLIDER_REPORT_MS   60U
+
+static void cb_slider_live(lv_event_t *e)
 {
+    static uint32_t s_last;
+
+    uint32_t now = lv_tick_get();
+
+    /* 松手那次不节流，保证最终值一定送到（拖动中途的会被丢掉） */
+    if(lv_event_get_code(e) != LV_EVENT_RELEASED)
+    {
+        if((uint32_t)(now - s_last) < SLIDER_REPORT_MS)
+        {
+            return;
+        }
+    }
+
+    s_last = now;
     kernel_post(TOUCH, ev_id(e), (int32_t)lv_slider_get_value(lv_event_get_target(e)));
 }
 #endif
@@ -263,8 +285,9 @@ lv_obj_t *ui_slider_new(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_style_bg_color(sld, UI_C_TEXT, LV_PART_KNOB);
     lv_obj_set_style_shadow_width(sld, 0, LV_PART_KNOB);
 
-    /* 只有松手才发一条 —— 拖动中一条都不发 */
-    lv_obj_add_event_cb(sld, cb_slider_done, LV_EVENT_RELEASED, (void *)(uintptr_t)id);
+    /* 拖动中 60ms 一条 + 松手补终值（见 cb_slider_live） */
+    lv_obj_add_event_cb(sld, cb_slider_live, LV_EVENT_VALUE_CHANGED, (void *)(uintptr_t)id);
+    lv_obj_add_event_cb(sld, cb_slider_live, LV_EVENT_RELEASED,      (void *)(uintptr_t)id);
 
     return sld;
 }

@@ -957,8 +957,12 @@ function genWidget(w,idx,varMap,parentVar){
     case 'slider':
       L.push(v+' = ui_slider_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.min|0)+', '+(w.max|0)+', '+(w.val|0)+', '+(w.code|0)+');');
       break;
-    case 'chart':
-      L.push(v+' = ui_chart_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+(w.max|0)+');');
+    case 'chart': {
+      /* 量程：空着时给个能用的默认值。scope 模式喂的是 0~4095 码值，
+       * 默认量程就该是 4095，否则数据全顶到天花板，看着像"没显示"。 */
+      const cmax = (w.max|0) || ((w.chartMode==='scope') ? 4095 : 1000);
+
+      L.push(v+' = ui_chart_new('+p+', '+px+', '+py+', '+pw+', '+ph+', '+cmax+');');
       L.push('lv_chart_set_point_count('+v+', '+(w.points|0||64)+');');
       L.push('lv_chart_set_div_line_count('+v+', '+(w.divH|0||4)+', '+(w.divV|0||6)+');');
       if(w.chartType==='bar') L.push('lv_chart_set_type('+v+', LV_CHART_TYPE_BAR);');
@@ -985,7 +989,13 @@ function genWidget(w,idx,varMap,parentVar){
         GEN_AUX.decl.push('#endif');
         L.push('ui_chart_bind('+v+', s_'+v+'_dat, '+n+', 1);   /* 之后写数组即可 */');
       }
+
+      /* ★ 顺序关键：series 句柄必须在 ui_chart_new() 之后取。
+       *   放在前面等于 lv_chart_get_series_next(NULL, NULL)，内部解引用空指针，
+       *   拿回来的是垃圾地址，后面 push 数据就是往野指针写（图表空白/偶发死机）。 */
+      L.push('s_ser_'+v+' = lv_chart_get_series_next('+v+', NULL);');
       break;
+    }
     case 'switch':
       L.push(v+' = ui_switch_new('+p+', '+px+', '+py+', '+(w.code|0)+');');
       if(String(w.initOn)==='1') L.push('lv_obj_add_state('+v+', LV_STATE_CHECKED);');
@@ -1209,6 +1219,11 @@ function genCode(){
   const buildFns=[];
   const allVars=[];
   const series=[];        /* {v,name,si,max} */
+  const varMaps=[];       /* 每屏的 {控件下标: 句柄名}，供绑定形参用 */
+
+  /* 控件编号必须跨屏连续：写在循环里面的话每屏都从 w1 开始，
+   * 多屏时句柄重复声明（同一份 .c 里两条 static lv_obj_t *w1），直接编不过。 */
+  let idx=0;
 
   S.screens.forEach((s,si)=>{
     C.push('');
@@ -1217,7 +1232,6 @@ function genCode(){
     const body=[];
     body.push(multi ? ('    s_page['+si+'] = ui_page_new();                 /* 建整屏 */')
                     : '    s_page = ui_page_new();                        /* 建整屏 */');
-    let idx=0;
     s.widgets.forEach((w,i)=>{
       idx++;
       const pageVar = multi ? ('s_page['+si+']') : 's_page';
@@ -1226,15 +1240,19 @@ function genCode(){
       varMap[i]=g.var;
       allVars.push({v:g.var,type:w.type,name:w.name,si});
       if(w.type==='chart'){
-        series.push({v:g.var, name:w.name, si:si, max:(w.max|0)||1000,
+        /* 只记录，不要在这里给 s_ser_ 赋值 —— 此时图还没创建（见 genWidget 的 chart 分支）。
+         * 量程默认值必须和 genWidget 里的 cmax 一致。 */
+        series.push({v:g.var, name:w.name, si:si,
+                     max:(w.max|0) || ((w.chartMode==='scope') ? 4095 : 1000),
                      mode:(w.chartMode||'push'), ctype:(w.chartType||'line'),
                      src:(w.dataSrc||'demo'), pts:(w.points|0||64)});
-        body.push('    s_ser_'+g.var+' = lv_chart_get_series_next('+g.var+', NULL);');
       }
       if(g.guardStart) body.push('    '+g.guardStart);
       g.lines.forEach(l=>body.push('    '+l));
       if(g.guardEnd) body.push('    '+g.guardEnd);
     });
+
+    varMaps[si]=varMap;     /* 记下本屏的句柄表，后面"绑定形参->控件"要用 */
 
     /* 每个控件一个句柄（不用的加 (void) 即可，别删声明） */
     s.widgets.forEach((w,i)=>{
@@ -1321,7 +1339,7 @@ function genCode(){
       C.push(' */');
       C.push('void '+fname+'_push(int32_t v)');
       C.push('{');
-      C.push('    if('+s.v+' == NULL)');
+      C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL))');
       C.push('    {');
       C.push('        return;');
       C.push('    }');
@@ -1337,7 +1355,7 @@ function genCode(){
       C.push('{');
       C.push('    uint16_t i;');
       C.push('');
-      C.push('    if(('+s.v+' == NULL) || (buf == NULL))');
+      C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (buf == NULL))');
       C.push('    {');
       C.push('        return;');
       C.push('    }');
@@ -1358,7 +1376,7 @@ function genCode(){
         C.push('{');
         C.push('    uint16_t i;');
         C.push('');
-        C.push('    if(('+s.v+' == NULL) || (buf == NULL))');
+        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (buf == NULL))');
         C.push('    {');
         C.push('        return;');
         C.push('    }');
@@ -1380,7 +1398,7 @@ function genCode(){
         C.push('{');
         C.push('    uint8_t i;');
         C.push('');
-        C.push('    if(('+s.v+' == NULL) || (spec == NULL))');
+        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (spec == NULL))');
         C.push('    {');
         C.push('        return;');
         C.push('    }');
@@ -1395,10 +1413,9 @@ function genCode(){
     });
 
     /* 演示正弦：选了"内置演示"才有 */
-    const demos=series.filter(s=>{
-      const w=S.screens[s.si].widgets.find(x=>('w'+(s.si===S.cur?0:0))!=null && x.name===s.name);
-      return w && (w.dataSrc||'demo')==='demo';
-    });
+    /* 直接用 series 里记下的数据来源，别按名字回查控件（同名会查错，
+     * 旧写法的 find 条件恒为真，等于没判） */
+    const demos=series.filter(s=>s.src==='demo');
     if(demos.length){
       C.push('/* ---------------- 演示数据（接真实数据后删掉 render 里那几行） ---------------- */');
       demos.forEach(s=>{
@@ -1498,7 +1515,9 @@ function genCode(){
     s.widgets.forEach((w,i)=>{
       const nm=(w.bind||'').trim();
       if(!nm) return;
-      const v='w'+(i+1);
+      /* 必须用本屏真实的句柄名：控件编号是跨屏连续的，
+       * 按"本屏下标+1"拼出来在多屏时会指到第一屏的控件上（数值不显示）。 */
+      const v=varMaps[si][i];
       const isStr=(w.bindType==='const char *');
       if(w.type==='label'){
         const customFmt=(w.bindFmt||'').trim();
@@ -1580,6 +1599,8 @@ function genCode(){
   }
   C.push('');
   allVars.forEach(a=>{ C.push('    '+a.v+' = NULL;'); });
+  /* 图表 series 句柄也清掉：页面删了它就是野指针 */
+  series.forEach(s=>C.push('    s_ser_'+s.v+' = NULL;'));
   GEN_AUX.vbar.forEach(b=>C.push('    '+b.v+'_fill = NULL;'));
   C.push('}');
 
