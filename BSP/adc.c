@@ -53,8 +53,10 @@ static int prepare(void)
     RCC_ADCCLKConfig(prescaler);
     ADC_DeInit(ADC1);
     rt_hw_interrupt_enable(irq);
-    ADC_InitTypeDef config;
+    ADC_InitTypeDef config = {0};
     ADC_StructInit(&config);
+    config.ADC_OutputBuffer = ADC_OutputBuffer_Disable;
+    config.ADC_Pga = ADC_Pga_1;
     config.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
     ADC_Init(ADC1, &config);
     ADC_Cmd(ADC1, ENABLE);
@@ -102,10 +104,11 @@ static int transfer(adc_input_t input, uint16_t *samples, size_t count, uint32_t
 {
     /* 含采样窗口的总转换周期。定时时选择能容纳的最长窗口。 */
     static const unsigned cycles[] = {14, 20, 26, 41, 54, 68, 84, 252};
-    unsigned window = 0;
+    /* NTC 分压电路需要较长的采样时间，PB0 至少使用 71.5 个 ADC 时钟周期。 */
+    unsigned window = input == ADC_PB0 ? ADC_SampleTime_71Cycles5 : 0;
     timed = rate != 0;
     if (timed) {
-        if (rate > adc_clock / (cycles[0] + 2)) return -RT_EINVAL;
+        if (rate > adc_clock / (cycles[window] + 2)) return -RT_EINVAL;
         while (window < 7 && rate <= adc_clock / (cycles[window + 1] + 2)) ++window;
         int rc = tim_prepare(TIM3, rate);
         if (rc != RT_EOK) return rc;
@@ -162,7 +165,7 @@ int adc_capture(adc_input_t input, uint16_t *samples, size_t count, uint32_t rat
 {
     extern const char _eusrstack[];
     uintptr_t addr = (uintptr_t)samples, end = (uintptr_t)_eusrstack;
-    if ((input != ADC_PA1 && input != ADC_PB1) || !count || count > UINT16_MAX ||
+    if ((input != ADC_PA1 && input != ADC_PB0 && input != ADC_PB1) || !count || count > UINT16_MAX ||
         (addr & 1U) || addr < SRAM_BASE || addr >= end || count > (end - addr) / 2U) return -RT_EINVAL;
     /* 部分 V307 批次的 DMA1_CH1 在地址低 16 位回卷时不会进位。
      * 波形识别需要连续样点，故在启动前拒绝跨页帧。 */
@@ -170,6 +173,7 @@ int adc_capture(adc_input_t input, uint16_t *samples, size_t count, uint32_t rat
     int rc = rt_mutex_take(&mutex, RT_WAITING_FOREVER);
     if (rc != RT_EOK) return rc;
     rc = prepare();
+    if (rc == RT_EOK && input == ADC_PB0) gpio_config(GPIOB, GPIO_Pin_0, GPIO_Mode_AIN);
     if (rc == RT_EOK) rc = transfer(input, samples, count, rate_hz);
     rt_mutex_release(&mutex);
     return rc;

@@ -6,7 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef enum { ADC_PA1 = 1, ADC_PB1 = 9 } adc_input_t;
+typedef enum { ADC_PA1 = 1, ADC_PB0 = 8, ADC_PB1 = 9 } adc_input_t;
 /* 在线程中读取原始 12 位码值，负数表示失败。板上 ADC 输入为 PB1。 */
 int adc_read(adc_input_t input);
 /* rate_hz=0 对应的标称采样率（点/秒），用于计算频率轴。 */
