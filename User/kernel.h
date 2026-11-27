@@ -32,3 +32,16 @@ void kernel_post(uint8_t type, uint8_t code, int32_t value);
 #endif
 
 #endif
+
+#if 0
+#include "stdlib.h"
+static int my_cmd(int argc, char **argv)     /* 签名固定，不能改 */
+{
+    int a = atoi(argv[1]);
+    rt_kprintf("hello\r\n");
+    return 0;
+}
+MSH_CMD_EXPORT(my_cmd, 我的命令);             /* 加这一行，命令就叫 my_cmd */
+MSH_CMD_EXPORT_ALIAS(my_cmd, hi, 打招呼);    /* 命令名 = hi，敲 hi 就执行 */
+#endif
+

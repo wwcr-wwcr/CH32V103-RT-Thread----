@@ -29,16 +29,17 @@ extern "C" {
 
 #define FFT_COUNT_MIN   16U      /* 少于这个点数没有意义 */
 #define FFT_COUNT_MAX   1024U    /* 上限 1024；N=1024 约 25 ms（O(n^2)），
-                                  * 只看某频段的话改 wave_ana.h 里的 WAVE_ANA_BAND_LO/HI */
+                                  /* 只看某频段的话改 wave_ana.h 里的 WAVE_ANA_BAND_LO/HI */
 
 /**
  * @brief  算一遍幅值谱
  * @param  in   采样数组（12 位码值，0~4095），长度 count
  * @param  out  幅值数组，长度 count/2 + 1；out[0] = 直流分量的绝对值
- * @param  count 采样点数 16..512
+ * @param  count 采样点数 16..512 
  * @return 实际计算的点数（= count）；参数非法返回 0
  * @note   in 里会先减掉平均值再算谱，所以 out[0] 之外不会有直流造成的假峰
  */
+ //k = (f_target × count) / rate_hz
 uint16_t fft_process(const uint16_t *in, uint16_t *out, uint16_t count);
 
 /**
@@ -48,7 +49,7 @@ uint16_t fft_process(const uint16_t *in, uint16_t *out, uint16_t count);
  *             FFT_RUN(samples, amp);
  *         传指针（uint16_t *p）编译会算错长度。
  */
-#define FFT_RUN(in, out)   fft_process((in), (out), (uint16_t)(sizeof(in) / sizeof((in)[0])))
+#define FFT_RUN(in, out)   fft_process((in), (out), (uint16_t)(sizeof(in) / sizeof((in)[0])))       //out最大值2048
 
 #ifdef __cplusplus
 }
