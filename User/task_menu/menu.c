@@ -7,11 +7,9 @@ static rt_sem_t    s_exit = RT_NULL;    /* 退出握手：线程 exit，close �
 static rt_mq_t     s_q    = RT_NULL;    /* 自己的队列 */
 static void menu_thread(void *arg);
 //extern const task_t task_x;                                           <----------在这添加
-extern const task_t task_buzzer;
 static const task_t *const g_app_list[] =
 {
 //  &task_x,                                                             <----------在这添加
-    &task_buzzer,
 };
 static const uint8_t g_app_num = (uint8_t)(sizeof(g_app_list) / sizeof(g_app_list[0]));     //自动计算所有task
 static const char *s_names[8];                 

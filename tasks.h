@@ -15,5 +15,5 @@
 #include "router.h"                 /* task_t 在这里定义 */
 
 extern const task_t task_menu;      /* 首页任务，定义在 task/menu.c */
-
+extern const task_t task_quit;
 #endif

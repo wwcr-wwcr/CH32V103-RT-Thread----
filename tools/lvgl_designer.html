@@ -424,16 +424,32 @@ function widgetNode(w,i){
   }
   return n;
 }
+/* 多曲线：每条线的颜色 + 虚实。老 JSON 里没有 series 字段时按"一条实线"处理 */
+const SER_COLORS = {ACCENT:'UI_C_ACCENT', VALUE:'UI_C_VALUE', TITLE:'UI_C_TITLE',
+                    TEXT:'UI_C_TEXT', DIM:'UI_C_TEXT_DIM'};
+const SER_HEX    = {ACCENT:'#3fc8b4', VALUE:'#ff4f8b', TITLE:'#ff7aa8',
+                    TEXT:'#3a2e39', DIM:'#9a8c98'};
+function seriesOf(w){
+  if(!Array.isArray(w.series) || w.series.length === 0) w.series = [{c:'ACCENT', dash:0}];
+  return w.series;
+}
+
 function colorOf(c){return c==='DIM'?'#9a8c98':c==='VALUE'?'#ff4f8b':c==='ACCENT'?'#3fc8b4':'#3a2e39';}
 function pct(v,min,max){const m=(max-min)||1; let p=((v-min)/m)*100; return Math.max(0,Math.min(100,isNaN(p)?0:p));}
 function chartSVG(w){
-  const n=Math.max(8,Math.min(120,w.points||64)); let d='';
-  for(let i=0;i<n;i++){
-    const x=(i/(n-1))*100;
-    const y=50-38*Math.sin(i/6)*(0.6+0.4*Math.sin(i/17));
-    d+=(i?'L':'M')+x.toFixed(1)+' '+(50-y).toFixed(1)+' ';
-  }
-  return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="'+d+'" fill="none" stroke="#3fc8b4" stroke-width="1.5"/></svg>';
+  const n = Math.max(8, Math.min(120, w.points||64));
+  let out = '';
+  seriesOf(w).forEach((sr,k)=>{
+    let d = '';
+    for(let i=0;i<n;i++){
+      const x = (i/(n-1))*100;
+      const y = 50 - 30*Math.sin(i/6 + k*1.7)*(0.6+0.4*Math.sin(i/17 + k));
+      d += (i?'L':'M') + x.toFixed(1) + ' ' + (50-y).toFixed(1) + ' ';
+    }
+    out += '<path d="'+d+'" fill="none" stroke="'+(SER_HEX[sr.c]||'#3fc8b4')+'" stroke-width="1.5"'+
+           (sr.dash?' stroke-dasharray="5 4"':'')+'/>';
+  });
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="none">'+out+'</svg>';
 }
 
 function renderCanvas(){
@@ -557,6 +573,34 @@ function renderInspector(){
       .map(o=>'<option value="'+o[0]+'"'+((w.dataSrc||'demo')===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
       '</select></div>';
     box.appendChild(d1);
+
+    /* ---- 曲线列表：颜色 + 虚实（单点推进时按 ser 下标分别推进） ---- */
+    const sList = seriesOf(w);
+    const dSer = el('div','row');
+    let hs = '<div class="fld"><label>曲线（顺序 = push 的 ser 下标，最多 4 根）</label></div>';
+    sList.forEach((sr,i)=>{
+      hs += '<div style="display:flex;gap:6px;align-items:center;margin:4px 0">'
+          + '<select id="rs_c'+i+'" style="flex:1">'
+          + Object.keys(SER_COLORS).map(c=>'<option value="'+c+'"'+(sr.c===c?' selected':'')+'>'+c+'</option>').join('')
+          + '</select>'
+          + '<select id="rs_d'+i+'" style="width:86px">'
+          + '<option value="0"'+((sr.dash)?'':' selected')+'>实线</option>'
+          + '<option value="1"'+((sr.dash)?' selected':'')+'>虚线</option>'
+          + '</select>'
+          + (sList.length>1 ? '<button id="rs_x'+i+'">删</button>' : '')
+          + '</div>';
+    });
+    hs += '<button id="rs_add">+ 加一条线</button>';
+    dSer.innerHTML = hs;
+    box.appendChild(dSer);
+
+    sList.forEach((sr,i)=>{
+      $('#rs_c'+i).onchange = e => { snapshot(); sr.c = e.target.value; renderAll(); };
+      $('#rs_d'+i).onchange = e => { snapshot(); sr.dash = +e.target.value; renderAll(); };
+      const xb = $('#rs_x'+i);
+      if(xb) xb.onclick = () => { snapshot(); sList.splice(i,1); renderAll(); };
+    });
+    $('#rs_add').onclick = () => { snapshot(); if(sList.length < 4) sList.push({c:'VALUE', dash:0}); renderAll(); };
   }
 
   /* 控件专属选项 */
@@ -993,7 +1037,16 @@ function genWidget(w,idx,varMap,parentVar){
       /* ★ 顺序关键：series 句柄必须在 ui_chart_new() 之后取。
        *   放在前面等于 lv_chart_get_series_next(NULL, NULL)，内部解引用空指针，
        *   拿回来的是垃圾地址，后面 push 数据就是往野指针写（图表空白/偶发死机）。 */
-      L.push('s_ser_'+v+' = lv_chart_get_series_next('+v+', NULL);');
+      {
+        const sl = seriesOf(w);
+        /* ui_chart_new 里已经建了一条（薄荷绿），先染色当第 0 根，再补其余的 */
+        L.push('s_ser_'+v+'[0] = lv_chart_get_series_next('+v+', NULL);');
+        L.push('lv_chart_set_series_color('+v+', s_ser_'+v+'[0], '+(SER_COLORS[sl[0].c]||'UI_C_ACCENT')+');');
+        for(let i=1;i<sl.length;i++){
+          L.push('s_ser_'+v+'['+i+'] = lv_chart_add_series('+v+', '+(SER_COLORS[sl[i].c]||'UI_C_VALUE')+
+                 ', LV_CHART_AXIS_PRIMARY_Y);');
+        }
+      }
       break;
     }
     case 'switch':
@@ -1179,8 +1232,14 @@ function genCode(){
       return;
     }
 
-    H.push('/* 推一个点：任务里每拍调一次，例如 '+fname+'_push(lux); */');
-    H.push('void '+fname+'_push(int32_t v);');
+    const pcnt = (Array.isArray(w.series) && w.series.length) ? w.series.length : 1;
+    if(pcnt > 1){
+      H.push('/* 推一个点：ser = 第几根线 0..'+(pcnt-1)+'，例如 '+fname+'_push(0, 100); */');
+      H.push('void '+fname+'_push(uint8_t ser, int32_t v);');
+    }else{
+      H.push('/* 推一个点：任务里每拍调一次，例如 '+fname+'_push(lux); */');
+      H.push('void '+fname+'_push(int32_t v);');
+    }
     H.push('/* 整帧替换：把一个 int32_t 数组塞进去，例如 '+fname+'_set(buf, 64); */');
     H.push('void '+fname+'_set(const int32_t *buf, uint16_t cnt);');
     if((w.chartMode||'push')==='scope'){
@@ -1245,7 +1304,8 @@ function genCode(){
         series.push({v:g.var, name:w.name, si:si,
                      max:(w.max|0) || ((w.chartMode==='scope') ? 4095 : 1000),
                      mode:(w.chartMode||'push'), ctype:(w.chartType||'line'),
-                     src:(w.dataSrc||'demo'), pts:(w.points|0||64)});
+                     src:(w.dataSrc||'demo'), pts:(w.points|0||64),
+                     cnt:seriesOf(w).length, dash:seriesOf(w).map(sr=>sr.dash?1:0)});
       }
       if(g.guardStart) body.push('    '+g.guardStart);
       g.lines.forEach(l=>body.push('    '+l));
@@ -1259,7 +1319,7 @@ function genCode(){
       const v=varMap[i];
       const upd = ['label','bar','chart','led','slider','arc','meter'].includes(w.type);
       handleDecl.push('static lv_obj_t *'+v+' = NULL;   /* '+w.name+' ('+W[w.type].n+')'+(upd?'  ← render 里更新':'')+' */');
-      if(w.type==='chart') handleDecl.push('static lv_chart_series_t *s_ser_'+v+' = NULL;');
+      if(w.type==='chart') handleDecl.push('static lv_chart_series_t *s_ser_'+v+'['+seriesOf(w).length+'] = {0};');
     });
 
     buildFns.push(
@@ -1335,17 +1395,41 @@ function genCode(){
 
       C.push('/**');
       C.push(' * @brief  往 '+s.name+' 推一个点（0~'+s.max+'）');
-      C.push(' * @note   任务里每拍调一次，例如：'+fname+'_push(value);');
-      C.push(' */');
-      C.push('void '+fname+'_push(int32_t v)');
-      C.push('{');
-      C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL))');
-      C.push('    {');
-      C.push('        return;');
-      C.push('    }');
-      C.push('');
-      C.push('    lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)v);');
-      C.push('}');
+      const scnt = s.cnt || 1;
+      const dsers = (s.dash || []).map((d,i)=>d?i:-1).filter(i=>i>=0);
+      if(scnt > 1){
+        C.push(' * @param  ser  第几根线，0..'+(scnt-1));
+        C.push(' * @note   虚线那几根每推一个点会补一个空点，看上去是断开的');
+        C.push(' */');
+        C.push('void '+fname+'_push(uint8_t ser, int32_t v)');
+        C.push('{');
+        C.push('    if(('+s.v+' == NULL) || (ser >= '+scnt+') || (s_ser_'+s.v+'[ser] == NULL))');
+        C.push('    {');
+        C.push('        return;');
+        C.push('    }');
+        C.push('');
+        C.push('    lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[ser], (lv_coord_t)v);');
+        if(dsers.length){
+          C.push('');
+          C.push('    if((ser == '+dsers.join(') || (ser == ')+'))');
+          C.push('    {   /* 这根线设的是虚线：补一个空点把线断开一格 */');
+          C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[ser], LV_CHART_POINT_NONE);');
+          C.push('    }');
+        }
+        C.push('}');
+      }else{
+        C.push(' * @note   任务里每拍调一次，例如：'+fname+'_push(value);');
+        C.push(' */');
+        C.push('void '+fname+'_push(int32_t v)');
+        C.push('{');
+        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+'[0] == NULL))');
+        C.push('    {');
+        C.push('        return;');
+        C.push('    }');
+        C.push('');
+        C.push('    lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[0], (lv_coord_t)v);');
+        C.push('}');
+      }
       C.push('');
       C.push('/**');
       C.push(' * @brief  整帧替换：把一个数组一次塞进 '+s.name+'');
@@ -1355,14 +1439,14 @@ function genCode(){
       C.push('{');
       C.push('    uint16_t i;');
       C.push('');
-      C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (buf == NULL))');
+      C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+'[0] == NULL) || (buf == NULL))');
       C.push('    {');
       C.push('        return;');
       C.push('    }');
       C.push('');
       C.push('    for(i = 0; i < cnt; i++)');
       C.push('    {');
-      C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)buf[i]);');
+      C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[0], (lv_coord_t)buf[i]);');
       C.push('    }');
       C.push('}');
       C.push('');
@@ -1376,14 +1460,14 @@ function genCode(){
         C.push('{');
         C.push('    uint16_t i;');
         C.push('');
-        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (buf == NULL))');
+        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+'[0] == NULL) || (buf == NULL))');
         C.push('    {');
         C.push('        return;');
         C.push('    }');
         C.push('');
         C.push('    for(i = 0; i < cnt; i++)');
         C.push('    {');
-        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)buf[i]);');
+        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[0], (lv_coord_t)buf[i]);');
         C.push('    }');
         C.push('}');
         C.push('');
@@ -1398,14 +1482,14 @@ function genCode(){
         C.push('{');
         C.push('    uint8_t i;');
         C.push('');
-        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+' == NULL) || (spec == NULL))');
+        C.push('    if(('+s.v+' == NULL) || (s_ser_'+s.v+'[0] == NULL) || (spec == NULL))');
         C.push('    {');
         C.push('        return;');
         C.push('    }');
         C.push('');
         C.push('    for(i = 0; i < n; i++)');
         C.push('    {');
-        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+', (lv_coord_t)spec[i]);');
+        C.push('        lv_chart_set_next_value('+s.v+', s_ser_'+s.v+'[0], (lv_coord_t)spec[i]);');
         C.push('    }');
         C.push('}');
         C.push('');
@@ -1424,7 +1508,7 @@ function genCode(){
         C.push('{');
         C.push('    static uint16_t t = 0;');
         C.push('    static const int16_t wave[12] = {0, 50, 87, 100, 87, 50, 0, -50, -87, -100, -87, -50};');
-        C.push('    '+fname+'_push((int32_t)('+(s.max/2)+' + wave[t % 12] * '+(Math.max(1,Math.round(s.max/200)))+'));');
+        C.push('    '+fname+'_push('+((s.cnt||1)>1?'0, ':'')+'(int32_t)('+(s.max/2)+' + wave[t % 12] * '+(Math.max(1,Math.round(s.max/200)))+'));');
         C.push('    t++;');
         C.push('}');
         C.push('');
@@ -1600,7 +1684,7 @@ function genCode(){
   C.push('');
   allVars.forEach(a=>{ C.push('    '+a.v+' = NULL;'); });
   /* 图表 series 句柄也清掉：页面删了它就是野指针 */
-  series.forEach(s=>C.push('    s_ser_'+s.v+' = NULL;'));
+  series.forEach(s=>C.push('    s_ser_'+s.v+'[0] = NULL;'));
   GEN_AUX.vbar.forEach(b=>C.push('    '+b.v+'_fill = NULL;'));
   C.push('}');
 
