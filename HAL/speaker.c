@@ -8,7 +8,8 @@
 #define HALF 64U
 #define EVENTS (DMA_IT_HT | DMA_IT_TC | DMA_IT_TE)
 static uint16_t buffer[2 * HALF];
-static const int16_t *next_sample;
+static const int16_t  *next_sample;      /* PCM 源：int16 满量程 */
+static const uint16_t *next_code;        /* 12 位码值源：非 NULL 时优先（麦克风直接喂） */
 static size_t remaining;
 static uint8_t last[2];
 static struct rt_semaphore done;
@@ -17,12 +18,25 @@ static struct rt_mutex mutex;
 static int speaker_ipc_init(void) { return rt_mutex_init(&mutex, "speaker", RT_IPC_FLAG_PRIO); }
 INIT_COMPONENT_EXPORT(speaker_ipc_init);
 
-/* DMA 刚读完的半区才可以重填。末尾补 DAC 中点，使播放自然停止。 */
+/* DMA 刚读完的半区才可以重填。末尾补 DAC 中点，使播放自然停止。
+ * 两个源二选一：next_code 非 NULL 走"12 位码值直通"，否则按 int16 PCM 右移换算。 */
 static void fill(unsigned half)
 {
     size_t n = remaining < HALF ? remaining : HALF;
     uint16_t *dst = buffer + half * HALF;
-    for (size_t i = 0; i < n; ++i) dst[i] = ((int32_t)*next_sample++ + 32768) >> 4;
+
+    if (next_code) {
+        /* 码值源：0~4095 本来就是 DAC 的量纲，不用加减、不用缩放 */
+        for (size_t i = 0; i < n; ++i) {
+            uint32_t c = next_code[i];
+            dst[i] = (uint16_t)(c > 4095U ? 4095U : c);
+        }
+        next_code += n;
+    } else {
+        /* PCM 源：int16 满量程 -> DAC 的 0~4095 */
+        for (size_t i = 0; i < n; ++i) dst[i] = ((int32_t)*next_sample++ + 32768) >> 4;
+    }
+
     for (size_t i = n; i < HALF; ++i) dst[i] = 2048;
     remaining -= n;
     last[half] = !remaining;
@@ -80,6 +94,41 @@ int speaker_stop(void)
     return rc;
 }
 
+/* 8 位风格方波：一个周期 32 个样点，前 duty% 是高电平。
+ * 波表是静态的（DMA 循环读），所以换音就是换频率、重配一次 DMA。 */
+#define SQ_STEPS 32U
+
+int speaker_square(uint32_t hz, uint8_t volume_percent, uint8_t duty_percent, uint32_t duration_ms)
+{
+    static uint16_t wave[SQ_STEPS];
+    uint32_t amp, hi, i;
+    int rc;
+
+    if (hz < 100 || hz > 6000 || volume_percent > 100) return -RT_EINVAL;
+    if (duty_percent < 10) duty_percent = 10;
+    if (duty_percent > 90) duty_percent = 90;
+
+    amp = 2000u * volume_percent / 100u;          /* 码值摆幅，最高 ±2000，留足余量不削顶 */
+    hi  = (uint32_t)SQ_STEPS * duty_percent / 100u;
+    if (hi == 0) hi = 1;
+    if (hi >= SQ_STEPS) hi = SQ_STEPS - 1;
+
+    for (i = 0; i < SQ_STEPS; ++i) {
+        wave[i] = (uint16_t)((i < hi) ? (2048u + amp) : (2048u - amp));
+    }
+
+    rc = rt_mutex_take(&mutex, RT_WAITING_FOREVER);
+    if (rc < 0) return rc;
+
+    rc = dac1_play(wave, SQ_STEPS, hz * SQ_STEPS);      /* 循环输出一个周期 */
+    if (rc == RT_EOK && duration_ms) {
+        rt_thread_mdelay(duration_ms);
+        rc = dac1_write(2048);
+    }
+    rt_mutex_release(&mutex);
+    return rc;
+}
+
 int speaker_tone(uint32_t hz, uint8_t volume_percent, uint32_t duration_ms)
 {
     if (hz < 100 || hz > 6000 || volume_percent > 100 || duration_ms > INT32_MAX) return -RT_EINVAL;
@@ -94,25 +143,34 @@ int speaker_tone(uint32_t hz, uint8_t volume_percent, uint32_t duration_ms)
     return rc;
 }
 
-int speaker_play(const int16_t *samples, size_t count, uint32_t rate)
+/* 两个入口的公共实现。指针在拿到锁之后再写全局，避免并发时被另一个调用覆盖 */
+static int play_stream(const int16_t *pcm, const uint16_t *code, size_t count, uint32_t rate)
 {
-    if (!samples || ((uintptr_t)samples & 1U) || !count || rate < 1000 || rate > 48000)
-        return -RT_EINVAL;
-    int rc = rt_mutex_take(&mutex, RT_WAITING_FOREVER);
+    int rc;
+    rt_base_t irq;
+
+    if (!count || rate < 1000 || rate > 48000) return -RT_EINVAL;
+
+    rc = rt_mutex_take(&mutex, RT_WAITING_FOREVER);
     if (rc < 0) return rc;
+
+    next_sample = pcm;
+    next_code   = code;
+
     rc = dac1_write(2048);
     if (rc == RT_EOK) rc = rt_sem_init(&done, "pcm", 0, RT_IPC_FLAG_FIFO);
     if (rc == RT_EOK) {
-        next_sample = samples;
         remaining = count;
         fill(0);
         fill(1);
         result = RT_EOK;
-        rt_base_t irq = rt_hw_interrupt_disable();
+        irq = rt_hw_interrupt_disable();
         rc = dac1_play(buffer, 2 * HALF, rate);
         if (rc != RT_EOK) {
             rt_hw_interrupt_enable(irq);
             rt_sem_detach(&done);
+            next_sample = RT_NULL;
+            next_code   = RT_NULL;
             rt_mutex_release(&mutex);
             return rc;
         }
@@ -134,7 +192,21 @@ int speaker_play(const int16_t *samples, size_t count, uint32_t rate)
         int idle_rc = dac1_write(2048);
         if (rc == RT_EOK) rc = idle_rc;
         rt_sem_detach(&done);
+        next_sample = RT_NULL;
+        next_code   = RT_NULL;
     }
     rt_mutex_release(&mutex);
     return rc;
+}
+
+int speaker_play(const int16_t *samples, size_t count, uint32_t rate)
+{
+    if (!samples || ((uintptr_t)samples & 1U)) return -RT_EINVAL;
+    return play_stream(samples, RT_NULL, count, rate);
+}
+
+int speaker_play_code(const uint16_t *codes, size_t count, uint32_t rate)
+{
+    if (!codes || ((uintptr_t)codes & 1U)) return -RT_EINVAL;
+    return play_stream(RT_NULL, codes, count, rate);
 }
